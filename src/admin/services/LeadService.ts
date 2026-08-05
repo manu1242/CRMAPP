@@ -113,4 +113,11 @@ export const LeadService = {
       formData
     );
   },
+
+  updateStatus: async (id: number | string, status: string): Promise<ApiResponse<any>> => {
+    return apiClient.patch<ApiResponse<any>>(
+      `/api/v1/LeadsApi/${id}/status`,
+      { status }
+    );
+  },
 };

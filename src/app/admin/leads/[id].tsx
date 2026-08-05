@@ -12,6 +12,7 @@ import {
   Platform,
   Modal,
   Alert,
+  Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -43,6 +44,7 @@ import {
   Receipt,
   CreditCard,
   FileSpreadsheet,
+  ChevronDown,
 } from 'lucide-react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
@@ -108,6 +110,7 @@ export default function LeadDetailsScreen() {
     addLeadNote,
     addLeadFollowUp,
     uploadLeadDocument,
+    updateLeadStatus,
   } = useLeadStore();
 
   const [activeTab, setActiveTab] = useState<TabType>('contact');
@@ -128,6 +131,20 @@ export default function LeadDetailsScreen() {
   const [formRating, setFormRating] = useState('5');
   const [formInterest, setFormInterest] = useState('Interested');
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+
+  // Status dropdown state
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  const LEAD_STATUSES = [
+    { label: 'Active',      color: '#3b82f6' },
+    { label: 'Interested',  color: '#10b981' },
+    { label: 'Not Interested', color: '#ef4444' },
+    { label: 'Follow Up',   color: '#f59e0b' },
+    { label: 'Converted',   color: '#8b5cf6' },
+    { label: 'Closed',      color: '#64748b' },
+    { label: 'Lost',        color: '#dc2626' },
+  ];
 
   // File Upload State
   const [isUploading, setIsUploading] = useState(false);
@@ -301,6 +318,7 @@ export default function LeadDetailsScreen() {
   ];
 
   return (
+    <Pressable style={{ flex: 1 }} onPress={() => setStatusDropdownOpen(false)}>
     <View style={[styles.container, { backgroundColor: bgColor }]}>
       {isLoadingDetails && !refreshing ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -352,13 +370,79 @@ export default function LeadDetailsScreen() {
               </View>
             </View>
 
-            {/* Status Badges */}
+            {/* Status Badges — Status is tappable to change */}
             <View style={styles.badgeRow}>
-              <View style={[styles.pillBadge, { backgroundColor: '#3b82f615' }]}>
-                <Tag size={12} color="#3b82f6" />
-                <Text style={[styles.pillBadgeText, { color: '#3b82f6' }]}>
-                  {contact?.status || 'Active'}
-                </Text>
+              {/* Tappable status badge with dropdown */}
+              <View style={{ position: 'relative', zIndex: 99 }}>
+                <TouchableOpacity
+                  onPress={() => setStatusDropdownOpen((o) => !o)}
+                  activeOpacity={0.75}
+                  style={[styles.pillBadge, { backgroundColor: '#3b82f615', borderWidth: 1, borderColor: '#3b82f630' }]}
+                >
+                  <Tag size={12} color="#3b82f6" />
+                  {isUpdatingStatus ? (
+                    <ActivityIndicator size={10} color="#3b82f6" style={{ marginLeft: 4 }} />
+                  ) : (
+                    <Text style={[styles.pillBadgeText, { color: '#3b82f6' }]}>
+                      {contact?.status || 'Active'}
+                    </Text>
+                  )}
+                  <ChevronDown size={10} color="#3b82f6" style={{ marginLeft: 2 }} />
+                </TouchableOpacity>
+
+                {/* Dropdown */}
+                {statusDropdownOpen && (
+                  <View style={{
+                    position: 'absolute',
+                    top: 30,
+                    left: 0,
+                    backgroundColor: cardBg,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: borderCol,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 8,
+                    elevation: 8,
+                    minWidth: 170,
+                    paddingVertical: 6,
+                    zIndex: 100,
+                  }}>
+                    {LEAD_STATUSES.map((s) => (
+                      <TouchableOpacity
+                        key={s.label}
+                        onPress={async () => {
+                          if (s.label === contact?.status) {
+                            setStatusDropdownOpen(false);
+                            return;
+                          }
+                          setStatusDropdownOpen(false);
+                          setIsUpdatingStatus(true);
+                          const ok = await updateLeadStatus(leadId, s.label);
+                          setIsUpdatingStatus(false);
+                          if (!ok) Alert.alert('Update Failed', 'Could not update lead status. Please try again.');
+                        }}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          paddingHorizontal: 14,
+                          paddingVertical: 10,
+                          gap: 8,
+                          backgroundColor: s.label === contact?.status ? `${s.color}15` : 'transparent',
+                        }}
+                      >
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: s.color }} />
+                        <Text style={{ color: s.label === contact?.status ? s.color : textColor, fontSize: 13, fontWeight: s.label === contact?.status ? '700' : '400' }}>
+                          {s.label}
+                        </Text>
+                        {s.label === contact?.status && (
+                          <Text style={{ color: s.color, fontSize: 10, marginLeft: 'auto' }}>✓</Text>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
               {contact?.stage && (
                 <View style={[styles.pillBadge, { backgroundColor: '#8b5cf615' }]}>
@@ -557,7 +641,7 @@ export default function LeadDetailsScreen() {
                     style={styles.addBtnSmall}
                   >
                     <Plus size={14} color="#ffffff" />
-                    <Text style={styles.addBtnSmallText}>+ Add Follow-up</Text>
+                    <Text style={styles.addBtnSmallText}>Add Follow-up</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -734,7 +818,7 @@ export default function LeadDetailsScreen() {
                     </View>
                     <TouchableOpacity style={[styles.addBtnSmall, { backgroundColor: '#0284c7' }]}>
                       <Plus size={14} color="#ffffff" />
-                      <Text style={styles.addBtnSmallText}>+ New Quotation</Text>
+                      <Text style={styles.addBtnSmallText}> New Quotation</Text>
                     </TouchableOpacity>
                   </View>
                   <Text style={{ fontSize: 13, color: subTextColor }}>No quotations available.</Text>
@@ -772,7 +856,7 @@ export default function LeadDetailsScreen() {
                     </View>
                     <TouchableOpacity style={[styles.addBtnSmall, { backgroundColor: '#d97706' }]}>
                       <Plus size={14} color="#ffffff" />
-                      <Text style={styles.addBtnSmallText}>+ Record Payment</Text>
+                      <Text style={styles.addBtnSmallText}>Record Payment</Text>
                     </TouchableOpacity>
                   </View>
                   <Text style={{ fontSize: 13, color: subTextColor }}>No payments recorded.</Text>
@@ -790,7 +874,7 @@ export default function LeadDetailsScreen() {
                     style={styles.addBtnSmall}
                   >
                     <Plus size={14} color="#ffffff" />
-                    <Text style={styles.addBtnSmallText}>+ Schedule Visit</Text>
+                    <Text style={styles.addBtnSmallText}>Schedule Visit</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -962,6 +1046,7 @@ export default function LeadDetailsScreen() {
         </View>
       </Modal>
     </View>
+    </Pressable>
   );
 }
 

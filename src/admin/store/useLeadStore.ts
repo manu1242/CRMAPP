@@ -30,6 +30,7 @@ interface LeadState {
   addLeadNote: (id: number | string, noteText: string) => Promise<boolean>;
   addLeadFollowUp: (id: number | string, payload: any) => Promise<boolean>;
   uploadLeadDocument: (id: number | string, formData: FormData) => Promise<boolean>;
+  updateLeadStatus: (id: number | string, status: string) => Promise<boolean>;
   setSearch: (search: string) => void;
   setStage: (stage: string) => void;
   setStatus: (status: string) => void;
@@ -162,6 +163,19 @@ export const useLeadStore = create<LeadState>((set, get) => ({
   uploadLeadDocument: async (id: number | string, formData: FormData): Promise<boolean> => {
     try {
       const response = await LeadService.uploadDocument(id, formData);
+      if (response.success) {
+        await get().fetchLeadDetails(id);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+
+  updateLeadStatus: async (id: number | string, status: string): Promise<boolean> => {
+    try {
+      const response = await LeadService.updateStatus(id, status);
       if (response.success) {
         await get().fetchLeadDetails(id);
         return true;
