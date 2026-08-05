@@ -11,7 +11,8 @@ import { useAuthStore } from '../auth/store/authStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { NetworkProvider, useNetwork } from '../contexts/NetworkContext';
-import { WifiOff } from 'lucide-react-native';
+import * as Updates from 'expo-updates';
+import { WifiOff, X, Sparkles } from 'lucide-react-native';
 import '../styles/globals.css';
 
 // Initialize Axios interceptors
@@ -159,6 +160,126 @@ import { LogOut } from 'lucide-react-native';
 import { getAdminTheme } from '@/theme/adminTheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+interface OTAUpdateModalProps {
+  visible: boolean;
+  onClose: () => void;
+  isDark: boolean;
+  adminTheme: any;
+}
+
+function OTAUpdateModal({ visible, onClose, isDark, adminTheme }: OTAUpdateModalProps) {
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: adminTheme.cardBg || (isDark ? '#1e293b' : '#ffffff'),
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: adminTheme.border || (isDark ? '#334155' : '#e2e8f0'),
+            padding: 24,
+            width: '100%',
+            maxWidth: 340,
+            alignItems: 'center',
+            gap: 16,
+            position: 'relative',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 5,
+            elevation: 5,
+          }}
+        >
+          {/* Close Button (Cross Mark) */}
+          <TouchableOpacity
+            onPress={onClose}
+            style={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              padding: 4,
+              borderRadius: 12,
+              backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+              zIndex: 10,
+            }}
+          >
+            <X size={18} color={adminTheme.textSecondary || (isDark ? '#94a3b8' : '#64748b')} />
+          </TouchableOpacity>
+
+          <View
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: '#10b98115',
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: '#10b98130',
+              marginTop: 8,
+            }}
+          >
+            <Sparkles size={28} color="#10b981" />
+          </View>
+
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: '700',
+              color: adminTheme.textPrimary || (isDark ? '#ffffff' : '#0f172a'),
+              textAlign: 'center',
+            }}
+          >
+            Update Available!
+          </Text>
+
+          <Text
+            style={{
+              fontSize: 13,
+              color: adminTheme.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
+              textAlign: 'center',
+              lineHeight: 18,
+            }}
+          >
+            A new version of the app is ready. Restart now to apply the latest changes and improvements.
+          </Text>
+
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                await Updates.reloadAsync();
+              } catch (err) {
+                console.error('Failed to reload app:', err);
+              }
+            }}
+            style={{
+              width: '100%',
+              height: 44,
+              borderRadius: 10,
+              backgroundColor: '#10b981',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginTop: 8,
+            }}
+          >
+            <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 14 }}>
+              Restart App
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function InnerLayout() {
   const router = useRouter();
   const { isDark } = useTheme();
@@ -174,6 +295,28 @@ function InnerLayout() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isStopConfirmOpen, setIsStopConfirmOpen] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
+  const [isUpdateModalVisible, setIsUpdateModalVisible] = React.useState(false);
+
+  useEffect(() => {
+    async function checkOTAUpdates() {
+      if (__DEV__) return;
+      try {
+        const updateCheck = await Updates.checkForUpdateAsync();
+        if (updateCheck.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          setIsUpdateModalVisible(true);
+        }
+      } catch (error) {
+        console.warn('OTA Check failed:', error);
+      }
+    }
+    
+    const timer = setTimeout(() => {
+      checkOTAUpdates();
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const isSuperAdminFlow = (segments[0] as string) === 'superadmin' || 
     (['profile', 'change-password', 'select-workspace'].includes(segments[0] as string) && userRole === 'superadmin');
@@ -302,6 +445,12 @@ function InnerLayout() {
         <View className="flex-1 bg-primary-bg">
           {stackComponent}
         </View>
+        <OTAUpdateModal 
+          visible={isUpdateModalVisible} 
+          onClose={() => setIsUpdateModalVisible(false)} 
+          isDark={isDark} 
+          adminTheme={adminTheme} 
+        />
         <AuthGuardLayout />
         <Toast />
       </ExpoThemeProvider>
@@ -469,6 +618,12 @@ function InnerLayout() {
               </View>
             </View>
           </Modal>
+          <OTAUpdateModal 
+            visible={isUpdateModalVisible} 
+            onClose={() => setIsUpdateModalVisible(false)} 
+            isDark={isDark} 
+            adminTheme={adminTheme} 
+          />
           <View style={{ flex: 1 }}>
             {stackComponent}
           </View>
