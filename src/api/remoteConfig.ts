@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  *   "apiUrl": "https://xyz789.trycloudflare.com"
  * }
  */
-const CONFIG_URL = 'https://config.eduflow.in/config.json';
+const CONFIG_URL = 'https://raw.githubusercontent.com/manu1242/CRMAPP/main/config.json';
 const CACHE_KEY = '@remote_config_v1';
 const FETCH_TIMEOUT_MS = 5000; // 5 second timeout to not block app start
 
