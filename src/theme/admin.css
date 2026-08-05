@@ -1,0 +1,15 @@
+.admin-theme {
+  --color-primary-bg: #f8fafc;
+  --color-secondary-bg: #ffffff;
+  --color-brand: #3b82f6;
+  --color-brand-hover: #2563eb;
+  --color-accent: #3b82f6;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #64748b;
+  --color-text-muted: #94a3b8;
+  --sidebar-bg: #1e293b;
+  --sidebar-text: #ffffff;
+  --sidebar-hover: #334155;
+  --card-bg: #ffffff;
+  --border: #e2e8f0;
+}

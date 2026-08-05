@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "./variables.css";
+@import "./typography.css";
+@import "./animations.css";
+@import "./utilities.css";
+@import "../theme/superadmin.css";
+@import "../theme/admin.css";

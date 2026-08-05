@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* Screen wrapper */
+  .screen-container {
+    @apply flex-1 bg-background-light dark:bg-background-dark p-4;
+  }
+
+  /* Input fields styling */
+  .input-field {
+    @apply border border-border-light dark:border-border-dark bg-white dark:bg-zinc-800 text-text-light dark:text-text-dark rounded-md p-3 text-base shadow-sm focus:border-brand-light dark:focus:border-brand-dark;
+  }
+
+  /* Typography shortcuts */
+  .text-h1 {
+    @apply text-2xl font-bold text-text-light dark:text-text-dark;
+  }
+  .text-h2 {
+    @apply text-xl font-semibold text-text-light dark:text-text-dark;
+  }
+  .text-body {
+    @apply text-base font-normal text-text-light dark:text-text-dark;
+  }
+  .text-sub {
+    @apply text-sm text-gray-500 dark:text-gray-400;
+  }
+  .text-danger {
+    @apply text-red-500 dark:text-red-400 text-xs mt-1;
+  }
+
+  /* Button styling */
+  .btn-primary {
+    @apply bg-brand-light dark:bg-brand-dark active:bg-blue-700 dark:active:bg-blue-600 rounded-md p-3 items-center justify-center shadow-md;
+  }
+  .btn-secondary {
+    @apply bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark active:bg-gray-200 dark:active:bg-zinc-700 rounded-md p-3 items-center justify-center shadow-sm;
+  }
+  .btn-primary-text {
+    @apply text-white font-semibold text-base text-center;
+  }
+  .btn-secondary-text {
+    @apply text-text-light dark:text-text-dark font-semibold text-base text-center;
+  }
+
+  /* Card styling */
+  .card-container {
+    @apply p-4 bg-white dark:bg-zinc-850 border border-border-light dark:border-border-dark rounded-md shadow-sm my-2;
+  }
+  .card-selected {
+    @apply border-brand-light dark:border-brand-dark bg-blue-50 dark:bg-zinc-700;
+  }
+}

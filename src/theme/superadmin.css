@@ -1,0 +1,29 @@
+.superadmin-theme{
+
+  --color-primary-bg:#f8fafc;
+
+  --color-secondary-bg:#ffffff;
+
+  --color-brand:#0f172a;
+
+  --color-brand-hover:#1e293b;
+
+  --color-accent:#0284c7;
+
+  --color-text-primary:#0f172a;
+
+  --color-text-secondary:#475569;
+
+  --color-text-muted:#94a3b8;
+
+  --sidebar-bg:#0f172a;
+
+  --sidebar-text:#ffffff;
+
+  --sidebar-hover:#1e293b;
+
+  --card-bg:#ffffff;
+
+  --border:#e2e8f0;
+
+}

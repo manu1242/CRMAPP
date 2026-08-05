@@ -1,0 +1,34 @@
+:root{
+
+  /* Radius */
+
+  --radius-sm:8px;
+  --radius-md:10px;
+  --radius-lg:10px;
+
+  /* Shadow */
+
+  --shadow-sm:0 2px 6px rgba(0,0,0,.05);
+
+  --shadow-md:0 6px 18px rgba(0,0,0,.08);
+
+  --shadow-custom: 0px 4px 6px rgba(0, 0, 0, 0.05);
+
+  /* Spacing */
+
+  --space-xs:4px;
+  --space-sm:8px;
+  --space-md:16px;
+  --space-lg:24px;
+
+  /* Default Colors */
+  --color-primary-bg: #f8fafc;
+  --color-secondary-bg: #ffffff;
+  --color-brand: #0f172a;
+  --color-brand-hover: #1e293b;
+  --color-accent: #0284c7;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+
+}

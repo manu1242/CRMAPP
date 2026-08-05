@@ -1,0 +1,252 @@
+export const API_ENDPOINTS = {
+  AUTH: {
+    LOGIN: '/api/login',
+    MVC_LOGIN: '/account/login',
+    REGISTER: '/account/register',
+    LOGOUT: '/account/logout',
+    SELECT_WORKSPACE: '/account/selectworkspace',
+    FORGOT_PASSWORD: '/account/forgotpassword',
+    RESET_PASSWORD_WITH_TOKEN: '/account/resetpasswordwithtoken',
+    CHANGE_PASSWORD: '/account/resetpassword',
+    VALIDATE_CURRENT_PASSWORD: '/account/validatecurrentpassword',
+    START_IMPERSONATION: '/account/startimpersonation',
+    STOP_IMPERSONATION: '/account/stopimpersonation',
+  },
+  PROFILE: {
+    ME: '/api/v1/profile',
+    UPDATE: '/api/v1/profile/Edit',
+  },
+  AUTHORIZATION: {
+    ROLES: '/manageusers/roles',
+    ROLE_PERMISSIONS: '/manageusers/rolepermissions',
+    SAVE_PERMISSIONS: '/manageusers/saverolepermissions',
+  },
+  SUPER_ADMIN: {
+    GET_TENANTS: '/superadmin/gettenants',
+    GET_DASHBOARD: '/superadmin/getdashboarddata',
+  },
+  NOTIFICATION:{
+    GET_NOTIFICATIONS: '/notification/getnotifications',
+    MARK_ALL_READ: '/Notification/MarkAllAsRead',
+  },
+  TENANTS: {
+    BASE: '/api/v1/superadmin/tenants',
+    BY_ID: (id: string | number) => `/api/v1/superadmin/tenants/${id}`,
+    ACTIVATE: (id: string | number) => `/api/v1/superadmin/tenants/${id}/activate`,
+    SUSPEND: (id: string | number) => `/api/v1/superadmin/tenants/${id}/suspend`,
+    LOCK: (id: string | number) => `/api/v1/superadmin/tenants/${id}/lock`,
+    UNLOCK: (id: string | number) => `/api/v1/superadmin/tenants/${id}/unlock`,
+  },
+  PLANS: {
+    BASE: '/api/v1/superadmin/plans',
+    BY_ID: (id: number) => `/api/v1/superadmin/plans/${id}`,
+  },
+  SUBSCRIPTIONS: {
+    BASE: '/api/v1/superadmin/subscriptions',
+    BY_ID: (id: number) => `/api/v1/superadmin/subscriptions/${id}`,
+    ASSIGN: '/api/v1/superadmin/subscriptions/assign',
+  },
+  SETTINGS:{
+    BASE: '/api/v1/superadmin/settings',
+    GET_SETTINGS: '/api/v1/superadmin/settings',
+    SAVE_SETTINGS: '/api/v1/superadmin/settings',
+  },
+  LEADS: {
+    BASE: '/api/v1/LeadsApi',
+    BY_ID: (id: number | string) => `/api/v1/LeadsApi/${id}`,
+    DETAILS: (id: number | string) => `/api/v1/LeadsApi/${id}/details`,
+    ADD_NOTE: (id: number | string) => `/api/v1/LeadsApi/${id}/notes`,
+    ADD_FOLLOW_UP: (id: number | string) => `/api/v1/LeadsApi/${id}/follow-ups`,
+    UPLOAD_DOC: (id: number | string) => `/api/v1/LeadsApi/${id}/upload`,
+  },
+  SALES_PIPELINE: {
+    STAGES: '/api/v1/sales-pipeline/stages',
+    LEADS_BY_STAGE: '/api/v1/sales-pipeline/leads-by-stage',
+    UPDATE_STAGE: '/api/v1/sales-pipeline/update-stage',
+  },
+  TASKS: {
+    GET_TASKS_BY_DATE: '/Tasks/GetTasksByDate',
+    UPDATE_TASK_DATE: '/Tasks/UpdateTaskDate',
+    MARK_COMPLETE: '/Tasks/MarkTaskComplete',
+    GET_TODAY_NOTIFICATIONS: '/Tasks/GetTodayTaskNotifications',
+    MARK_NOTIFICATIONS_READ: '/Tasks/MarkTodayTasksAsRead',
+  },
+  UNASSIGNED_LEADS: {
+    ASSIGN_EXECUTIVE: '/WebhookLeads/AssignExecutive',
+    DELETE_LEAD: '/WebhookLeads/DeleteLead',
+    GET_UNASSIGNED: '/api/v1/LeadsApi',
+  },
+  PROPERTIES: {
+    GET_ALL: '/Properties/GetAllProperties',
+    GET_LIST: '/Properties/GetPropertiesList',
+    GET_BUILDERS: '/Properties/GetBuilders',
+    GET_EXECUTIVES: '/Properties/GetExecutives',
+    SAVE: '/Properties/SaveProperty',
+    DELETE: (id: string | number) => `/Properties/Delete?id=${id}`,
+    GET_BY_ID: (id: string | number) => `/Properties/GetProperty?id=${id}`,
+    BULK_UPLOAD: '/Properties/BulkUpload',
+    GET_FLATS: (propertyId: string | number, searchBhk?: string) => `/Properties/GetFlats?propertyId=${propertyId}${searchBhk ? `&searchBhk=${searchBhk}` : ''}`,
+    SAVE_FLAT: '/Properties/SaveFlat',
+    DELETE_FLAT: (flatId: string | number) => `/Properties/DeleteFlat?flatId=${flatId}`,
+    GET_IMAGES: (propertyId: string | number) => `/Properties/GetImages?propertyId=${propertyId}`,
+    UPLOAD_IMAGE: '/Properties/UploadImage',
+    DELETE_IMAGE: '/Properties/DeleteImage',
+    GET_DOCUMENTS: (propertyId: string | number) => `/Properties/GetDocuments?propertyId=${propertyId}`,
+    UPLOAD_DOCUMENT: '/Properties/UploadDocument',
+    DELETE_DOCUMENT: '/Properties/DeleteDocument',
+    DOWNLOAD_DOCUMENT: (documentId: string | number) => `/Properties/DownloadDocument?documentId=${documentId}`,
+  },
+  QUOTATIONS:{
+    GET_QUOATATIONS:'/api/v1/quotations'
+  },
+  BOOKINGS: {
+    BASE: '/api/v1/bookings',
+    BY_ID: (id: number | string) => `/api/v1/bookings/${id}`,
+    CANCEL: (id: number | string) => `/api/v1/bookings/${id}/cancel`,
+  },
+  FILES: {
+    UPLOAD: '/api/v1/files/upload',
+  },
+  INVOICES:{
+    GET_INVOICE:'/api/v1/invoices',
+    BY_ID: (id: number | string) => `/api/v1/invoices/${id}`,
+    GENERATE:'/api/v1/invoices/generate'
+  },
+  PAYMENTS: {
+    BASE: '/api/v1/payments',
+    BY_ID: (id: number | string) => `/api/v1/payments/${id}`,
+    RECEIPT: (id: number | string) => `/api/v1/payments/${id}/receipt`,
+    INVOICE: (id: number | string) => `/api/v1/payments/${id}/invoice`,
+    DOWNLOAD: (id: number | string) => `/api/v1/payments/${id}/download`,
+  },
+  EXPENSES: {
+    BASE: '/api/v1/expenses',
+    BY_ID: (id: number | string) => `/api/v1/expenses/${id}`,
+  },
+  AGENTS: {
+    BASE: '/api/v1/AgentsApi',
+    BY_ID: (id: number | string) => `/api/v1/AgentsApi/${id}`,
+    UPLOAD_DOCUMENT: (agentId: number | string) => `/api/v1/AgentsApi/${agentId}/documents`,
+    DELETE_DOCUMENT: (documentId: number | string) => `/api/v1/AgentsApi/documents/${documentId}`,
+    DOWNLOAD_DOCUMENT: (documentId: number | string) => `/api/v1/AgentsApi/documents/${documentId}`,
+    DOWNLOAD_ALL_DOCUMENTS: (agentId: number | string) => `/api/v1/AgentsApi/${agentId}/documents/download-all`,
+  },
+  ATTENDANCE: {
+    AGENT_OVERVIEW: '/api/v1/attendance/agent-overview',
+    CALENDAR: '/api/v1/attendance/calendar',
+    INTERVALS: '/api/v1/attendance/intervals',
+    LOGIN: '/api/v1/attendance/login',
+    LOGOUT: '/api/v1/attendance/logout',
+    REQUEST_CORRECTION: '/api/v1/attendance/request-correction',
+    APPROVE_CORRECTION: '/api/v1/attendance/approve-correction',
+    REJECT_CORRECTION: '/api/v1/attendance/reject-correction',
+  },
+  PAYOUTS: {
+    AGENT: {
+      LIST: '/api/v1/agentpayouts',
+      DETAILS: (id: number | string) => `/api/v1/agentpayouts/Details/${id}`,
+      PROCESS: '/api/v1/agentpayouts/ProcessPayouts',
+      UPDATE_STATUS: '/api/v1/agentpayouts/UpdateStatus',
+      PAYSLIP: '/api/v1/agentpayouts/Payslip',
+    },
+    PARTNER: {
+      LIST: '/api/v1/channelpartnerpayouts',
+      DETAILS: (id: number | string) => `/api/v1/channelpartnerpayouts/Details/${id}`,
+      PROCESS: '/api/v1/channelpartnerpayouts/ProcessPayouts',
+      UPDATE_STATUS: '/api/v1/channelpartnerpayouts/UpdateStatus',
+      RECALCULATE: '/api/v1/channelpartnerpayouts/RecalculatePayouts',
+      PAYSLIP: '/api/v1/channelpartnerpayouts/Payslip',
+    },
+  },
+  USER_MANAGEMENT: {
+    LIST: '/api/v1/usermanagement',
+    CREATE: '/api/v1/usermanagement',
+    BY_ID: (id: number | string) => `/api/v1/usermanagement/${id}`,
+    IMPERSONATE: (id: number | string) => `/api/v1/usermanagement/Impersonate/${id}`,
+    ATTENDANCE: (id: number | string) => `/api/v1/usermanagement/Attendance/${id}`,
+  },
+  ROLE_MANAGEMENT: {
+    LIST: '/api/v1/rolemanagement',
+    ADD: '/api/v1/rolemanagement/Add',
+    PERMISSIONS: '/api/v1/rolemanagement/Permissions',
+  },
+  PROFILE_API: {
+    GET: '/api/v1/profile',
+    EDIT: '/api/v1/profile',
+    UPLOAD_AVATAR: '/api/v1/profile/UploadAvatar',
+    CHANGE_PASSWORD: '/api/v1/profile/ChangePassword',
+  },
+  SYSTEM_SETTINGS_API: {
+    GET: '/api/v1/systemsettings',
+    SAVE: '/api/v1/systemsettings',
+    UPLOAD_LOGO: '/api/v1/systemsettings/UploadLogo',
+  },
+  EMAIL_SETTINGS_API: {
+    GET: '/api/v1/emailsettings',
+    SAVE_SMTP: '/api/v1/emailsettings/SaveSmtp',
+    TEST_EMAIL: '/api/v1/emailsettings/TestEmail',
+  },
+  PAYMENT_GATEWAY_API: {
+    GET: (name: string = 'Razorpay') => `/api/v1/paymentgateways?name=${name}`,
+    SAVE: (name: string = 'Razorpay') => `/api/v1/paymentgateways/save?name=${name}`,
+  },
+  BANK_ACCOUNT_API: {
+    LIST: '/api/v1/bankaccounts',
+    GET_BY_ID: (id: number | string) => `/api/v1/bankaccounts/${id}`,
+    SAVE: '/api/v1/bankaccounts/save',
+    DELETE: (id: number | string) => `/api/v1/bankaccounts/${id}`,
+  },
+  CHATBOT_DASHBOARD_API: {
+    GET_DASHBOARD: '/api/v1/chatbotdashboard',
+    CONVERSATION_DETAILS: (id: string) => `/api/v1/chatbotdashboard/conversations/${id}`,
+    ASSIGN: '/api/v1/chatbotdashboard/assign',
+    SEND_MESSAGE: '/api/v1/chatbotdashboard/send-message',
+    ANALYTICS: '/api/v1/chatbotdashboard/analytics',
+  },
+  REWARDS_API: {
+    GET_DETAILS: '/api/v1/rewards',
+  },
+  SUBSCRIPTION_API: {
+    PLANS: {
+      LIST: '/api/v1/subscriptions/plans',
+      DETAILS: (id: number | string) => `/api/v1/subscriptions/plans/${id}`,
+      CREATE: '/api/v1/subscriptions/plans/create',
+      UPDATE: (id: number | string) => `/api/v1/subscriptions/plans/update/${id}`,
+      ACTIVATE: (id: number | string) => `/api/v1/subscriptions/plans/${id}/activate`,
+      DEACTIVATE: (id: number | string) => `/api/v1/subscriptions/plans/${id}/deactivate`,
+      DELETE: (id: number | string) => `/api/v1/subscriptions/plans/${id}`,
+    },
+    PARTNER_SUBSCRIPTIONS: {
+      LIST: '/api/v1/subscriptions/partner-subscriptions',
+      DETAILS: (id: number | string) => `/api/v1/subscriptions/partner-subscriptions/${id}`,
+      ASSIGN: '/api/v1/subscriptions/partner-subscriptions/assign',
+    },
+    RAZORPAY_TRANSACTIONS: {
+      LIST: '/api/v1/subscriptions/razorpay-transactions',
+      DETAILS: (id: number | string) => `/api/v1/subscriptions/razorpay-transactions/${id}`,
+    },
+    PENDING_REFUNDS: {
+      LIST: '/api/v1/subscriptions/pending-refunds',
+      PROCESS: '/api/v1/subscriptions/pending-refunds/process',
+    },
+    MY_CRM_PLAN: {
+      GET: '/api/v1/subscriptions/my-crm-plan',
+    },
+    CRM_TRANSACTIONS: {
+      LIST: '/api/v1/subscriptions/crm-transactions',
+      DETAILS: (id: number | string) => `/api/v1/subscriptions/crm-transactions/${id}`,
+    },
+  },
+  TESTIMONIALS: {
+    LIST: '/api/v1/settings/testimonials',
+    DETAILS: (id: number | string) => `/api/v1/settings/testimonials/${id}`,
+    SAVE: '/api/v1/settings/testimonials/save',
+    DELETE: (id: number | string) => `/api/v1/settings/testimonials/${id}`,
+  },
+  DASHBOARD: {
+    ANALYTICS: 'home/getdashboarddata'
+  },
+};
+
+
+

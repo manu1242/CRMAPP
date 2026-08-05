@@ -1,9 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  --font-display:
-    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
-    Segoe UI Symbol, Noto Color Emoji;
-  --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
-  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
+  /* Fonts */
+  --font-display: Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
+
+  /* Background Colors */
+  --color-primary-bg: #f8fafc;
+  --color-secondary-bg: #ffffff;
+  
+  /* Brand/Accent Colors */
+  --color-brand: #0f172a;
+  --color-brand-hover: #1e293b;
+  --color-accent: #0284c7;
+
+  /* Text Colors */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+
+  /* Borders & Shadows (Strictly 10px rounded max) */
+  --border-radius: 10px;
+  --shadow-custom: 0px 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-primary-bg);
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
+  }
+}
+
+@layer components {
+  /* Button Styles */
+  .btn-primary {
+    background-color: var(--color-brand);
+    padding: 12px 24px;
+    border-radius: var(--border-radius);
+    align-items: center;
+    justify-content: center;
+    shadow-color: #000;
+    shadow-opacity: 0.05;
+    shadow-radius: 4px;
+    shadow-offset: 0px 2px;
+  }
+
+  .btn-secondary {
+    background-color: var(--color-secondary-bg);
+    border-width: 1px;
+    border-color: #cbd5e1;
+    padding: 12px 24px;
+    border-radius: var(--border-radius);
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Card Styles with 10px max rounding and custom shadow */
+  .card-custom {
+    background-color: var(--color-secondary-bg);
+    border-radius: var(--border-radius);
+    padding: 16px;
+    shadow-color: #000;
+    shadow-opacity: 0.05;
+    shadow-radius: 6px;
+    shadow-offset: 0px 4px;
+  }
 }
