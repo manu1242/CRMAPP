@@ -63,13 +63,10 @@ async function saveConfigToCache(config: RemoteConfig): Promise<void> {
   }
 }
 
-/**
- * Fetches config from the remote URL.
- * Validates the response shape before returning.
- */
 async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
   try {
-    const response = await axios.get<RemoteConfig>(CONFIG_URL, {
+    // Append a unique timestamp query parameter to bypass GitHub Raw CDN caching
+    const response = await axios.get<RemoteConfig>(`${CONFIG_URL}?t=${Date.now()}`, {
       timeout: FETCH_TIMEOUT_MS,
       headers: { 'Cache-Control': 'no-cache' },
     });
