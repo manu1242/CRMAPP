@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TextInput,
   Modal,
   Pressable,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -77,6 +78,110 @@ function formatPrice(price: number) {
   return '₹' + (price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// ─── Lightweight inline date picker ───────────────────────────────────────────
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+interface DatePickerModalProps {
+  visible: boolean;
+  title: string;
+  initialValue: string; // ISO yyyy-mm-dd or ''
+  isDark: boolean;
+  onConfirm: (isoDate: string) => void;
+  onCancel: () => void;
+}
+
+function DatePickerModal({ visible, title, initialValue, isDark, onConfirm, onCancel }: DatePickerModalProps) {
+  const now = new Date();
+  const init = initialValue ? new Date(initialValue) : now;
+  const [day, setDay] = useState(init.getDate());
+  const [month, setMonth] = useState(init.getMonth()); // 0-indexed
+  const [year, setYear] = useState(init.getFullYear());
+
+  useEffect(() => {
+    if (visible) {
+      const d = initialValue ? new Date(initialValue) : new Date();
+      setDay(d.getDate()); setMonth(d.getMonth()); setYear(d.getFullYear());
+    }
+  }, [visible, initialValue]);
+
+  const YEARS = Array.from({ length: 6 }, (_, i) => now.getFullYear() - 2 + i);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const DAYS = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  const bg = isDark ? '#1e293b' : '#ffffff';
+  const textColor = isDark ? '#f1f5f9' : '#1e293b';
+  const subText = isDark ? '#94a3b8' : '#64748b';
+  const border = isDark ? '#334155' : '#e2e8f0';
+  const selBg = isDark ? '#0f172a' : '#eff6ff';
+
+  function Column<T extends number | string>({
+    items, selected, onSelect, label,
+  }: { items: T[]; selected: T; onSelect: (v: T) => void; label: string }) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Text style={{ color: subText, fontSize: 10, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</Text>
+        <View style={{ height: 200, width: '100%', overflow: 'hidden', borderRadius: 10, borderWidth: 1, borderColor: border }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4 }}>
+            {items.map((item) => (
+              <TouchableOpacity
+                key={String(item)}
+                onPress={() => onSelect(item)}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 8,
+                  backgroundColor: item === selected ? selBg : 'transparent',
+                  alignItems: 'center',
+                  borderRadius: 8,
+                  marginHorizontal: 4,
+                  marginVertical: 1,
+                }}
+              >
+                <Text style={{ color: item === selected ? '#1e73be' : textColor, fontWeight: item === selected ? '700' : '400', fontSize: 14 }}>
+                  {typeof item === 'number' ? String(item).padStart(2, '0') : item}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }} onPress={onCancel}>
+        <Pressable style={{ width: '100%', maxWidth: 360, backgroundColor: bg, borderRadius: 20, padding: 20 }} onPress={(e) => e.stopPropagation()}>
+          <Text style={{ color: textColor, fontWeight: '700', fontSize: 16, marginBottom: 16, textAlign: 'center' }}>{title}</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Column items={DAYS} selected={Math.min(day, daysInMonth)} onSelect={setDay} label="Day" />
+            <Column items={MONTHS} selected={MONTHS[month]} onSelect={(v) => setMonth(MONTHS.indexOf(v))} label="Month" />
+            <Column items={YEARS} selected={year} onSelect={setYear} label="Year" />
+          </View>
+          <Text style={{ color: '#1e73be', fontWeight: '700', fontSize: 13, textAlign: 'center', marginTop: 12 }}>
+            {String(Math.min(day, daysInMonth)).padStart(2,'0')}/{String(month + 1).padStart(2,'0')}/{year}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+            <TouchableOpacity onPress={onCancel} style={{ flex: 1, paddingVertical: 11, borderRadius: 12, borderWidth: 1, borderColor: border, alignItems: 'center' }}>
+              <Text style={{ color: subText, fontWeight: '700', fontSize: 14 }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                const d = Math.min(day, daysInMonth);
+                const iso = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                onConfirm(iso);
+              }}
+              style={{ flex: 1, paddingVertical: 11, borderRadius: 12, backgroundColor: '#1e73be', alignItems: 'center' }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Confirm</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function SubscriptionsContent() {
   const { isDark } = useTheme();
 
@@ -121,8 +226,15 @@ export default function SubscriptionsContent() {
   const [search, setSearch] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState<string>('all');
   const [selectedBilling, setSelectedBilling] = useState<string>('all');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(''); // ISO yyyy-mm-dd
+  const [toDate, setToDate] = useState('');     // ISO yyyy-mm-dd
+  const [datePickerOpen, setDatePickerOpen] = useState<'from' | 'to' | null>(null);
+
+  function displayDate(iso: string) {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  }
 
   // Applied Filters State
   const [filteredSubs, setFilteredSubs] = useState<TenantSubscription[]>([]);
@@ -343,29 +455,37 @@ export default function SubscriptionsContent() {
               )}
             </View>
 
-            {/* From Date */}
-            <View style={{ height: 40, backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', minWidth: 120 }}>
-              <TextInput
-                value={fromDate}
-                onChangeText={setFromDate}
-                placeholder="From date"
-                placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-                style={{ flex: 1, height: 40, color: textColor, fontSize: 13 }}
-              />
-              <Ionicons name="calendar-outline" size={14} color={isDark ? '#64748b' : '#94a3b8'} />
-            </View>
+            {/* From Date Picker Button */}
+            <TouchableOpacity
+              onPress={() => setDatePickerOpen('from')}
+              style={{ height: 40, backgroundColor: fromDate ? (isDark ? '#1e3a8a30' : '#eff6ff') : inputBg, borderWidth: 1, borderColor: fromDate ? '#1e73be' : inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 130 }}
+            >
+              <Ionicons name="calendar-outline" size={14} color={fromDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8')} />
+              <Text style={{ color: fromDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8'), fontSize: 13, fontWeight: fromDate ? '600' : '400' }}>
+                {fromDate ? displayDate(fromDate) : 'From date'}
+              </Text>
+              {fromDate ? (
+                <TouchableOpacity onPress={(e) => { e.stopPropagation(); setFromDate(''); }} style={{ marginLeft: 'auto' }}>
+                  <Ionicons name="close-circle" size={14} color="#94a3b8" />
+                </TouchableOpacity>
+              ) : null}
+            </TouchableOpacity>
 
-            {/* To Date */}
-            <View style={{ height: 40, backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', minWidth: 120 }}>
-              <TextInput
-                value={toDate}
-                onChangeText={setToDate}
-                placeholder="To date"
-                placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-                style={{ flex: 1, height: 40, color: textColor, fontSize: 13 }}
-              />
-              <Ionicons name="calendar-outline" size={14} color={isDark ? '#64748b' : '#94a3b8'} />
-            </View>
+            {/* To Date Picker Button */}
+            <TouchableOpacity
+              onPress={() => setDatePickerOpen('to')}
+              style={{ height: 40, backgroundColor: toDate ? (isDark ? '#1e3a8a30' : '#eff6ff') : inputBg, borderWidth: 1, borderColor: toDate ? '#1e73be' : inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 130 }}
+            >
+              <Ionicons name="calendar-outline" size={14} color={toDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8')} />
+              <Text style={{ color: toDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8'), fontSize: 13, fontWeight: toDate ? '600' : '400' }}>
+                {toDate ? displayDate(toDate) : 'To date'}
+              </Text>
+              {toDate ? (
+                <TouchableOpacity onPress={(e) => { e.stopPropagation(); setToDate(''); }} style={{ marginLeft: 'auto' }}>
+                  <Ionicons name="close-circle" size={14} color="#94a3b8" />
+                </TouchableOpacity>
+              ) : null}
+            </TouchableOpacity>
 
             {/* Action Buttons */}
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -373,7 +493,7 @@ export default function SubscriptionsContent() {
                 onPress={handleApplyFilters}
                 style={{ height: 40, backgroundColor: '#1e73be', paddingHorizontal: 20, borderRadius: 8, justifyContent: 'center' }}
               >
-                <Text style={{ color: '#white', fontWeight: '700', fontSize: 13 }}>Filter</Text>
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Filter</Text>
               </TouchableOpacity>
 
               {(search || selectedPlanId !== 'all' || selectedBilling !== 'all' || fromDate || toDate) ? (
@@ -640,6 +760,23 @@ export default function SubscriptionsContent() {
           </View>
         </Pressable>
       </Modal>
+      {/* Date Picker Modals */}
+      <DatePickerModal
+        visible={datePickerOpen === 'from'}
+        title="Select From Date"
+        initialValue={fromDate}
+        isDark={isDark}
+        onConfirm={(iso) => { setFromDate(iso); setDatePickerOpen(null); }}
+        onCancel={() => setDatePickerOpen(null)}
+      />
+      <DatePickerModal
+        visible={datePickerOpen === 'to'}
+        title="Select To Date"
+        initialValue={toDate}
+        isDark={isDark}
+        onConfirm={(iso) => { setToDate(iso); setDatePickerOpen(null); }}
+        onCancel={() => setDatePickerOpen(null)}
+      />
     </View>
   );
 }

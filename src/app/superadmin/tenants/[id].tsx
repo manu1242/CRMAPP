@@ -250,14 +250,14 @@ export default function TenantDetailScreen() {
             </Text>
 
             {/* Connection String */}
-            <View style={{ marginBottom: 16 }}>
+            {/* <View style={{ marginBottom: 16 }}>
               <Text style={{ color: subTextColor, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Isolated Database URL</Text>
               <View style={{ backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderWidth: 1, borderColor: borderCol, borderRadius: 12, padding: 12, marginTop: 6 }}>
                 <Text style={{ color: textColor, fontSize: 12, fontFamily: 'monospace' }} numberOfLines={3}>
                   {tenant.connectionString || 'Generates automatically on trial provisioning'}
                 </Text>
               </View>
-            </View>
+            </View> */}
 
             {/* General Grid details */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: borderCol, paddingTop: 12 }}>

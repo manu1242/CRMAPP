@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTenantDetailQuery, useUpdateTenantMutation } from '@/superadmin/tenants/hooks/useTenants';
 import { TenantFormFields } from '@/superadmin/tenants/components/TenantFormFields';
 import { useTheme } from '@/contexts/ThemeContext';
-import BottomNav from '@/superadmin/components/BottomNav';
+// import BottomNav from '@/superadmin/components/BottomNav';
 
 export default function EditTenantScreen() {
   const router = useRouter();
@@ -38,6 +38,7 @@ export default function EditTenantScreen() {
     email: '',
     phone: '',
     plan: '',
+    planId: 0,
     maxUsers: 20,
   });
 
@@ -47,14 +48,16 @@ export default function EditTenantScreen() {
   useEffect(() => {
     if (data?.success && data?.data) {
       const tenant = data.data;
-      setFormData({
+      setFormData((prev) => ({
+        ...prev,
         companyName: tenant.companyName || '',
         contactPerson: tenant.contactPerson || '',
         email: tenant.email || '',
         phone: tenant.phone || '',
         plan: tenant.plan || '',
+        planId: 0, // planId will be resolved by TenantFormFields once plans load
         maxUsers: tenant.maxUsers || 20,
-      });
+      }));
     }
   }, [data]);
 
@@ -181,7 +184,7 @@ export default function EditTenantScreen() {
           </ScrollView>
         )}
 
-        <BottomNav active="tenants" />
+        {/* <BottomNav active="tenants" /> */}
       </View>
     </SafeAreaView>
   );

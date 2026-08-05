@@ -64,7 +64,23 @@ export const TenantFormFields = ({
   const plans: Plan[] = plansResponse?.data ?? [];
   const activePlans = plans.filter((p) => p.isActive);
 
-  const selectedPlan = activePlans.find((p) => p.planId === formData.planId) ?? null;
+  // In edit mode the API only returns plan name (no planId).
+  // Match by planId first (after user picks a plan), then fall back to plan name.
+  const selectedPlan =
+    activePlans.find((p) => p.planId === formData.planId && formData.planId !== 0) ??
+    activePlans.find((p) => p.planName === formData.plan) ??
+    null;
+
+  // Once plans load, auto-resolve planId from the plan name so the selector
+  // shows the existing plan pre-selected without the user having to tap it.
+  React.useEffect(() => {
+    if (activePlans.length > 0 && formData.planId === 0 && formData.plan) {
+      const matched = activePlans.find((p) => p.planName === formData.plan);
+      if (matched) {
+        setFormData((prev: any) => ({ ...prev, planId: matched.planId }));
+      }
+    }
+  }, [activePlans, formData.plan, formData.planId]);
 
   const handleSelectPlan = (plan: Plan) => {
     setFormData((prev: any) => ({
