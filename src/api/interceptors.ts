@@ -35,14 +35,16 @@ export const setupInterceptors = () => {
       return response;
     },
     async (error: AxiosError) => {
-      // 1. Session Expired (401)
+      // 1. Session Expired (401) — clear token and redirect to login
       if (error.response && error.response.status === 401) {
+        // Clear the stale token — auth guard in _layout.tsx will redirect to login
+        await TokenStorage.clearTokens();
+        await AuthService.logout();
         Toast.show({
           type: 'error',
           text1: 'Session Expired',
-          text2: 'Your session has expired. Please log in again.',
+          text2: 'Please log in again.',
         });
-        await AuthService.logout();
       }
 
       // 2. Timeout Error

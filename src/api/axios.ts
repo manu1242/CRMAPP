@@ -7,6 +7,11 @@ import { getApiUrl } from './remoteConfig';
  * The baseURL is NOT set at creation time. Instead, a request interceptor
  * reads getApiUrl() on every request, so any update from remote config
  * (including mid-session tunnel URL changes) is automatically picked up.
+ *
+ * IMPORTANT: This interceptor is registered BEFORE setupInterceptors() is called
+ * in _layout.tsx. Because Axios processes request interceptors in LIFO order,
+ * the auth token interceptor (added later by setupInterceptors) will run FIRST,
+ * then this baseURL interceptor runs SECOND. Both work correctly in this order.
  */
 export const axiosInstance = axios.create({
   headers: {
