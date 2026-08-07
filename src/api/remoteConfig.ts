@@ -116,6 +116,16 @@ function setupAppStateListener(): void {
  * Call this ONCE at app startup before any API calls are made.
  */
 export function initRemoteConfig(forceRefresh = false): Promise<void> {
+  if (__DEV__) {
+    // In development mode, prioritize the local build-time/env API URL.
+    // This allows developers to edit .env / config.json locally without committing to GitHub.
+    const localUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (localUrl) {
+      setApiUrl(localUrl);
+      return Promise.resolve();
+    }
+  }
+
   if (initPromise && !forceRefresh) {
     return initPromise;
   }
