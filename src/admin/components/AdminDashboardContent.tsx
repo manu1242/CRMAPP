@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useObserve } from 'expo-observe';
 import {
   View,
   Text,
@@ -790,6 +791,8 @@ export default function AdminDashboardContent() {
   const cardBg = adminTheme.cardBg;
   const cardBorder = adminTheme.border;
 
+  const { markInteractive } = useObserve();
+
   const {
     data: queryData,
     isLoading: loading,
@@ -800,6 +803,12 @@ export default function AdminDashboardContent() {
 
   const data = queryData || null;
   const error = queryError ? queryError.message : null;
+
+  useEffect(() => {
+    if (!loading) {
+      markInteractive();
+    }
+  }, [loading, markInteractive]);
 
   const fetchAll = useCallback((isRefresh = false) => {
     refetch();

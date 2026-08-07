@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useObserve } from 'expo-observe';
 import {
   View,
   Text,
@@ -79,11 +80,18 @@ const SkeletonLoader = () => {
 export default function SuperAdminDashboardContent() {
   const router = useRouter();
   const { isDark } = useTheme();
+  const { markInteractive } = useObserve();
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isLoading) {
+      markInteractive();
+    }
+  }, [isLoading, markInteractive]);
 
   const fetchDashboardData = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) {

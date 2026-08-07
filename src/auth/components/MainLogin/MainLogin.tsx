@@ -21,6 +21,7 @@ import Toast from 'react-native-toast-message';
 import AppFooter from '../AppFooter';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
+import { useObserve } from 'expo-observe';
 
 const { height } = Dimensions.get('window');
 
@@ -102,6 +103,11 @@ const MainLogin = () => {
     const { screen } = useLocalSearchParams<{ screen?: string }>();
     const [active, setActive] = useState<"login" | "signup">("login");
     const { isDark } = useTheme();
+    const { markInteractive } = useObserve();
+
+    React.useEffect(() => {
+        markInteractive();
+    }, [markInteractive]);
 
     React.useEffect(() => {
         if (screen === 'signup') {

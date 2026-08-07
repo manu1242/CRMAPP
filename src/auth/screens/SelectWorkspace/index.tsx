@@ -4,9 +4,16 @@ import AuthHeader from '../../components/AuthHeader';
 import WorkspaceCard from '../../components/WorkspaceCard';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
+import { useObserve } from 'expo-observe';
 
 export default function SelectWorkspaceScreen() {
   const router = useRouter();
+  const { markInteractive } = useObserve();
+
+  React.useEffect(() => {
+    markInteractive();
+  }, [markInteractive]);
+
   const user = useAuthStore((state) => state.user);
   const role = user?.role?.toLowerCase();
 

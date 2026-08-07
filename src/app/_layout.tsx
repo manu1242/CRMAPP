@@ -14,6 +14,15 @@ import { NetworkProvider, useNetwork } from '../contexts/NetworkContext';
 import * as Updates from 'expo-updates';
 import { WifiOff, X, Sparkles } from 'lucide-react-native';
 import '../styles/globals.css';
+import { Observe, ObserveRoot } from 'expo-observe';
+
+// Configure EAS Observe
+Observe.configure({
+  dispatchInDebug: true,
+  integrations: {
+    'expo-router': true,
+  },
+});
 
 // Initialize Axios interceptors
 setupInterceptors();
@@ -639,7 +648,7 @@ function InnerLayout() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   useEffect(() => {
     // Fetch remote config (API URL), then hide the splash screen.
     // initRemoteConfig applies cached config instantly and refreshes from network.
@@ -666,3 +675,5 @@ export default function RootLayout() {
     </QueryClientProvider>
   );
 }
+
+export default ObserveRoot.wrap(RootLayout);

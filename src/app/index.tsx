@@ -13,6 +13,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import SplashView from '../auth/components/onboarding/SplashView';
 import OnboardingView from '../auth/components/onboarding/OnboardingView';
 import { AppInitService, AppInitResult } from '../auth/services/AppInitService';
+import { useObserve } from 'expo-observe';
 
 // ─── App state machine ────────────────────────────────────────────────────────
 type AppState =
@@ -26,6 +27,7 @@ type AppState =
 export default function EntryScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
+  const { markInteractive } = useObserve();
 
   // Auth state (used only for final routing decision, not for session init)
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -38,6 +40,12 @@ export default function EntryScreen() {
 
   // Track whether init has already run (prevent double-fire in StrictMode)
   const initRanRef = useRef(false);
+
+  useEffect(() => {
+    if (appState !== 'splash' && appState !== 'routing') {
+      markInteractive();
+    }
+  }, [appState, markInteractive]);
 
   // ── 1. Fetch onboarding completed flag on mount ─────────────────────────────
   useEffect(() => {
