@@ -4,11 +4,11 @@ import AuthHeader from '../../components/AuthHeader';
 import WorkspaceCard from '../../components/WorkspaceCard';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
-import { useObserve } from 'expo-observe';
+import { useSafeObserve } from '../../../api/observe';
 
 export default function SelectWorkspaceScreen() {
   const router = useRouter();
-  const { markInteractive } = useObserve();
+  const { markInteractive } = useSafeObserve();
 
   React.useEffect(() => {
     markInteractive();

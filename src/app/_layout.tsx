@@ -14,15 +14,7 @@ import { NetworkProvider, useNetwork } from '../contexts/NetworkContext';
 import * as Updates from 'expo-updates';
 import { WifiOff, X, Sparkles } from 'lucide-react-native';
 import '../styles/globals.css';
-import { Observe, ObserveRoot } from 'expo-observe';
-
-// Configure EAS Observe
-Observe.configure({
-  dispatchInDebug: true,
-  integrations: {
-    'expo-router': true,
-  },
-});
+import { wrapObserveRoot } from '../api/observe';
 
 // Initialize Axios interceptors
 setupInterceptors();
@@ -676,4 +668,4 @@ function RootLayout() {
   );
 }
 
-export default ObserveRoot.wrap(RootLayout);
+export default wrapObserveRoot(RootLayout);

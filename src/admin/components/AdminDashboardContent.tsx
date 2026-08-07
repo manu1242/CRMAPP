@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useObserve } from 'expo-observe';
+import { useSafeObserve } from '../../api/observe';
 import {
   View,
   Text,
@@ -791,7 +791,7 @@ export default function AdminDashboardContent() {
   const cardBg = adminTheme.cardBg;
   const cardBorder = adminTheme.border;
 
-  const { markInteractive } = useObserve();
+  const { markInteractive } = useSafeObserve();
 
   const {
     data: queryData,

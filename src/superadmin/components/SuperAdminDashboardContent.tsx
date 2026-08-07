@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useObserve } from 'expo-observe';
+import { useSafeObserve } from '../../api/observe';
 import {
   View,
   Text,
@@ -80,7 +80,7 @@ const SkeletonLoader = () => {
 export default function SuperAdminDashboardContent() {
   const router = useRouter();
   const { isDark } = useTheme();
-  const { markInteractive } = useObserve();
+  const { markInteractive } = useSafeObserve();
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
