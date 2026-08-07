@@ -57,13 +57,13 @@ export default function EntryScreen() {
   }, []);
 
   // ── 2. Run app init pipeline during splash ─────────────────────────────────
-  const runInit = useCallback(async () => {
+  const runInit = useCallback(async (forceRefresh = false) => {
     setIsRetrying(false);
     setAppState('splash');
 
     const result: AppInitResult = await AppInitService.run(() => {
       // status updates intentionally suppressed — splash shows no text
-    });
+    }, forceRefresh);
 
     // Short pause so user can read the last status message
     await new Promise((r) => setTimeout(r, 400));
@@ -88,7 +88,7 @@ export default function EntryScreen() {
   useEffect(() => {
     if (initRanRef.current) return;
     initRanRef.current = true;
-    runInit();
+    runInit(false);
   }, [runInit]);
 
   // ── 3. Route once init finishes and onboarding flag is loaded ──────────────
@@ -128,7 +128,7 @@ export default function EntryScreen() {
   const handleRetry = () => {
     initRanRef.current = false;
     setIsRetrying(true);
-    runInit();
+    runInit(true);
   };
 
   // ─── Render ────────────────────────────────────────────────────────────────

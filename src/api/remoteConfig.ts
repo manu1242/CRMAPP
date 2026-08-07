@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, AppStateStatus } from 'react-native';
 
 /**
  * Remote configuration fetched from a fixed public URL on every app start.
@@ -20,6 +21,8 @@ export interface RemoteConfig {
 
 // In-memory resolved URL, set once at startup
 let resolvedApiUrl: string | null = null;
+let initPromise: Promise<void> | null = null;
+let isListenerAdded = false;
 
 /**
  * Returns the currently resolved API URL.
@@ -33,7 +36,7 @@ export function getApiUrl(): string {
  * Sets the resolved API URL (used by remoteConfig to apply the fetched value).
  */
 export function setApiUrl(url: string): void {
-  resolvedApiUrl = url;
+  resolvedApiUrl = url.trim();
 }
 
 /**
@@ -72,13 +75,34 @@ async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
     });
 
     const data = response.data;
-    if (data && typeof data.apiUrl === 'string' && data.apiUrl.startsWith('http')) {
-      return data;
+    if (data && typeof data.apiUrl === 'string' && data.apiUrl.trim().startsWith('http')) {
+      return { apiUrl: data.apiUrl.trim() };
     }
   } catch {
     // Network failure, timeout, etc. — will fall through to cache/env fallback
   }
   return null;
+}
+
+/**
+ * Registers an AppState listener to dynamically update the API URL when the app returns from the background.
+ */
+function setupAppStateListener(): void {
+  if (isListenerAdded) return;
+  isListenerAdded = true;
+
+  AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+    if (nextAppState === 'active') {
+      fetchRemoteConfig().then((fresh) => {
+        if (fresh) {
+          setApiUrl(fresh.apiUrl);
+          saveConfigToCache(fresh);
+        }
+      }).catch((err) => {
+        console.warn('Background remote config fetch failed on app resume:', err);
+      });
+    }
+  });
 }
 
 /**
@@ -91,23 +115,34 @@ async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
  *
  * Call this ONCE at app startup before any API calls are made.
  */
-export async function initRemoteConfig(): Promise<void> {
-  // Step 1: Apply cached config immediately for a fast boot
-  const cached = await loadCachedConfig();
-  if (cached) {
-    setApiUrl(cached.apiUrl);
+export function initRemoteConfig(forceRefresh = false): Promise<void> {
+  if (initPromise && !forceRefresh) {
+    return initPromise;
   }
 
-  // Step 2: Fetch latest config from remote
-  const fresh = await fetchRemoteConfig();
+  // Setup app resume background listener
+  setupAppStateListener();
 
-  if (fresh) {
-    // Step 3: Update in-memory URL and persist for next startup
-    setApiUrl(fresh.apiUrl);
-    await saveConfigToCache(fresh);
-  } else if (!cached) {
-    // No cache and no network — fall back to build-time env var
-    const fallbackUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.crmapp.local/v1';
-    setApiUrl(fallbackUrl);
-  }
+  initPromise = (async () => {
+    // Step 1: Apply cached config immediately for a fast boot (unless force refreshing)
+    const cached = await loadCachedConfig();
+    if (cached && !forceRefresh) {
+      setApiUrl(cached.apiUrl);
+    }
+
+    // Step 2: Fetch latest config from remote
+    const fresh = await fetchRemoteConfig();
+
+    if (fresh) {
+      // Step 3: Update in-memory URL and persist for next startup
+      setApiUrl(fresh.apiUrl);
+      await saveConfigToCache(fresh);
+    } else if (!cached && !resolvedApiUrl) {
+      // No cache and no network, and no current API URL resolved — fall back to build-time env var
+      const fallbackUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.crmapp.local/v1';
+      setApiUrl(fallbackUrl);
+    }
+  })();
+
+  return initPromise;
 }

@@ -1,7 +1,8 @@
 import { TokenStorage } from '../storage/TokenStorage';
 import { axiosInstance } from '../../api/axios';
 import { Platform } from 'react-native';
-
+import { initRemoteConfig } from '../../api/remoteConfig';
+ 
 // ─── Result type returned by AppInitService.run() ────────────────────────────
 export interface AppInitResult {
   hasInternet: boolean;
@@ -10,10 +11,10 @@ export interface AppInitResult {
   tokenFound: boolean;
   sessionInitialized: boolean;
 }
-
+ 
 // ─── Callback type for live status updates to the splash screen ───────────────
 export type OnStatusUpdate = (message: string) => void;
-
+ 
 // ─── Timeout helper ───────────────────────────────────────────────────────────
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -24,7 +25,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     );
   });
 }
-
+ 
 // ─── Step 1: Internet connectivity check ─────────────────────────────────────
 // Uses navigator.onLine on web to bypass browser CORS constraints, falls back to Google's 204 endpoint on native
 async function checkInternet(): Promise<boolean> {
@@ -41,13 +42,13 @@ async function checkInternet(): Promise<boolean> {
     return false;
   }
 }
-
+ 
 // ─── Step 2 & 3: Backend health check + maintenance mode ────────────────────
 interface HealthResult {
   reachable: boolean;
   maintenance: boolean;
 }
-
+ 
 async function checkBackend(): Promise<HealthResult> {
   try {
     // Try a lightweight HEAD on the login endpoint — avoids needing a dedicated /health route
@@ -56,13 +57,13 @@ async function checkBackend(): Promise<HealthResult> {
       axiosInstance.get('/api/health', { timeout: 6000 }),
       7000
     );
-
+ 
     // Check for maintenance mode via JSON body or response header
     const data = res.data as Record<string, any> | null;
     const maintenanceHeader = res.headers?.['x-maintenance-mode'];
     const maintenanceBody = data?.maintenance === true || data?.status === 'maintenance';
     const maintenance = maintenanceHeader === 'true' || maintenanceBody;
-
+ 
     return { reachable: true, maintenance };
   } catch (err: any) {
     // If we get a 404 / 401 / 405, the backend IS reachable — /api/health just doesn't exist
@@ -75,7 +76,7 @@ async function checkBackend(): Promise<HealthResult> {
     return { reachable: false, maintenance: false };
   }
 }
-
+ 
 // ─── Step 4: Load JWT token from secure storage ───────────────────────────────
 async function loadToken(): Promise<boolean> {
   try {
@@ -85,7 +86,7 @@ async function loadToken(): Promise<boolean> {
     return false;
   }
 }
-
+ 
 // ─── Step 5: Initialize session from stored token ────────────────────────────
 async function initSession(): Promise<boolean> {
   try {
@@ -97,7 +98,7 @@ async function initSession(): Promise<boolean> {
     return false;
   }
 }
-
+ 
 // ─── Public API ───────────────────────────────────────────────────────────────
 export const AppInitService = {
   /**
@@ -105,7 +106,13 @@ export const AppInitService = {
    * Calls `onStatus(message)` before each step so the splash screen can show live feedback.
    * Returns a structured AppInitResult for routing decisions.
    */
-  run: async (onStatus: OnStatusUpdate): Promise<AppInitResult> => {
+  run: async (onStatus: OnStatusUpdate, forceRefresh = false): Promise<AppInitResult> => {
+    // ── 0. Fetch latest remote configuration ──────────────────────────────────
+    onStatus('Connecting to server…');
+    await initRemoteConfig(forceRefresh).catch((err) => {
+      console.warn('initRemoteConfig failed in AppInitService:', err);
+    });
+
     // ── 1. Internet ──────────────────────────────────────────────────────────
     onStatus('Checking connection…');
     const hasInternet = await checkInternet();

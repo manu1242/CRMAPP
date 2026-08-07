@@ -3,6 +3,7 @@ import Toast from 'react-native-toast-message';
 import { axiosInstance } from './axios';
 import { TokenStorage } from '../auth/storage/TokenStorage';
 import { AuthService } from '../auth/services/AuthService';
+import { initRemoteConfig } from './remoteConfig';
 
 export const setupInterceptors = () => {
   // Request Interceptor: Attach bearer token
@@ -48,7 +49,10 @@ export const setupInterceptors = () => {
       }
 
       // 2. Timeout Error
-      else if (error.code === 'ECONNABORTED' || error.message.toLowerCase().includes('timeout')) {
+      else if (error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'))) {
+        // Trigger background refresh of the remote config in case the URL changed
+        initRemoteConfig(true).catch(() => {});
+
         Toast.show({
           type: 'error',
           text1: 'Request Timeout',
@@ -58,6 +62,9 @@ export const setupInterceptors = () => {
 
       // 3. Network Offline / DNS Failure
       else if (error.message === 'Network Error') {
+        // Trigger background refresh of the remote config in case the URL changed
+        initRemoteConfig(true).catch(() => {});
+
         Toast.show({
           type: 'error',
           text1: 'Network Error',
