@@ -15,7 +15,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://gravity-scale-converted-ambassador.trycloudflare.com",
+        "EXPO_PUBLIC_API_URL": "https://uproptech.com/",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       },
       "channel": "preview"
@@ -23,7 +23,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://gravity-scale-converted-ambassador.trycloudflare.com",
+        "EXPO_PUBLIC_API_URL": "https://uproptech.com/",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       },
       "channel": "production"
