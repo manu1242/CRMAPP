@@ -7,15 +7,20 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  Pressable,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import Header from '@/superadmin/components/Header';
 import SidebarDrawer from '../../auth/components/SidebarDrawer';
 import { apiClient } from '../../api/apiClient';
 import { useTheme } from '../../contexts/ThemeContext';
 import BottomNav from '@/superadmin/components/BottomNav';
+import { API_ENDPOINTS } from '../../api/endpoints';
 
 interface Inquiry {
   inquiryId: number;
@@ -32,14 +37,39 @@ interface Inquiry {
   referralCode: string | null;
 }
 
-const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  New:       { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
-  Contacted: { bg: '#fef9c3', text: '#a16207', border: '#fef08a' },
-  Converted: { bg: '#f0fdf4', text: '#16a34a', border: '#bbf7d0' },
-  Closed:    { bg: '#f1f5f9', text: '#64748b', border: '#e2e8f0' },
-};
-function getStatusColor(status: string | null) {
-  return STATUS_COLORS[status ?? 'New'] ?? STATUS_COLORS['New'];
+function getStatusColor(status: string | null, isDark: boolean) {
+  const normalized = status ?? 'New';
+  if (isDark) {
+    switch (normalized) {
+      case 'New':
+        return { bg: 'rgba(99, 102, 241, 0.12)', text: '#a5b4fc', border: 'rgba(99, 102, 241, 0.25)', dot: '#818cf8', avatarBg: 'rgba(99, 102, 241, 0.15)' };
+      case 'Contacted':
+        return { bg: 'rgba(245, 158, 11, 0.12)', text: '#fde047', border: 'rgba(245, 158, 11, 0.25)', dot: '#f59e0b', avatarBg: 'rgba(245, 158, 11, 0.15)' };
+      case 'Converted':
+        return { bg: 'rgba(16, 185, 129, 0.12)', text: '#6ee7b7', border: 'rgba(16, 185, 129, 0.25)', dot: '#10b981', avatarBg: 'rgba(16, 185, 129, 0.15)' };
+      case 'Closed':
+        return { bg: 'rgba(148, 163, 184, 0.12)', text: '#cbd5e1', border: 'rgba(148, 163, 184, 0.25)', dot: '#94a3b8', avatarBg: 'rgba(148, 163, 184, 0.15)' };
+      case 'Rejected':
+        return { bg: 'rgba(239, 68, 68, 0.12)', text: '#fca5a5', border: 'rgba(239, 68, 68, 0.25)', dot: '#ef4444', avatarBg: 'rgba(239, 68, 68, 0.15)' };
+      default:
+        return { bg: 'rgba(99, 102, 241, 0.12)', text: '#a5b4fc', border: 'rgba(99, 102, 241, 0.25)', dot: '#818cf8', avatarBg: 'rgba(99, 102, 241, 0.15)' };
+    }
+  } else {
+    switch (normalized) {
+      case 'New':
+        return { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe', dot: '#2563eb', avatarBg: '#eff6ff' };
+      case 'Contacted':
+        return { bg: '#fff7ed', text: '#d97706', border: '#fed7aa', dot: '#d97706', avatarBg: '#fff7ed' };
+      case 'Converted':
+        return { bg: '#f0fdf4', text: '#16a34a', border: '#bbf7d0', dot: '#16a34a', avatarBg: '#f0fdf4' };
+      case 'Closed':
+        return { bg: '#f8fafc', text: '#64748b', border: '#e2e8f0', dot: '#64748b', avatarBg: '#f8fafc' };
+      case 'Rejected':
+        return { bg: '#fcebeb', text: '#ef4444', border: '#fca5a5', dot: '#ef4444', avatarBg: '#fcebeb' };
+      default:
+        return { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe', dot: '#2563eb', avatarBg: '#eff6ff' };
+    }
+  }
 }
 function formatDate(d: string | null) {
   if (!d) return '—';
@@ -52,6 +82,10 @@ export default function InquiriesScreen() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
+  const router = useRouter();
+
+  const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
 
   // Theme colors
   const bgColor = isDark ? '#0f172a' : '#f3f4f6';
@@ -64,27 +98,18 @@ export default function InquiriesScreen() {
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['inquiries'],
     queryFn: () =>
-      apiClient.get<{ success: boolean; data: Inquiry[] }>('/api/v1/superadmin/inquiries'),
+      apiClient.get<{ success: boolean; data: Inquiry[] }>(API_ENDPOINTS.SUPER_ADMIN.GET_INQUIRIES),
   });
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status, notes }: { id: number; status: string; notes: string }) =>
-      apiClient.put(`/api/v1/superadmin/inquiries/${id}/status`, { status, notes }),
+      apiClient.put(API_ENDPOINTS.SUPER_ADMIN.UPDATE_INQUIRY_STATUS(id), { status, notes }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inquiries'] }),
   });
 
   const inquiries: Inquiry[] = data?.data ?? [];
 
-  const handleStatusChange = (inq: Inquiry) => {
-    Alert.alert(
-      `Update Status: ${inq.companyName}`,
-      'Choose a new status:',
-      STATUS_OPTIONS.map((s) => ({
-        text: s,
-        onPress: () => statusMutation.mutate({ id: inq.inquiryId, status: s, notes: inq.notes ?? '' }),
-      }))
-    );
-  };
+  // Status change handled by premium bottom actions sheet modal
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
@@ -119,53 +144,300 @@ export default function InquiriesScreen() {
               <Ionicons name="mail-outline" size={48} color="#94a3b8" />
               <Text style={{ color: textColor, fontWeight: '700', fontSize: 16, marginTop: 16 }}>No Inquiries Yet</Text>
             </View>
-          ) : (
-            inquiries.map((inq) => {
-              const sc = getStatusColor(inq.status);
+          ) : inquiries.map((inq) => {
+              const sc = getStatusColor(inq.status, isDark);
+              const initials = inq.companyName
+                ? inq.companyName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+                : 'I';
+
               return (
-                <View key={inq.inquiryId} style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: textColor, fontWeight: '700', fontSize: 14 }}>{inq.companyName}</Text>
-                      <Text style={{ color: subTextColor, fontSize: 12 }}>{inq.contactPerson} · {inq.email}</Text>
-                      {inq.phone && <Text style={{ color: subTextColor, fontSize: 10, marginTop: 2 }}>{inq.phone}</Text>}
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => handleStatusChange(inq)}
-                      style={{ backgroundColor: sc.bg, borderColor: sc.border, borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}
-                    >
-                      <Text style={{ color: sc.text, fontSize: 10, fontWeight: '700' }}>{inq.status ?? 'New'}</Text>
-                    </TouchableOpacity>
+                <View
+                  key={inq.inquiryId}
+                  style={{
+                    backgroundColor: cardBg,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: borderCol,
+                    padding: 16,
+                    marginBottom: 12,
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  {/* Left: Avatar Initials */}
+                  <View
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 24,
+                      backgroundColor: sc.avatarBg,
+                      borderColor: sc.border,
+                      borderWidth: 1,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 12,
+                    }}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: sc.text }}>
+                      {initials}
+                    </Text>
                   </View>
 
-                  {inq.message ? (
-                    <View style={{ backgroundColor: msgBg, borderRadius: 12, padding: 12, marginTop: 8 }}>
-                      <Text style={{ color: subTextColor, fontSize: 12, lineHeight: 18 }} numberOfLines={3}>
-                        {inq.message}
-                      </Text>
-                    </View>
-                  ) : null}
+                  {/* Right: Main Content Area */}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    {/* Header Row: Company Name & Status/Menu */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, marginRight: 8, flexWrap: 'wrap' }}>
+                        <Text style={{ color: textColor, fontWeight: '700', fontSize: 16 }} numberOfLines={1}>
+                          {inq.companyName}
+                        </Text>
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                          backgroundColor: sc.bg,
+                          borderColor: sc.border,
+                          borderWidth: 0.5,
+                          borderRadius: 20,
+                          paddingHorizontal: 8,
+                          paddingVertical: 2
+                        }}>
+                          <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: sc.dot }} />
+                          <Text style={{ color: sc.text, fontSize: 9, fontWeight: '700' }}>
+                            {inq.status ?? 'New'}
+                          </Text>
+                        </View>
+                      </View>
 
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 }}>
-                    <Text style={{ color: subTextColor, fontSize: 10 }}>
-                      <FontAwesome name="calendar" size={10} color="#94a3b8" /> {formatDate(inq.createdOn)}
-                    </Text>
-                    {inq.referralCode ? (
-                      <View style={{ backgroundColor: isDark ? '#2e1065' : '#f5f3ff', borderWidth: 1, borderColor: isDark ? '#4c1d95' : '#ede9fe', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }}>
-                        <Text style={{ color: '#7c3aed', fontSize: 10, fontWeight: '600' }}>Ref: {inq.referralCode}</Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setSelectedInquiry(inq);
+                          setIsActionModalOpen(true);
+                        }}
+                        style={{
+                          width: 24,
+                          height: 24,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Ionicons name="ellipsis-vertical" size={16} color={textColor} />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Contact details */}
+                    <View style={{ gap: 2, marginBottom: 8 }}>
+                      <Text style={{ color: textColor, fontSize: 13, fontWeight: '500', marginBottom: 2 }}>
+                        {inq.contactPerson}
+                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="mail-outline" size={12} color={subTextColor} />
+                        <Text style={{ color: subTextColor, fontSize: 12 }} numberOfLines={1}>
+                          {inq.email}
+                        </Text>
+                      </View>
+                      {inq.phone && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="call-outline" size={12} color={subTextColor} />
+                          <Text style={{ color: subTextColor, fontSize: 12 }}>
+                            {inq.phone}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Inquiry Message bubble container */}
+                    {inq.message ? (
+                      <View style={{
+                        backgroundColor: msgBg,
+                        borderRadius: 8,
+                        borderWidth: 0.5,
+                        borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                        padding: 12,
+                        marginTop: 4
+                      }}>
+                        <Text style={{ color: isDark ? '#cbd5e1' : '#475569', fontSize: 12, lineHeight: 18 }}>
+                          {inq.message}
+                        </Text>
                       </View>
                     ) : null}
-                    {inq.convertedToTenantId ? (
-                      <View style={{ backgroundColor: isDark ? '#064e3b40' : '#f0fdf4', borderWidth: 1, borderColor: isDark ? '#064e3b' : '#bbf7d0', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }}>
-                        <Text style={{ color: '#16a34a', fontSize: 10, fontWeight: '600' }}>✓ Converted</Text>
-                      </View>
-                    ) : null}
+
+                    {/* Meta badges (Referral & Converted) */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                      {inq.referralCode ? (
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
+                          borderWidth: 0.5,
+                          borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                          borderRadius: 4,
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                        }}>
+                          <Ionicons name="gift-outline" size={12} color={subTextColor} />
+                          <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '500' }}>Referral</Text>
+                        </View>
+                      ) : null}
+
+                      {inq.convertedToTenantId ? (
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          backgroundColor: isDark ? 'rgba(16,185,129,0.1)' : '#f0fdf4',
+                          borderWidth: 0.5,
+                          borderColor: isDark ? 'rgba(16,185,129,0.2)' : '#bbf7d0',
+                          borderRadius: 4,
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                        }}>
+                          <Ionicons name="checkmark-circle-outline" size={12} color="#10b981" />
+                          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '500' }}>Converted</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
                 </View>
               );
-            })
-          )}
+            })}
         </ScrollView>
+
+        <Modal
+          visible={isActionModalOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setIsActionModalOpen(false)}
+        >
+          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <Pressable
+              style={{ ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+              onPress={() => setIsActionModalOpen(false)}
+            />
+
+            <View style={{
+              backgroundColor: cardBg,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              paddingHorizontal: 16,
+              paddingBottom: 40,
+              paddingTop: 16,
+              borderWidth: 1,
+              borderColor: borderCol,
+            }}>
+              <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: isDark ? '#475569' : '#cbd5e1' }} />
+              </View>
+
+              {selectedInquiry && (
+                <>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: textColor, marginBottom: 4 }}>
+                    {selectedInquiry.companyName}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: subTextColor, marginBottom: 20 }}>
+                    Manage status and workspace provision
+                  </Text>
+
+                  <View style={{ gap: 12 }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsActionModalOpen(false);
+                        statusMutation.mutate({
+                          id: selectedInquiry.inquiryId,
+                          status: 'Contacted',
+                          notes: selectedInquiry.notes ?? 'Contacted via mobile app',
+                        });
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        paddingVertical: 12,
+                        borderBottomWidth: 1,
+                        borderBottomColor: borderCol,
+                      }}
+                    >
+                      <Ionicons name="call" size={20} color={isDark ? '#cbd5e1' : '#475569'} />
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: textColor }}>Contacted</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsActionModalOpen(false);
+                        statusMutation.mutate({
+                          id: selectedInquiry.inquiryId,
+                          status: 'Converted',
+                          notes: selectedInquiry.notes ?? 'Converted via mobile app',
+                        });
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        paddingVertical: 12,
+                        borderBottomWidth: 1,
+                        borderBottomColor: borderCol,
+                      }}
+                    >
+                      <Ionicons name="checkmark-circle" size={20} color={isDark ? '#cbd5e1' : '#475569'} />
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: textColor }}>Converted</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsActionModalOpen(false);
+                        statusMutation.mutate({
+                          id: selectedInquiry.inquiryId,
+                          status: 'Rejected',
+                          notes: selectedInquiry.notes ?? 'Rejected via mobile app',
+                        });
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        paddingVertical: 12,
+                        borderBottomWidth: 1,
+                        borderBottomColor: borderCol,
+                      }}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#ef4444" />
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: '#ef4444' }}>Reject</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsActionModalOpen(false);
+                        router.push({
+                          pathname: '/superadmin/create-tenant',
+                          params: {
+                            companyName: selectedInquiry.companyName,
+                            subdomain: selectedInquiry.companyName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15),
+                            contactPerson: selectedInquiry.contactPerson,
+                            email: selectedInquiry.email,
+                            phone: selectedInquiry.phone || '',
+                            referralCode: selectedInquiry.referralCode || '',
+                          }
+                        });
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        paddingVertical: 12,
+                        paddingTop: 8,
+                      }}
+                    >
+                      <Ionicons name="add" size={24} color="#16a34a" style={{ marginLeft: -2 }} />
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: '#16a34a' }}>Create Tenant</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
       </View>
   );
 }

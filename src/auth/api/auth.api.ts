@@ -2,37 +2,34 @@ import { apiClient } from '../../api/apiClient';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import { LoginRequest } from '../models/LoginRequest';
 import { LoginResponse } from '../models/LoginResponse';
-import { RegisterRequest } from '../models/RegisterRequest';
-
-export interface RegisterResponse {
-  requiresApproval: boolean;
-  redirect: string;
-}
+import { getApiUrl } from '../../api/remoteConfig';
 
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    // API Login uses application/json and matches { username, password }
-    return apiClient.post<LoginResponse>(API_ENDPOINTS.AUTH.LOGIN, {
+    const endpoint = API_ENDPOINTS.AUTH.LOGIN;
+    const fullUrl = `${getApiUrl().replace(/\/$/, '')}${endpoint}`;
+    const payload = {
       username: credentials.username,
       password: credentials.password,
-    });
-  },
+      Username: credentials.username,
+      Password: credentials.password,
+    };
 
-  register: async (data: RegisterRequest): Promise<RegisterResponse> => {
-    // Account registration accepts multipart/form-data
-    const formData = new FormData();
-    formData.append('Username', data.username);
-    formData.append('Email', data.email);
-    if (data.phone) {
-      formData.append('Phone', data.phone);
-    }
-    formData.append('Password', data.password);
-    formData.append('Role', data.role);
-    if (data.companyName) {
-      formData.append('CompanyName', data.companyName);
-    }
+    console.log(`\n=== [AUTH API REQUEST] ===\nURL: ${fullUrl}\nPayload:`, JSON.stringify(payload, null, 2));
 
-    return apiClient.post<RegisterResponse>(API_ENDPOINTS.AUTH.REGISTER, formData);
+    try {
+      const response = await apiClient.post<LoginResponse>(endpoint, payload);
+      console.log(`\n=== [AUTH API SUCCESS] ===\nURL: ${fullUrl}\nResponse:`, JSON.stringify(response, null, 2));
+      return response;
+    } catch (error: any) {
+      console.error(`\n=== [AUTH API ERROR] ===\nURL: ${fullUrl}\nError details:`, {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        responseData: error.response?.data,
+      });
+      throw error;
+    }
   },
 
   logout: async (): Promise<void> => {

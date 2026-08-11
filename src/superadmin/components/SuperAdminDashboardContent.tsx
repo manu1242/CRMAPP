@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { apiClient } from '../../api/apiClient';
@@ -38,6 +39,8 @@ interface DashboardData {
     suspendedTenants: number;
     newInquiries: number;
     registeredEmails: number;
+    totalInquiries: number;
+    totalEmails: number;
   };
   recentTenants: Array<{
     tenantId: number;
@@ -52,6 +55,8 @@ interface DashboardData {
     inquiryId: number;
     companyName: string;
     contactPerson: string;
+    phone?: string;
+    email?: string;
     status: string;
     createdOn: string;
   }>;
@@ -102,12 +107,26 @@ export default function SuperAdminDashboardContent() {
     setError(null);
 
     try {
-      const response = await apiClient.get<{ success: boolean; data: DashboardData }>(
+      const response = await apiClient.get<{ success: boolean; data: any }>(
         API_ENDPOINTS.SUPER_ADMIN.GET_DASHBOARD
       );
 
       if (response && response.success) {
-        setData(response.data);
+        const apiData = response.data;
+        const mappedData: DashboardData = {
+          metrics: {
+            totalTenants: apiData.totalTenants ?? 0,
+            activeTenants: apiData.activeTenants ?? 0,
+            suspendedTenants: apiData.suspendedTenants ?? 0,
+            newInquiries: apiData.newInquiries ?? 0,
+            registeredEmails: apiData.totalEmails ?? apiData.activeUsers ?? 0,
+            totalInquiries: apiData.totalInquiries ?? 0,
+            totalEmails: apiData.totalEmails ?? 0,
+          },
+          recentTenants: apiData.recentRegistrations ?? [],
+          recentInquiries: apiData.recentInquiries ?? [],
+        };
+        setData(mappedData);
       } else {
         setError('Failed to retrieve dashboard data from server');
       }
@@ -271,23 +290,6 @@ export default function SuperAdminDashboardContent() {
 
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <TouchableOpacity 
-                      onPress={() => router.push('/superadmin/tenants')}
-                      style={{ flex: 1, backgroundColor: cardBg, borderWidth: 1, borderColor: borderCol, borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.02, shadowRadius: 2, elevation: 1 }}
-                    >
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <View style={{ backgroundColor: isDark ? '#064e3b40' : '#f0fdf4', padding: 8, borderRadius: 8 }}>
-                          <CheckCircle2 size={18} color="#16a34a" />
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                          <TrendingUp size={10} color="#16a34a" />
-                          <Text style={{ fontSize: 10, color: '#16a34a', fontWeight: '700' }}>+8%</Text>
-                        </View>
-                      </View>
-                      <Text style={{ fontSize: 22, fontWeight: '800', color: textColor }}>{data.metrics.activeTenants}</Text>
-                      <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4, fontWeight: '600' }}>Active Tenants</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity 
                       onPress={() => router.push('/superadmin/inquiries')}
                       style={{ flex: 1, backgroundColor: cardBg, borderWidth: 1, borderColor: borderCol, borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.02, shadowRadius: 2, elevation: 1 }}
                     >
@@ -295,16 +297,11 @@ export default function SuperAdminDashboardContent() {
                         <View style={{ backgroundColor: isDark ? '#7c2d1240' : '#fff7ed', padding: 8, borderRadius: 8 }}>
                           <MessageSquare size={18} color="#ea580c" />
                         </View>
-                        <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10 }}>
-                          <Text style={{ fontSize: 8, color: '#ffffff', fontWeight: '800' }}>NEW</Text>
-                        </View>
                       </View>
-                      <Text style={{ fontSize: 22, fontWeight: '800', color: textColor }}>{data.metrics.newInquiries}</Text>
-                      <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4, fontWeight: '600' }}>New Inquiries</Text>
+                      <Text style={{ fontSize: 22, fontWeight: '800', color: textColor }}>{data.metrics.totalInquiries}</Text>
+                      <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4, fontWeight: '600' }}>Total Inquiries</Text>
                     </TouchableOpacity>
-                  </View>
 
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
                     <TouchableOpacity 
                       onPress={() => router.push('/superadmin/tenants')}
                       style={{ flex: 1, backgroundColor: cardBg, borderWidth: 1, borderColor: borderCol, borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.02, shadowRadius: 2, elevation: 1 }}
@@ -315,24 +312,42 @@ export default function SuperAdminDashboardContent() {
                         </View>
                         <Activity size={14} color={subTextColor} />
                       </View>
-                      <Text style={{ fontSize: 22, fontWeight: '800', color: textColor }}>{data.metrics.registeredEmails ?? 0}</Text>
+                      <Text style={{ fontSize: 22, fontWeight: '800', color: textColor }}>{data.metrics.totalEmails}</Text>
                       <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4, fontWeight: '600' }}>Registered Emails</Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity 
-                      onPress={() => router.push('/superadmin/tenants')}
-                      style={{ flex: 1, backgroundColor: cardBg, borderWidth: 1, borderColor: borderCol, borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.02, shadowRadius: 2, elevation: 1 }}
-                    >
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <View style={{ backgroundColor: isDark ? '#7f1d1d40' : '#fef2f2', padding: 8, borderRadius: 8 }}>
-                          <Ban size={18} color="#dc2626" />
-                        </View>
-                        <Text style={{ fontSize: 10, color: '#dc2626', fontWeight: '600' }}>Alert</Text>
-                      </View>
-                      <Text style={{ fontSize: 22, fontWeight: '800', color: textColor }}>{data.metrics.suspendedTenants}</Text>
-                      <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4, fontWeight: '600' }}>Suspended</Text>
-                    </TouchableOpacity>
                   </View>
+
+                  <TouchableOpacity 
+                    onPress={() => router.push('/superadmin/tenants')}
+                    style={{ 
+                      backgroundColor: cardBg, 
+                      borderWidth: 1, 
+                      borderColor: borderCol, 
+                      borderRadius: 16, 
+                      padding: 18, 
+                      flexDirection: 'row', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      shadowColor: '#000', 
+                      shadowOffset: { width: 0, height: 2 }, 
+                      shadowOpacity: 0.02, 
+                      shadowRadius: 3, 
+                      elevation: 2 
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                      <View style={{ backgroundColor: isDark ? '#7f1d1d40' : '#fef2f2', padding: 12, borderRadius: 12 }}>
+                        <Ban size={24} color="#dc2626" />
+                      </View>
+                      <View>
+                        <Text style={{ fontSize: 13, color: subTextColor, fontWeight: '600' }}>Suspended Tenants</Text>
+                        <Text style={{ fontSize: 28, fontWeight: '800', color: textColor, marginTop: 2 }}>{data.metrics.suspendedTenants}</Text>
+                      </View>
+                    </View>
+                    <View style={{ backgroundColor: isDark ? '#7f1d1d20' : '#fef2f2', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 }}>
+                      <Text style={{ fontSize: 11, color: '#dc2626', fontWeight: '700' }}>Suspended</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
 
                 <View>
@@ -342,89 +357,120 @@ export default function SuperAdminDashboardContent() {
                     </Text>
                   </View>
 
-                  <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+                  <View 
+                    style={{ 
+                      flexDirection: 'row', 
+                      justifyContent: 'space-evenly', 
+                      alignItems: 'center',
+                      paddingHorizontal: 8,
+                    }}
                   >
-                    <TouchableOpacity 
-                      onPress={() => router.push('/superadmin/create-tenant')}
-                      style={{
-                        width: 120,
-                        backgroundColor: cardBg,
-                        borderWidth: 1,
-                        borderColor: borderCol,
-                        borderRadius: 12,
-                        padding: 16,
-                        alignItems: 'center',
-                      }}
-                    >
-                      <View style={{ backgroundColor: isDark ? '#1e3a8a40' : '#eff6ff', padding: 10, borderRadius: 20, marginBottom: 10 }}>
-                        <Plus size={16} color="#2563eb" />
-                      </View>
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: textColor }}>Add Tenant</Text>
-                    </TouchableOpacity>
+                    {/* Add Tenant */}
+                    <View style={{ alignItems: 'center', width: 80 }}>
+                      <TouchableOpacity 
+                        onPress={() => router.push('/superadmin/create-tenant')}
+                        style={{
+                          width: 64,
+                          height: 64,
+                          borderRadius: 32,
+                          backgroundColor: isDark ? '#1e3a8a30' : '#eff6ff',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          borderWidth: 1.5,
+                          borderColor: isDark ? '#2563eb50' : '#bfdbfe',
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Image 
+                          source={require('../../../assets/images/add_tenant.png')}
+                          style={{ width: 36, height: 36 }}
+                          resizeMode="contain"
+                        />
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: textColor, textAlign: 'center' }}>Add Tenant</Text>
+                    </View>
 
-                    <TouchableOpacity 
-                      onPress={() => router.push('/superadmin/inquiries')}
-                      style={{
-                        width: 120,
-                        backgroundColor: cardBg,
-                        borderWidth: 1,
-                        borderColor: borderCol,
-                        borderRadius: 12,
-                        padding: 16,
-                        alignItems: 'center',
-                      }}
-                    >
-                      <View style={{ backgroundColor: isDark ? '#7c2d1240' : '#fff7ed', padding: 10, borderRadius: 20, marginBottom: 10 }}>
-                        <MailCheck size={16} color="#ea580c" />
-                      </View>
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: textColor }}>Inquiries</Text>
-                    </TouchableOpacity>
+                    {/* Inquiries */}
+                    <View style={{ alignItems: 'center', width: 80 }}>
+                      <TouchableOpacity 
+                        onPress={() => router.push('/superadmin/inquiries')}
+                        style={{
+                          width: 64,
+                          height: 64,
+                          borderRadius: 32,
+                          backgroundColor: isDark ? '#7c2d1230' : '#fff7ed',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          borderWidth: 1.5,
+                          borderColor: isDark ? '#ea580c50' : '#ffedd5',
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Image 
+                          source={require('../../../assets/images/inquiries.png')}
+                          style={{ width: 36, height: 36 }}
+                          resizeMode="contain"
+                        />
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: textColor, textAlign: 'center' }}>Inquiries</Text>
+                    </View>
 
-                    <TouchableOpacity 
-                      onPress={() => router.push('/superadmin/plans')}
-                      style={{
-                        width: 120,
-                        backgroundColor: cardBg,
-                        borderWidth: 1,
-                        borderColor: borderCol,
-                        borderRadius: 12,
-                        padding: 16,
-                        alignItems: 'center',
-                      }}
-                    >
-                      <View style={{ backgroundColor: isDark ? '#064e3b40' : '#f0fdf4', padding: 10, borderRadius: 20, marginBottom: 10 }}>
-                        <Settings size={16} color="#16a34a" />
-                      </View>
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: textColor }}>Plans</Text>
-                    </TouchableOpacity>
+                    {/* Plans */}
+                    <View style={{ alignItems: 'center', width: 80 }}>
+                      <TouchableOpacity 
+                        onPress={() => router.push('/superadmin/plans')}
+                        style={{
+                          width: 64,
+                          height: 64,
+                          borderRadius: 32,
+                          backgroundColor: isDark ? '#064e3b30' : '#f0fdf4',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          borderWidth: 1.5,
+                          borderColor: isDark ? '#16a34a50' : '#bbf7d0',
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Image 
+                          source={require('../../../assets/images/plans.png')}
+                          style={{ width: 36, height: 36 }}
+                          resizeMode="contain"
+                        />
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: textColor, textAlign: 'center' }}>Plans</Text>
+                    </View>
 
-                    <TouchableOpacity 
-                      onPress={() => {
-                        Toast.show({
-                          type: 'info',
-                          text1: 'Reports',
-                          text2: 'Reports feature is coming soon!',
-                        });
-                      }}
-                      style={{
-                        width: 120,
-                        backgroundColor: cardBg,
-                        borderWidth: 1,
-                        borderColor: borderCol,
-                        borderRadius: 12,
-                        padding: 16,
-                        alignItems: 'center',
-                      }}
-                    >
-                      <View style={{ backgroundColor: isDark ? '#3b076440' : '#faf5ff', padding: 10, borderRadius: 20, marginBottom: 10 }}>
-                        <Activity size={16} color="#a855f7" />
-                      </View>
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: textColor }}>Reports</Text>
-                    </TouchableOpacity>
-                  </ScrollView>
+                    {/* Reports */}
+                    <View style={{ alignItems: 'center', width: 80 }}>
+                      <TouchableOpacity 
+                        onPress={() => {
+                          Toast.show({
+                            type: 'info',
+                            text1: 'Reports',
+                            text2: 'Reports feature is coming soon!',
+                          });
+                        }}
+                        style={{
+                          width: 64,
+                          height: 64,
+                          borderRadius: 32,
+                          backgroundColor: isDark ? '#3b076430' : '#faf5ff',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          borderWidth: 1.5,
+                          borderColor: isDark ? '#a855f750' : '#e9d5ff',
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Image 
+                          source={require('../../../assets/images/reports.png')}
+                          style={{ width: 36, height: 36 }}
+                          resizeMode="contain"
+                        />
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: textColor, textAlign: 'center' }}>Reports</Text>
+                    </View>
+                  </View>
                 </View>
 
                 <View style={{ paddingHorizontal: 16 }}>
@@ -579,9 +625,16 @@ export default function SuperAdminDashboardContent() {
                               )}
                             </View>
                             
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                              <User size={12} color={iconColor} />
-                              <Text style={{ fontSize: 12, color: subTextColor }}>{item.contactPerson}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <User size={12} color={iconColor} />
+                                <Text style={{ fontSize: 12, color: subTextColor }}>{item.contactPerson}</Text>
+                              </View>
+                              {item.phone && (
+                                <Text style={{ fontSize: 12, color: subTextColor }}>
+                                  ·  {item.phone}
+                                </Text>
+                              )}
                             </View>
 
                             <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>

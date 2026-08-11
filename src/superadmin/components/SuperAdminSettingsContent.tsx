@@ -8,8 +8,8 @@ import {
     Image,
     ActivityIndicator,
     RefreshControl,
-    Alert,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
@@ -52,15 +52,25 @@ export default function SuperAdminSettingsContent() {
             setLoading(true);
             const response = await settingsApi.getSettings();
             if (response.success) {
+                // API returns a PascalCase dictionary (e.g. "CompanyName"),
+                // but our SaaSSettings interface uses camelCase. Map manually.
+                const d: Record<string, string> = response.data as any;
                 setSettings({
-                    ...emptySettings,
-                    ...response.data,
+                    companyName:           d['CompanyName']            ?? '',
+                    companyEmail:          d['CompanyEmail']           ?? '',
+                    companyPhone:          d['CompanyPhone']           ?? '',
+                    companyAddress:        d['CompanyAddress']         ?? '',
+                    copyrightText:         d['CopyrightText']          ?? '',
+                    referralReferrerAmount:d['ReferralReferrerAmount'] ?? '',
+                    referralJoinerAmount:  d['ReferralJoinerAmount']   ?? '',
+                    companyLogo:           d['CompanyLogo']            ?? '',
+                    companyMapUrl:         d['CompanyMapUrl']          ?? '',
                 });
             } else {
-                Alert.alert('Error', response.message);
+                Toast.show({ type: 'error', text1: 'Error', text2: response.message });
             }
         } catch (e: any) {
-            Alert.alert('Error', e.message);
+            Toast.show({ type: 'error', text1: 'Error', text2: e.message });
         } finally {
             setLoading(false);
         }
@@ -91,10 +101,11 @@ export default function SuperAdminSettingsContent() {
             await ImagePicker.requestMediaLibraryPermissionsAsync();
 
         if (!permission.granted) {
-            Alert.alert(
-                'Permission',
-                'Gallery permission is required.'
-            );
+            Toast.show({
+                type: 'error',
+                text1: 'Permission',
+                text2: 'Gallery permission is required.'
+            });
             return;
         }
 
@@ -118,25 +129,27 @@ export default function SuperAdminSettingsContent() {
     const saveSettings = useCallback(async () => {
         try {
             setSaving(true);
-            const response =
-                await settingsApi.saveSettings(settings);
+            // Backend stores keys as PascalCase — send matching keys
+            const payload: Record<string, string> = {
+                CompanyName:            settings.companyName,
+                CompanyEmail:           settings.companyEmail,
+                CompanyPhone:           settings.companyPhone,
+                CompanyAddress:         settings.companyAddress,
+                CopyrightText:          settings.copyrightText,
+                ReferralReferrerAmount: settings.referralReferrerAmount,
+                ReferralJoinerAmount:   settings.referralJoinerAmount,
+                CompanyLogo:            settings.companyLogo,
+                CompanyMapUrl:          settings.companyMapUrl,
+            };
+            const response = await settingsApi.saveSettings(payload as any);
 
             if (response.success) {
-                Alert.alert(
-                    'Success',
-                    response.message
-                );
+                Toast.show({ type: 'success', text1: 'Success', text2: response.message });
             } else {
-                Alert.alert(
-                    'Error',
-                    response.message
-                );
+                Toast.show({ type: 'error', text1: 'Error', text2: response.message });
             }
         } catch (e: any) {
-            Alert.alert(
-                'Error',
-                e.message
-            );
+            Toast.show({ type: 'error', text1: 'Error', text2: e.message });
         } finally {
             setSaving(false);
         }
@@ -326,120 +339,180 @@ export default function SuperAdminSettingsContent() {
                     </Text>
 
                     <View style={{ alignItems: 'center' }}>
-                        {settings.companyLogo ? (
-                            <Image
-                                source={{
-                                    uri: settings.companyLogo,
-                                }}
-                                style={{
-                                    width: 120,
-                                    height: 120,
-                                    borderRadius: 16,
-                                    marginBottom: 16,
-                                }}
-                            />
-                        ) : (
-                            <View
-                                style={{
-                                    width: 120,
-                                    height: 120,
-                                    backgroundColor: inputBg,
-                                    borderRadius: 16,
-                                    borderWidth: 1,
-                                    borderColor: borderCol,
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginBottom: 16,
-                                }}
-                            >
-                                <Ionicons
-                                    name="image-outline"
-                                    size={45}
-                                    color={isDark ? '#475569' : '#94a3b8'}
+                        {/* Logo preview box */}
+                        <View style={{
+                            width: 140,
+                            height: 140,
+                            borderRadius: 16,
+                            borderWidth: 1,
+                            borderColor: borderCol,
+                            backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: 14,
+                            overflow: 'hidden',
+                        }}>
+                            {settings.companyLogo ? (
+                                <Image
+                                    source={{ uri: settings.companyLogo }}
+                                    style={{ width: 120, height: 120 }}
+                                    resizeMode="contain"
                                 />
-                            </View>
-                        )}
+                            ) : (
+                                <>
+                                    <Ionicons
+                                        name="image-outline"
+                                        size={40}
+                                        color={isDark ? '#475569' : '#94a3b8'}
+                                    />
+                                    <Text style={{ fontSize: 11, color: isDark ? '#475569' : '#94a3b8', marginTop: 6 }}>
+                                        No logo set
+                                    </Text>
+                                </>
+                            )}
+                        </View>
 
                         <TouchableOpacity
                             onPress={pickLogo}
                             style={{
-                                backgroundColor: '#0284c7',
+                                borderWidth: 1,
+                                borderColor: borderCol,
+                                backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
                                 paddingHorizontal: 20,
-                                paddingVertical: 12,
-                                borderRadius: 12,
+                                paddingVertical: 10,
+                                borderRadius: 10,
                                 flexDirection: 'row',
                                 alignItems: 'center',
+                                gap: 8,
                             }}
                         >
-                            <Ionicons
-                                name="camera-outline"
-                                color="white"
-                                size={18}
-                            />
-                            <Text style={{ color: 'white', fontWeight: '700', marginLeft: 8 }}>
-                                Upload Logo
+                            <Ionicons name="camera-outline" color={textColor} size={16} />
+                            <Text style={{ color: textColor, fontWeight: '600', fontSize: 13 }}>
+                                {settings.companyLogo ? 'Change Logo' : 'Upload Logo'}
                             </Text>
                         </TouchableOpacity>
+
+                        <Text style={{ fontSize: 11, color: labelColor, marginTop: 8 }}>
+                            PNG, JPG or GIF · Max 2MB
+                        </Text>
                     </View>
                 </View>
 
                 {/* Referral Settings */}
-                <View style={{ backgroundColor: cardBg, borderRadius: 16, padding: 16, marginTop: 16, borderWidth: 1, borderColor: borderCol }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                        <Ionicons
-                            name="gift-outline"
-                            size={20}
-                            color="#16a34a"
-                        />
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: textColor, marginLeft: 10 }}>
-                            Referral Program
-                        </Text>
+                <View style={{
+                    backgroundColor: cardBg,
+                    borderRadius: 16,
+                    marginTop: 16,
+                    borderWidth: 1,
+                    borderColor: borderCol,
+                }}>
+                    {/* Header */}
+                    <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: 16,
+                        borderBottomWidth: 1,
+                        borderBottomColor: borderCol,
+                    }}>
+                        <View style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 10,
+                            backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}>
+                            <Ionicons name="gift-outline" size={18} color="#0284c7" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
+                                Referral Program
+                            </Text>
+                            <Text style={{ fontSize: 12, color: labelColor, marginTop: 1 }}>
+                                Configure bonus amounts for referrer and joiner
+                            </Text>
+                        </View>
                     </View>
 
-                    {/* Referrer Bonus */}
-                    <View style={{ marginBottom: 16 }}>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor, marginBottom: 8 }}>
-                            Referrer Bonus
-                        </Text>
-                        <TextInput
-                            keyboardType="numeric"
-                            style={{
-                                borderWidth: 1,
-                                borderColor: borderCol,
-                                backgroundColor: inputBg,
-                                borderRadius: 12,
-                                paddingHorizontal: 12,
-                                height: 48,
-                                color: textColor,
-                            }}
-                            value={settings.referralReferrerAmount}
-                            onChangeText={(v) => updateField("referralReferrerAmount", v)}
-                            placeholder="1000"
-                            placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-                        />
-                    </View>
+                    <View style={{ padding: 16, gap: 20 }}>
+                        {/* Referrer Bonus */}
+                        <View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <Ionicons name="person-outline" size={15} color={labelColor} />
+                                <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
+                                    Referrer Bonus (₹)
+                                </Text>
+                            </View>
+                            <TextInput
+                                keyboardType="numeric"
+                                style={{
+                                    borderWidth: 1,
+                                    borderColor: borderCol,
+                                    backgroundColor: inputBg,
+                                    borderRadius: 10,
+                                    paddingHorizontal: 14,
+                                    height: 46,
+                                    color: textColor,
+                                    fontSize: 16,
+                                    fontWeight: '600',
+                                }}
+                                value={settings.referralReferrerAmount}
+                                onChangeText={(v) => updateField("referralReferrerAmount", v)}
+                                placeholder="500"
+                                placeholderTextColor={isDark ? '#475569' : '#94a3b8'}
+                            />
+                            <Text style={{ fontSize: 11, color: labelColor, marginTop: 5 }}>
+                                Amount credited to the existing tenant who refers
+                            </Text>
+                        </View>
 
-                    {/* Joiner Bonus */}
-                    <View>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: labelColor, marginBottom: 8 }}>
-                            Joiner Bonus
-                        </Text>
-                        <TextInput
-                            keyboardType="numeric"
-                            style={{
-                                borderWidth: 1,
-                                borderColor: borderCol,
-                                backgroundColor: inputBg,
-                                borderRadius: 12,
-                                paddingHorizontal: 12,
-                                height: 48,
-                                color: textColor,
-                            }}
-                            value={settings.referralJoinerAmount}
-                            onChangeText={(v) => updateField("referralJoinerAmount", v)}
-                            placeholder="500"
-                            placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-                        />
+                        {/* Divider */}
+                        <View style={{ height: 1, backgroundColor: borderCol }} />
+
+                        {/* Joiner Bonus */}
+                        <View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <Ionicons name="person-add-outline" size={15} color={labelColor} />
+                                <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
+                                    Joiner Bonus (₹)
+                                </Text>
+                            </View>
+                            <TextInput
+                                keyboardType="numeric"
+                                style={{
+                                    borderWidth: 1,
+                                    borderColor: borderCol,
+                                    backgroundColor: inputBg,
+                                    borderRadius: 10,
+                                    paddingHorizontal: 14,
+                                    height: 46,
+                                    color: textColor,
+                                    fontSize: 16,
+                                    fontWeight: '600',
+                                }}
+                                value={settings.referralJoinerAmount}
+                                onChangeText={(v) => updateField("referralJoinerAmount", v)}
+                                placeholder="200"
+                                placeholderTextColor={isDark ? '#475569' : '#94a3b8'}
+                            />
+                            <Text style={{ fontSize: 11, color: labelColor, marginTop: 5 }}>
+                                Amount credited to the new tenant who joins via referral
+                            </Text>
+                        </View>
+
+                        {/* How it works note */}
+                        <View style={{
+                            flexDirection: 'row',
+                            alignItems: 'flex-start',
+                            gap: 8,
+                            paddingTop: 4,
+                        }}>
+                            <Ionicons name="information-circle-outline" size={15} color={labelColor} style={{ marginTop: 1 }} />
+                            <Text style={{ flex: 1, fontSize: 12, color: labelColor, lineHeight: 17 }}>
+                                When a new tenant signs up using a referral code, both the referrer and joiner receive their respective bonus amounts.
+                            </Text>
+                        </View>
                     </View>
                 </View>
 

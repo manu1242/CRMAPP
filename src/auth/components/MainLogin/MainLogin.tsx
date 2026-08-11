@@ -3,105 +3,23 @@ import {
     View,
     Text,
     TouchableOpacity,
-    Dimensions,
     StatusBar,
     Image,
-    Pressable,
     TextInput,
     ActivityIndicator,
+    Linking,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import KeyboardSafeArea from '../KeyboardSafeArea';
 import { useLogin } from '../../hooks/useLogin';
-import { AuthService } from '../../services/AuthService';
-import { useAuthStore } from '../../store/authStore';
 import Toast from 'react-native-toast-message';
 import AppFooter from '../AppFooter';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { getAdminTheme } from '../../../theme/adminTheme';
 import { useSafeObserve } from '../../../api/observe';
-
-const { height } = Dimensions.get('window');
-
-interface FloatingInputProps {
-    label: string;
-    value: string;
-    onChangeText: (text: string) => void;
-    placeholder?: string;
-    secureTextEntry?: boolean;
-    keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
-    showEyeIcon?: boolean;
-    onEyePress?: () => void;
-}
-
-const FloatingInput = ({
-    label,
-    value,
-    onChangeText,
-    placeholder,
-    secureTextEntry,
-    keyboardType,
-    showEyeIcon,
-    onEyePress
-}: FloatingInputProps) => {
-    const { isDark } = useTheme();
-    const adminTheme = getAdminTheme(isDark);
-
-    return (
-        <View style={{ position: 'relative', marginBottom: 20, width: '100%' }}>
-            <View style={{
-                position: 'absolute',
-                left: 18,
-                top: -8,
-                backgroundColor: adminTheme.primaryBg,
-                paddingHorizontal: 6,
-                zIndex: 2,
-            }}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: adminTheme.textSecondary }}>
-                    {label}
-                </Text>
-            </View>
-            <TextInput
-                key={String(secureTextEntry)}
-                style={{
-                    height: 52,
-                    borderWidth: 1,
-                    borderColor: adminTheme.border,
-                    borderRadius: 26,
-                    paddingHorizontal: 20,
-                    paddingRight: showEyeIcon ? 52 : 20,
-                    fontSize: 15,
-                    color: adminTheme.textPrimary,
-                    backgroundColor: adminTheme.cardBg,
-                }}
-                value={value}
-                onChangeText={onChangeText}
-                placeholder={placeholder}
-                placeholderTextColor={adminTheme.textSecondary}
-                secureTextEntry={secureTextEntry}
-                keyboardType={secureTextEntry ? 'default' : (keyboardType || 'default')}
-                autoCapitalize="none"
-                autoCorrect={false}
-            />
-            {showEyeIcon && onEyePress && (
-                <TouchableOpacity 
-                    onPress={onEyePress} 
-                    style={{ position: 'absolute', right: 20, top: 16, zIndex: 10 }}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                    <Ionicons name={secureTextEntry ? "eye-outline" : "eye-off-outline"} size={20} color={adminTheme.textSecondary} />
-                </TouchableOpacity>
-            )}
-        </View>
-    );
-};
 
 const MainLogin = () => {
     const router = useRouter();
-    const { screen } = useLocalSearchParams<{ screen?: string }>();
-    const [active, setActive] = useState<"login" | "signup">("login");
     const { isDark } = useTheme();
     const { markInteractive } = useSafeObserve();
 
@@ -109,46 +27,23 @@ const MainLogin = () => {
         markInteractive();
     }, [markInteractive]);
 
-    React.useEffect(() => {
-        if (screen === 'signup') {
-            setActive('signup');
-        } else if (screen === 'login') {
-            setActive('login');
-        }
-    }, [screen]);
+    // Color palette matching exact design
+    const bgColor = isDark ? '#0f172a' : '#f4f6f9';
+    const cardBg = isDark ? '#1e293b' : '#ffffff';
+    const textColor = isDark ? '#f1f5f9' : '#1e293b';
+    const subtitleColor = isDark ? '#94a3b8' : '#64748b';
+    const labelColor = isDark ? '#cbd5e1' : '#475569';
+    const placeholderColor = isDark ? '#64748b' : '#94a3b8';
+    const borderCol = isDark ? '#334155' : '#e2e8f0';
+    const iconColor = isDark ? '#94a3b8' : '#64748b';
 
-    // Theme colors
-    const adminTheme = getAdminTheme(isDark);
-    const bgColor = adminTheme.primaryBg;
-    const textColor = adminTheme.textPrimary;
-    const backBtnColor = adminTheme.textSecondary;
-    const borderCol = adminTheme.border;
-
-    const tabActiveBg = adminTheme.brand;
-    const tabActiveText = '#ffffff';
-    const tabInactiveBg = adminTheme.cardBg;
-    const tabInactiveText = adminTheme.textSecondary;
-
-    const forgotPasswordColor = adminTheme.brand;
-
-    const buttonBg = adminTheme.brand;
-    const buttonText = '#ffffff';
-
-    // Login Form State
+    // State
     const [loginEmail, setLoginEmail] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
     const [showLoginPassword, setShowLoginPassword] = useState(false);
-    const { login, isLoading: isLoginLoading } = useLogin();
+    const [rememberMe, setRememberMe] = useState(false);
 
-    // Signup Form State
-    const [fullName, setFullName] = useState('');
-    const [signupEmail, setSignupEmail] = useState('');
-    const [phone, setPhone] = useState('');
-    const [signupPassword, setSignupPassword] = useState('');
-    const [showSignupPassword, setShowSignupPassword] = useState(false);
-    const [agencyCode, setAgencyCode] = useState('');
-    const [showAgencyCode, setShowAgencyCode] = useState(false);
-    const [isRegisterLoading, setIsRegisterLoading] = useState(false);
+    const { login, isLoading: isLoginLoading } = useLogin();
 
     const handleLogin = async () => {
         if (!loginEmail || !loginPassword) {
@@ -159,247 +54,314 @@ const MainLogin = () => {
             });
             return;
         }
-        const success = await login({ username: loginEmail, password: loginPassword });
-        if (success) {
-            const user = useAuthStore.getState().user;
-            const role = user?.role?.toLowerCase();
-            if (role === 'superadmin') {
-                router.replace('/superadmin/dashboard');
-            } else if (role === 'admin') {
-                router.replace('/admin/dashboard');
-            } else {
-                router.replace('/select-workspace');
-            }
-        }
-    };
-
-    const handleRegister = async () => {
-        if (!fullName || !signupEmail || !phone || !signupPassword) {
-            Toast.show({
-                type: 'error',
-                text1: 'Required Fields',
-                text2: 'Please fill in all required fields.',
-            });
-            return;
-        }
-        setIsRegisterLoading(true);
-        try {
-            const response = await AuthService.register({
-                username: fullName,
-                email: signupEmail,
-                phone: phone,
-                password: signupPassword,
-                confirmPassword: signupPassword,
-                role: 'tenant',
-                companyName: agencyCode || undefined
-            });
-            Toast.show({
-                type: 'success',
-                text1: 'Registration Success',
-                text2: response.requiresApproval ? 'Registration submitted, awaiting approval.' : 'Account created successfully!',
-            });
-            // Switch to login tab on success
-            setActive('login');
-            // Populate the email field
-            setLoginEmail(signupEmail);
-        } catch (err: any) {
-            const errorMsg = err.response?.data?.message || err.message || 'Registration failed';
-            Toast.show({
-                type: 'error',
-                text1: 'Registration Failed',
-                text2: errorMsg,
-            });
-        } finally {
-            setIsRegisterLoading(false);
-        }
+        await login({ username: loginEmail, password: loginPassword });
     };
 
     return (
         <KeyboardSafeArea
             backgroundColor={bgColor}
-            contentContainerStyle={{ backgroundColor: bgColor, paddingHorizontal: 24 }}
+            contentContainerStyle={{
+                backgroundColor: bgColor,
+                paddingHorizontal: 24,
+                justifyContent: 'center',
+                flexGrow: 1,
+                paddingVertical: 20,
+                position: 'relative',
+                overflow: 'hidden',
+            }}
         >
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={bgColor} />
-                {/* Hero Image */}
-                <View style={{ alignItems: 'center', marginTop: 10 }}>
-                    <Image 
-                        source={require('../../../../assets/login.png')} 
-                        style={{ width: '100%', height: 200, resizeMode: 'contain' }} 
-                    />
-                </View>
 
-                {/* Dynamic Title */}
-                <Text style={{ fontSize: 24, fontWeight: '700', color: textColor, textAlign: 'center', marginTop: 24 }}>
-                    {active === "login" ? "Welcome Back" : "Create an Account"}
+            {/* Static Background Amoeba / Bubble Design Elements */}
+            {/* Top-Right Soft Teal Amoeba Blob */}
+            <View
+                pointerEvents="none"
+                style={{
+                    position: 'absolute',
+                    top: -60,
+                    right: -70,
+                    width: 220,
+                    height: 220,
+                    borderRadius: 110,
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.08)' : 'rgba(16, 185, 129, 0.12)',
+                    transform: [{ scaleX: 1.4 }],
+                }}
+            />
+            {/* Top-Left Small Accent Bubble */}
+            <View
+                pointerEvents="none"
+                style={{
+                    position: 'absolute',
+                    top: 40,
+                    left: -30,
+                    width: 100,
+                    height: 100,
+                    borderRadius: 50,
+                    backgroundColor: isDark ? 'rgba(56, 189, 248, 0.06)' : 'rgba(56, 189, 248, 0.10)',
+                }}
+            />
+            {/* Mid-Right Subtle Circular Ring */}
+            <View
+                pointerEvents="none"
+                style={{
+                    position: 'absolute',
+                    top: '42%',
+                    right: -40,
+                    width: 150,
+                    height: 150,
+                    borderRadius: 75,
+                    borderWidth: 2,
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(16, 185, 129, 0.10)',
+                }}
+            />
+            {/* Bottom-Left Soft Emerald Blob */}
+            <View
+                pointerEvents="none"
+                style={{
+                    position: 'absolute',
+                    bottom: -50,
+                    left: -60,
+                    width: 260,
+                    height: 260,
+                    borderRadius: 130,
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.06)' : 'rgba(16, 185, 129, 0.09)',
+                    transform: [{ scaleY: 1.3 }],
+                }}
+            />
+            {/* Bottom-Right Small Floating Bubble */}
+            <View
+                pointerEvents="none"
+                style={{
+                    position: 'absolute',
+                    bottom: 70,
+                    right: -10,
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    backgroundColor: isDark ? 'rgba(99, 102, 241, 0.08)' : 'rgba(99, 102, 241, 0.12)',
+                }}
+            />
+
+            {/* Hero Image */}
+            <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 10 }}>
+                <Image 
+                    source={require('../../../../assets/login.png')} 
+                    style={{ width: '100%', height: 180, resizeMode: 'contain' }} 
+                />
+            </View>
+
+            <View style={{ width: '100%', maxWidth: 400, alignSelf: 'center' }}>
+                {/* Header Title & Subtitle */}
+                <Text style={{
+                    fontSize: 22,
+                    fontWeight: '600',
+                    color: textColor,
+                    textAlign: 'center',
+                    marginBottom: 6,
+                }}>
+                    Welcome back
+                </Text>
+                <Text style={{
+                    fontSize: 14,
+                    color: subtitleColor,
+                    textAlign: 'center',
+                    marginBottom: 24,
+                }}>
+                    Access your real estate portfolio.
                 </Text>
 
-                {/* Tab Switcher */}
-                <View style={{ flexDirection: 'row', justifyContent: 'center', width: '100%', gap: 16, marginTop: 24, marginBottom: 28 }}>
-                    <Pressable
-                        onPress={() => setActive("login")}
-                        style={{
-                            flex: 1,
-                            backgroundColor: active === "login" ? tabActiveBg : tabInactiveBg,
-                            borderWidth: 1,
-                            borderColor: active === "login" ? tabActiveBg : borderCol,
-                            borderRadius: 26,
-                            paddingVertical: 14,
-                            alignItems: 'center',
-                        }}
-                    >
-                        <Text style={{
-                            color: active === "login" ? tabActiveText : tabInactiveText,
-                            fontWeight: '700',
-                            fontSize: 16
-                        }}>
-                            Login
-                        </Text>
-                    </Pressable>
-
-                    <Pressable
-                        onPress={() => setActive("signup")}
-                        style={{
-                            flex: 1,
-                            backgroundColor: active === "signup" ? tabActiveBg : tabInactiveBg,
-                            borderWidth: 1,
-                            borderColor: active === "signup" ? tabActiveBg : borderCol,
-                            borderRadius: 26,
-                            paddingVertical: 14,
-                            alignItems: 'center',
-                        }}
-                    >
-                        <Text style={{
-                            color: active === "signup" ? tabActiveText : tabInactiveText,
-                            fontWeight: '700',
-                            fontSize: 16
-                        }}>
-                            Sign Up
-                        </Text>
-                    </Pressable>
+                {/* Email Address Field */}
+                <View style={{ marginBottom: 18 }}>
+                    <Text style={{
+                        fontSize: 13,
+                        fontWeight: '500',
+                        color: labelColor,
+                        marginBottom: 8,
+                    }}>
+                        Email Address
+                    </Text>
+                    <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        height: 46,
+                        backgroundColor: cardBg,
+                        borderWidth: 1,
+                        borderColor: borderCol,
+                        borderRadius: 8,
+                        paddingHorizontal: 12,
+                    }}>
+                        <Ionicons name="mail-outline" size={18} color={iconColor} style={{ marginRight: 10 }} />
+                        <TextInput
+                            style={{
+                                flex: 1,
+                                fontSize: 14,
+                                color: textColor,
+                            }}
+                            value={loginEmail}
+                            onChangeText={setLoginEmail}
+                            placeholder="uproptech@gmail.com"
+                            placeholderTextColor={placeholderColor}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
+                    </View>
                 </View>
 
-                {/* Forms */}
-                {active === "login" ? (
-                    <View style={{ width: '100%' }}>
-                            <FloatingInput
-                                label="Email Address"
-                                value={loginEmail}
-                                onChangeText={setLoginEmail}
-                                placeholder="abhishekpatelXXX@gmail.com"
-                                keyboardType="email-address"
-                            />
-
-                            <FloatingInput
-                                label="Password"
-                                value={loginPassword}
-                                onChangeText={setLoginPassword}
-                                placeholder="********"
-                                secureTextEntry={!showLoginPassword}
-                                showEyeIcon={true}
-                                onEyePress={() => setShowLoginPassword(!showLoginPassword)}
-                            />
-
-                            {/* Forgot Password */}
-                            <TouchableOpacity
-                                onPress={() => router.push('/forgot-password')}
-                                style={{ alignSelf: 'flex-end', marginBottom: 20 }}
-                            >
-                                <Text style={{ color: forgotPasswordColor, fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' }}>
-                                    Forgot Password
-                                </Text>
-                            </TouchableOpacity>
-
-                            {/* Login Button */}
-                            <TouchableOpacity
-                                onPress={handleLogin}
-                                disabled={isLoginLoading}
-                                style={{
-                                    backgroundColor: buttonBg,
-                                    height: 52,
-                                    borderRadius: 26,
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    marginTop: 10,
-                                }}
-                            >
-                                {isLoginLoading ? (
-                                    <ActivityIndicator color={buttonText} />
-                                ) : (
-                                    <Text style={{ color: buttonText, fontSize: 16, fontWeight: '700' }}>
-                                        Login
-                                    </Text>
-                                )}
-                            </TouchableOpacity>
+                {/* Password Field */}
+                <View style={{ marginBottom: 18 }}>
+                    <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 8,
+                    }}>
+                        <Text style={{
+                            fontSize: 13,
+                            fontWeight: '500',
+                            color: labelColor,
+                        }}>
+                            Password
+                        </Text>
+                        <TouchableOpacity onPress={() => router.push('/forgot-password')}>
+                            <Text style={{
+                                fontSize: 13,
+                                color: textColor,
+                                fontWeight: '500',
+                            }}>
+                                Forgot password?
+                            </Text>
+                        </TouchableOpacity>
                     </View>
-                ) : (
-                    <View style={{ width: '100%' }}>
-                            <FloatingInput
-                                label="Full Name"
-                                value={fullName}
-                                onChangeText={setFullName}
-                                placeholder="Abhishek Patel"
-                            />
 
-                            <FloatingInput
-                                label="Email Address"
-                                value={signupEmail}
-                                onChangeText={setSignupEmail}
-                                placeholder="abhishekpatelXXX@gmail.com"
-                                keyboardType="email-address"
+                    <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        height: 46,
+                        backgroundColor: cardBg,
+                        borderWidth: 1,
+                        borderColor: borderCol,
+                        borderRadius: 8,
+                        paddingHorizontal: 12,
+                    }}>
+                        <Ionicons name="lock-closed-outline" size={18} color={iconColor} style={{ marginRight: 10 }} />
+                        <TextInput
+                            style={{
+                                flex: 1,
+                                fontSize: 14,
+                                color: textColor,
+                            }}
+                            value={loginPassword}
+                            onChangeText={setLoginPassword}
+                            placeholder="••••••••"
+                            placeholderTextColor={placeholderColor}
+                            secureTextEntry={!showLoginPassword}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                        />
+                        <TouchableOpacity onPress={() => setShowLoginPassword(!showLoginPassword)} style={{ padding: 4 }}>
+                            <Ionicons
+                                name={showLoginPassword ? "eye-off-outline" : "eye-outline"}
+                                size={18}
+                                color={iconColor}
                             />
-
-                            <FloatingInput
-                                label="Phone Number"
-                                value={phone}
-                                onChangeText={setPhone}
-                                placeholder="81 6082 8XXX"
-                                keyboardType="phone-pad"
-                            />
-
-                            <FloatingInput
-                                label="Password"
-                                value={signupPassword}
-                                onChangeText={setSignupPassword}
-                                placeholder="********"
-                                secureTextEntry={!showSignupPassword}
-                                showEyeIcon={true}
-                                onEyePress={() => setShowSignupPassword(!showSignupPassword)}
-                            />
-
-                            <FloatingInput
-                                label="Agency Code"
-                                value={agencyCode}
-                                onChangeText={setAgencyCode}
-                                placeholder="********"
-                                secureTextEntry={!showAgencyCode}
-                                showEyeIcon={true}
-                                onEyePress={() => setShowAgencyCode(!showAgencyCode)}
-                            />
-
-                            {/* Sign Up Button */}
-                            <TouchableOpacity
-                                onPress={handleRegister}
-                                disabled={isRegisterLoading}
-                                style={{
-                                    backgroundColor: buttonBg,
-                                    height: 52,
-                                    borderRadius: 26,
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    marginTop: 10,
-                                }}
-                            >
-                                {isRegisterLoading ? (
-                                    <ActivityIndicator color={buttonText} />
-                                ) : (
-                                    <Text style={{ color: buttonText, fontSize: 16, fontWeight: '700' }}>
-                                        Sign Up
-                                    </Text>
-                                )}
-                            </TouchableOpacity>
+                        </TouchableOpacity>
                     </View>
-                )}
-                <AppFooter />
+                </View>
+
+                {/* Remember Me Checkbox */}
+                <TouchableOpacity
+                    onPress={() => setRememberMe(!rememberMe)}
+                    activeOpacity={0.8}
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        marginBottom: 20,
+                    }}
+                >
+                    <View style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 4,
+                        borderWidth: 1,
+                        borderColor: rememberMe ? '#000000' : borderCol,
+                        backgroundColor: rememberMe ? '#000000' : cardBg,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 10,
+                    }}>
+                        {rememberMe && <Ionicons name="checkmark" size={13} color="#ffffff" />}
+                    </View>
+                    <Text style={{
+                        fontSize: 13,
+                        color: subtitleColor,
+                    }}>
+                        Remember me for 30 days
+                    </Text>
+                </TouchableOpacity>
+
+                {/* Sign In Button */}
+                <TouchableOpacity
+                    onPress={handleLogin}
+                    disabled={isLoginLoading}
+                    activeOpacity={0.9}
+                    style={{
+                        backgroundColor: '#10b981',
+                        height: 46,
+                        borderRadius: 8,
+                        flexDirection: 'row',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginBottom: 24,
+                    }}
+                >
+                    {isLoginLoading ? (
+                        <>
+                            <ActivityIndicator color="#ffffff" size="small" />
+                            <Text style={{
+                                color: '#ffffff',
+                                fontSize: 14,
+                                fontWeight: '600',
+                            }}>
+                                Signing In...
+                            </Text>
+                        </>
+                    ) : (
+                        <>
+                            <Text style={{
+                                color: '#ffffff',
+                                fontSize: 14,
+                                fontWeight: '600',
+                            }}>
+                                Sign In
+                            </Text>
+                            <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+                        </>
+                    )}
+                </TouchableOpacity>
+
+                {/* Request Access */}
+                <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: 6,
+                    marginBottom: 20,
+                }}>
+                    <Text style={{ fontSize: 13, color: subtitleColor }}>
+                        Don't have an account?
+                    </Text>
+                    <TouchableOpacity onPress={() => Linking.openURL('https://uproptech.com/')}>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
+                            Request access
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* Restored App Footer */}
+            <AppFooter />
         </KeyboardSafeArea>
     );
 };

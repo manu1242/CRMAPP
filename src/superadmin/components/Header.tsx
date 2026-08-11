@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, TextInput } from 'react-native';
-import { Menu, Search, Moon, Sun, Bell } from 'lucide-react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Menu, Moon, Sun, Bell } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NotificationModal from '@/app/components/NotififcationModal';
 import { NotificationService } from '@/Services/NotificationService';
@@ -38,10 +38,8 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
   const bgColor = isDark ? '#0f172a' : '#ffffff';
   const borderColor = isDark ? '#1e293b' : '#e2e8f0';
   const iconColor = isDark ? '#94a3b8' : '#64748b';
-  const searchBg = isDark ? '#1e293b' : '#f8fafc';
-  const searchText = isDark ? '#f1f5f9' : '#0f172a';
-  const searchPlaceholder = isDark ? '#64748b' : '#94a3b8';
-
+  const textColor = isDark ? '#f1f5f9' : '#0f172a';
+  const subTextColor = isDark ? '#94a3b8' : '#64748b';
   const containerStyle = useMemo(
     () => ({
       flexDirection: 'row' as const,
@@ -60,57 +58,33 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
 
   return (
     <View style={containerStyle}>
-      {/* Menu Icon Button */}
-      {onMenuPress && (
-        <TouchableOpacity onPress={onMenuPress} style={{ padding: 4, marginRight: 4 }}>
-          <Menu size={20} color={iconColor} />
-        </TouchableOpacity>
-      )}
-      {/* User Avatar */}
-      <View
-        style={{
-          backgroundColor: '#2563eb',
-          borderRadius: 16,
-          width: 32,
-          height: 32,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: 1,
-          borderColor: isDark ? '#3b82f6' : '#93c5fd',
-        }}
-      >
-        <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>S</Text>
-      </View>
-
-      {/* Search Bar Pill */}
-      <View
-        style={{
-          flex: 1,
-          marginHorizontal: 12,
-          backgroundColor: searchBg,
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: borderColor,
-          paddingHorizontal: 12,
-          flexDirection: 'row',
-          alignItems: 'center',
-          height: 36,
-        }}
-      >
-        <Search size={14} color={iconColor} />
-        <TextInput
-          placeholder="Search leads, documents..."
-          placeholderTextColor={searchPlaceholder}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 12 }}>
+        {/* Menu Icon Button */}
+        {onMenuPress && (
+          <TouchableOpacity onPress={onMenuPress} style={{ padding: 4, marginRight: 4 }}>
+            <Menu size={20} color={iconColor} />
+          </TouchableOpacity>
+        )}
+        {/* User Avatar */}
+        <View
           style={{
-            flex: 1,
-            height: '100%',
-            color: searchText,
-            marginLeft: 8,
-            fontSize: 13,
-            padding: 0,
+            backgroundColor: '#2563eb',
+            borderRadius: 16,
+            width: 32,
+            height: 32,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: isDark ? '#3b82f6' : '#93c5fd',
           }}
-          editable={true}
-        />
+        >
+          <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>S</Text>
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontWeight: '800', fontSize: 13 }}>Super Admin Panel</Text>
+          <Text style={{ color: subTextColor, fontSize: 10 }} numberOfLines={1}>Manage tenants, inquiries & system health</Text>
+        </View>
       </View>
 
       {/* Action Icons */}

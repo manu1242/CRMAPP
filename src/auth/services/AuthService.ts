@@ -1,7 +1,6 @@
-import { authApi, RegisterResponse } from '../api/auth.api';
+import { authApi } from '../api/auth.api';
 import { LoginRequest } from '../models/LoginRequest';
 import { LoginResponse } from '../models/LoginResponse';
-import { RegisterRequest } from '../models/RegisterRequest';
 import { TokenStorage } from '../storage/TokenStorage';
 import { SessionStorage } from '../storage/SessionStorage';
 
@@ -15,10 +14,6 @@ export const AuthService = {
       throw new Error('Authentication failed');
     }
     return response;
-  },
-
-  register: async (data: RegisterRequest): Promise<RegisterResponse> => {
-    return authApi.register(data);
   },
 
   logout: async (): Promise<void> => {

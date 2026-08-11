@@ -29,7 +29,7 @@ let isListenerAdded = false;
  * Falls back to the hard-coded env var if remote config hasn't loaded yet.
  */
 export function getApiUrl(): string {
-  return resolvedApiUrl ?? process.env.EXPO_PUBLIC_API_URL ?? 'https://api.crmapp.local/v1';
+  return resolvedApiUrl ?? process.env.EXPO_PUBLIC_API_URL ?? 'https://uproptech.com/';
 }
 
 /**
@@ -149,7 +149,7 @@ export function initRemoteConfig(forceRefresh = false): Promise<void> {
       await saveConfigToCache(fresh);
     } else if (!cached && !resolvedApiUrl) {
       // No cache and no network, and no current API URL resolved — fall back to build-time env var
-      const fallbackUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.crmapp.local/v1';
+      const fallbackUrl = process.env.EXPO_PUBLIC_API_URL ?? 'https://uproptech.com/';
       setApiUrl(fallbackUrl);
     }
   })();

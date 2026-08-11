@@ -1,8 +1,8 @@
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/api/login',
-    MVC_LOGIN: '/account/login',
-    REGISTER: '/account/register',
+    MVC_LOGIN: '/api/v1/auth/login',
+
     LOGOUT: '/account/logout',
     SELECT_WORKSPACE: '/account/selectworkspace',
     FORGOT_PASSWORD: '/account/forgotpassword',
@@ -22,8 +22,11 @@ export const API_ENDPOINTS = {
     SAVE_PERMISSIONS: '/manageusers/saverolepermissions',
   },
   SUPER_ADMIN: {
-    GET_TENANTS: '/superadmin/gettenants',
-    GET_DASHBOARD: '/superadmin/getdashboarddata',
+    GET_TENANTS: '/api/v1/superadmin/tenants',
+    GET_DASHBOARD: '/api/v1/superadmin/dashboard',
+    GET_INQUIRIES: '/api/v1/superadmin/inquiries',
+    GET_INQUIRY_BY_ID: (id: string | number) => `/api/v1/superadmin/inquiries/${id}`,
+    UPDATE_INQUIRY_STATUS: (id: string | number) => `/api/v1/superadmin/inquiries/${id}/status`,
   },
   NOTIFICATION:{
     GET_NOTIFICATIONS: '/notification/getnotifications',
@@ -50,6 +53,10 @@ export const API_ENDPOINTS = {
     BASE: '/api/v1/superadmin/settings',
     GET_SETTINGS: '/api/v1/superadmin/settings',
     SAVE_SETTINGS: '/api/v1/superadmin/settings',
+  },
+  PAYMENT_CONFIG: {
+    GET: '/api/v1/superadmin/payment-config',
+    SAVE: '/api/v1/superadmin/payment-config',
   },
   LEADS: {
     BASE: '/api/v1/LeadsApi',
@@ -244,7 +251,10 @@ export const API_ENDPOINTS = {
     DELETE: (id: number | string) => `/api/v1/settings/testimonials/${id}`,
   },
   DASHBOARD: {
-    ANALYTICS: 'home/getdashboarddata'
+    ANALYTICS: '/api/v1/dashboard',
+    ADMIN_ANALYTICS: '/api/v1/dashboard/admin',
+    RECENT_ACTIVITIES: '/api/v1/dashboard/recent-activities',
+    FOLLOW_UPS: '/api/v1/dashboard/follow-ups',
   },
 };
 

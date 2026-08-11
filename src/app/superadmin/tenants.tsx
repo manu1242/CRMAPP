@@ -71,7 +71,7 @@ export default function SuperAdminTenantsScreen() {
           </View>
           <TouchableOpacity
             onPress={() => router.push('/superadmin/create-tenant')}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#1e73be', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#1e73be', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
           >
             <Ionicons name="add-circle" size={16} color="#fff" />
             <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 12 }}>New Tenant</Text>

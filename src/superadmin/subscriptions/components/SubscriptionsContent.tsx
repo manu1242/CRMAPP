@@ -352,20 +352,27 @@ export default function SubscriptionsContent() {
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={['#1e73be']} />
         }
       >
-        <View style={{ margin: 16, backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 3, overflow: 'hidden' }}>
-          <View style={{ backgroundColor: '#1e73be', paddingHorizontal: 20, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
-              <Ionicons name="card" size={20} color="#fff" />
-            </View>
-            <View>
-              <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 16 }}>Tenant Subscriptions</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, marginTop: 2 }}>Manage and provision subscription plans for tenant workspaces</Text>
-            </View>
+        {/* Title Section */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ backgroundColor: '#1e73be', padding: 10, borderRadius: 12 }}>
+            <Ionicons name="card" size={24} color="#fff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: textColor, fontWeight: '800', fontSize: 18 }}>Tenant Subscriptions</Text>
+            <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2 }}>Manage and provision subscription plans for tenant workspaces</Text>
+          </View>
+        </View>
+
+        {/* Filter Card Container */}
+        <View style={{ marginHorizontal: 16, marginVertical: 12, backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 3, elevation: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+            <Ionicons name="filter" size={16} color="#1e73be" />
+            <Text style={{ color: textColor, fontWeight: '700', fontSize: 13 }}>Search & Filters</Text>
           </View>
 
-          {/* Filter Bar */}
-          <View style={{ padding: 16, backgroundColor: filterBarBg, borderBottomWidth: 1, borderBottomColor: borderCol, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, zIndex: 30 }}>
-            <View style={{ flex: 1, minWidth: 200, height: 40, backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ gap: 10 }}>
+            {/* Search Input */}
+            <View style={{ height: 40, backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' }}>
               <Ionicons name="search-outline" size={16} color={isDark ? '#64748b' : '#94a3b8'} />
               <TextInput
                 value={search}
@@ -376,122 +383,126 @@ export default function SubscriptionsContent() {
               />
             </View>
 
-            {/* Plans Dropdown Filter */}
-            <View style={{ position: 'relative', zIndex: 40 }}>
-              <TouchableOpacity
-                onPress={() => {
-                  setPlanDropdownOpen(!planDropdownOpen);
-                  setBillingDropdownOpen(false);
-                }}
-                style={{ height: 40, backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder, borderRadius: 8, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minWidth: 130 }}
-              >
-                <Text style={{ color: textColor, fontSize: 13 }}>
-                  {selectedPlanId === 'all'
-                    ? 'All Plans'
-                    : plans.find((p) => String(p.planId) === selectedPlanId)?.planName || 'Plan'}
-                </Text>
-                <Ionicons name="chevron-down" size={14} color={isDark ? '#cbd5e1' : '#64748b'} style={{ marginLeft: 8 }} />
-              </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10, zIndex: 40 }}>
+              {/* Plans Dropdown Filter */}
+              <View style={{ flex: 1, position: 'relative' }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setPlanDropdownOpen(!planDropdownOpen);
+                    setBillingDropdownOpen(false);
+                  }}
+                  style={{ height: 40, backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <Text style={{ color: textColor, fontSize: 13 }} numberOfLines={1}>
+                    {selectedPlanId === 'all'
+                      ? 'All Plans'
+                      : plans.find((p) => String(p.planId) === selectedPlanId)?.planName || 'Plan'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={isDark ? '#cbd5e1' : '#64748b'} />
+                </TouchableOpacity>
 
-              {planDropdownOpen && (
-                <View style={{ position: 'absolute', top: 44, left: 0, right: 0, backgroundColor: cardBg, borderWidth: 1, borderColor: borderCol, borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 4, zIndex: 50, paddingVertical: 4 }}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setSelectedPlanId('all');
-                      setPlanDropdownOpen(false);
-                    }}
-                    style={{ paddingHorizontal: 12, paddingVertical: 8 }}
-                  >
-                    <Text style={{ color: textColor, fontSize: 13, fontWeight: '700' }}>All Plans</Text>
-                  </TouchableOpacity>
-                  {plans.map((p) => (
+                {planDropdownOpen && (
+                  <View style={{ position: 'absolute', top: 44, left: 0, right: 0, backgroundColor: cardBg, borderWidth: 1, borderColor: borderCol, borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 4, zIndex: 50, paddingVertical: 4 }}>
                     <TouchableOpacity
-                      key={p.planId}
                       onPress={() => {
-                        setSelectedPlanId(String(p.planId));
+                        setSelectedPlanId('all');
                         setPlanDropdownOpen(false);
                       }}
-                      style={{ paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: borderCol }}
+                      style={{ paddingHorizontal: 12, paddingVertical: 8 }}
                     >
-                      <Text style={{ color: textColor, fontSize: 13 }}>{p.planName}</Text>
+                      <Text style={{ color: textColor, fontSize: 13, fontWeight: '700' }}>All Plans</Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+                    {plans.map((p) => (
+                      <TouchableOpacity
+                        key={p.planId}
+                        onPress={() => {
+                          setSelectedPlanId(String(p.planId));
+                          setPlanDropdownOpen(false);
+                        }}
+                        style={{ paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: borderCol }}
+                      >
+                        <Text style={{ color: textColor, fontSize: 13 }}>{p.planName}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Billing Cycle Dropdown Filter */}
+              <View style={{ flex: 1, position: 'relative', zIndex: 40 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setBillingDropdownOpen(!billingDropdownOpen);
+                    setPlanDropdownOpen(false);
+                  }}
+                  style={{ height: 40, backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <Text style={{ color: textColor, fontSize: 13 }} numberOfLines={1}>
+                    {selectedBilling === 'all'
+                      ? 'All Billing'
+                      : selectedBilling}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={isDark ? '#cbd5e1' : '#64748b'} />
+                </TouchableOpacity>
+
+                {billingDropdownOpen && (
+                  <View style={{ position: 'absolute', top: 44, left: 0, right: 0, backgroundColor: cardBg, borderWidth: 1, borderColor: borderCol, borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 4, zIndex: 50, paddingVertical: 4 }}>
+                    {['All Billing', 'Monthly', 'Annual', 'Trial'].map((b) => (
+                      <TouchableOpacity
+                        key={b}
+                        onPress={() => {
+                          setSelectedBilling(b === 'All Billing' ? 'all' : b);
+                          setBillingDropdownOpen(false);
+                        }}
+                        style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: borderCol }}
+                      >
+                        <Text style={{ color: textColor, fontSize: 13 }}>{b}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
             </View>
 
-            {/* Billing Cycle Dropdown Filter */}
-            <View style={{ position: 'relative', zIndex: 40 }}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {/* From Date Picker Button */}
               <TouchableOpacity
-                onPress={() => {
-                  setBillingDropdownOpen(!billingDropdownOpen);
-                  setPlanDropdownOpen(false);
-                }}
-                style={{ height: 40, backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder, borderRadius: 8, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minWidth: 130 }}
+                onPress={() => setDatePickerOpen('from')}
+                style={{ flex: 1, height: 40, backgroundColor: fromDate ? (isDark ? '#1e3a8a30' : '#eff6ff') : inputBg, borderWidth: 1, borderColor: fromDate ? '#1e73be' : inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}
               >
-                <Text style={{ color: textColor, fontSize: 13 }}>
-                  {selectedBilling === 'all'
-                    ? 'All Billing'
-                    : selectedBilling}
+                <Ionicons name="calendar-outline" size={14} color={fromDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8')} />
+                <Text style={{ color: fromDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8'), fontSize: 13, fontWeight: fromDate ? '600' : '400' }} numberOfLines={1}>
+                  {fromDate ? displayDate(fromDate) : 'From date'}
                 </Text>
-                <Ionicons name="chevron-down" size={14} color={isDark ? '#cbd5e1' : '#64748b'} style={{ marginLeft: 8 }} />
+                {fromDate ? (
+                  <TouchableOpacity onPress={(e) => { e.stopPropagation(); setFromDate(''); }} style={{ marginLeft: 'auto' }}>
+                    <Ionicons name="close-circle" size={14} color="#94a3b8" />
+                  </TouchableOpacity>
+                ) : null}
               </TouchableOpacity>
 
-              {billingDropdownOpen && (
-                <View style={{ position: 'absolute', top: 44, left: 0, right: 0, backgroundColor: cardBg, borderWidth: 1, borderColor: borderCol, borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 4, zIndex: 50, paddingVertical: 4 }}>
-                  {['All Billing', 'Monthly', 'Annual', 'Trial'].map((b) => (
-                    <TouchableOpacity
-                      key={b}
-                      onPress={() => {
-                        setSelectedBilling(b === 'All Billing' ? 'all' : b);
-                        setBillingDropdownOpen(false);
-                      }}
-                      style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: borderCol }}
-                    >
-                      <Text style={{ color: textColor, fontSize: 13 }}>{b}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+              {/* To Date Picker Button */}
+              <TouchableOpacity
+                onPress={() => setDatePickerOpen('to')}
+                style={{ flex: 1, height: 40, backgroundColor: toDate ? (isDark ? '#1e3a8a30' : '#eff6ff') : inputBg, borderWidth: 1, borderColor: toDate ? '#1e73be' : inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+              >
+                <Ionicons name="calendar-outline" size={14} color={toDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8')} />
+                <Text style={{ color: toDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8'), fontSize: 13, fontWeight: toDate ? '600' : '400' }} numberOfLines={1}>
+                  {toDate ? displayDate(toDate) : 'To date'}
+                </Text>
+                {toDate ? (
+                  <TouchableOpacity onPress={(e) => { e.stopPropagation(); setToDate(''); }} style={{ marginLeft: 'auto' }}>
+                    <Ionicons name="close-circle" size={14} color="#94a3b8" />
+                  </TouchableOpacity>
+                ) : null}
+              </TouchableOpacity>
             </View>
 
-            {/* From Date Picker Button */}
-            <TouchableOpacity
-              onPress={() => setDatePickerOpen('from')}
-              style={{ height: 40, backgroundColor: fromDate ? (isDark ? '#1e3a8a30' : '#eff6ff') : inputBg, borderWidth: 1, borderColor: fromDate ? '#1e73be' : inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 130 }}
-            >
-              <Ionicons name="calendar-outline" size={14} color={fromDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8')} />
-              <Text style={{ color: fromDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8'), fontSize: 13, fontWeight: fromDate ? '600' : '400' }}>
-                {fromDate ? displayDate(fromDate) : 'From date'}
-              </Text>
-              {fromDate ? (
-                <TouchableOpacity onPress={(e) => { e.stopPropagation(); setFromDate(''); }} style={{ marginLeft: 'auto' }}>
-                  <Ionicons name="close-circle" size={14} color="#94a3b8" />
-                </TouchableOpacity>
-              ) : null}
-            </TouchableOpacity>
-
-            {/* To Date Picker Button */}
-            <TouchableOpacity
-              onPress={() => setDatePickerOpen('to')}
-              style={{ height: 40, backgroundColor: toDate ? (isDark ? '#1e3a8a30' : '#eff6ff') : inputBg, borderWidth: 1, borderColor: toDate ? '#1e73be' : inputBorder, borderRadius: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 130 }}
-            >
-              <Ionicons name="calendar-outline" size={14} color={toDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8')} />
-              <Text style={{ color: toDate ? '#1e73be' : (isDark ? '#64748b' : '#94a3b8'), fontSize: 13, fontWeight: toDate ? '600' : '400' }}>
-                {toDate ? displayDate(toDate) : 'To date'}
-              </Text>
-              {toDate ? (
-                <TouchableOpacity onPress={(e) => { e.stopPropagation(); setToDate(''); }} style={{ marginLeft: 'auto' }}>
-                  <Ionicons name="close-circle" size={14} color="#94a3b8" />
-                </TouchableOpacity>
-              ) : null}
-            </TouchableOpacity>
-
             {/* Action Buttons */}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
               <TouchableOpacity
                 onPress={handleApplyFilters}
-                style={{ height: 40, backgroundColor: '#1e73be', paddingHorizontal: 20, borderRadius: 8, justifyContent: 'center' }}
+                style={{ flex: 1, height: 40, backgroundColor: '#1e73be', borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}
               >
                 <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Filter</Text>
               </TouchableOpacity>
@@ -499,132 +510,148 @@ export default function SubscriptionsContent() {
               {(search || selectedPlanId !== 'all' || selectedBilling !== 'all' || fromDate || toDate) ? (
                 <TouchableOpacity
                   onPress={handleResetFilters}
-                  style={{ height: 40, backgroundColor: isDark ? '#334155' : '#e2e8f0', borderWidth: 1, borderColor: borderCol, paddingHorizontal: 12, borderRadius: 8, justifyContent: 'center' }}
+                  style={{ height: 40, backgroundColor: isDark ? '#334155' : '#e2e8f0', borderWidth: 1, borderColor: borderCol, paddingHorizontal: 16, borderRadius: 8, justifyContent: 'center', alignItems: 'center' }}
                 >
                   <Text style={{ color: textColor, fontWeight: '700', fontSize: 13 }}>Reset</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
           </View>
+        </View>
 
-          {/* Table Content Container */}
-          {isLoading ? (
-            <View style={{ paddingVertical: 80, justifyContent: 'center', alignItems: 'center' }}>
-              <ActivityIndicator size="large" color="#1e73be" />
-              <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8, fontWeight: '600' }}>Loading subscriptions...</Text>
-            </View>
-          ) : isError ? (
-            <View style={{ paddingVertical: 80, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
-              <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
-              <Text style={{ color: textColor, fontWeight: '700', fontSize: 14, marginTop: 12 }}>Failed to load subscriptions</Text>
-              <TouchableOpacity
-                onPress={() => refetch()}
-                style={{ marginTop: 16, paddingHorizontal: 20, paddingVertical: 8, backgroundColor: '#ef4444', borderRadius: 12 }}
-              >
-                <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 12 }}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          ) : filteredSubs.length === 0 ? (
-            <View style={{ paddingVertical: 80, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
-              <Ionicons name="cube-outline" size={48} color={isDark ? '#475569' : '#cbd5e1'} />
-              <Text style={{ color: subTextColor, fontWeight: '700', fontSize: 14, marginTop: 12 }}>No subscriptions match filters</Text>
-            </View>
-          ) : (
-            <ScrollView horizontal={true} showsHorizontalScrollIndicator={true} style={{ zIndex: 10 }}>
-              <View style={{ minWidth: 960, flexDirection: 'column' }}>
-                <View style={{ backgroundColor: tableHeaderBg, flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: borderCol, paddingHorizontal: 16, paddingVertical: 12 }}>
-                  <Text style={{ width: '18%', color: subTextColor, fontWeight: '700', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>Tenant</Text>
-                  <Text style={{ width: '12%', color: subTextColor, fontWeight: '700', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Plan</Text>
-                  <Text style={{ width: '12%', color: subTextColor, fontWeight: '700', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Billing</Text>
-                  <Text style={{ width: '12%', color: subTextColor, fontWeight: '700', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Amount</Text>
-                  <Text style={{ width: '15%', color: subTextColor, fontWeight: '700', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Start Date</Text>
-                  <Text style={{ width: '15%', color: subTextColor, fontWeight: '700', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>End Date</Text>
-                  <Text style={{ width: '16%', color: subTextColor, fontWeight: '700', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Actions</Text>
-                </View>
+        {/* Subscriptions List */}
+        {isLoading ? (
+          <View style={{ paddingVertical: 80, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#1e73be" />
+            <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8, fontWeight: '600' }}>Loading subscriptions...</Text>
+          </View>
+        ) : isError ? (
+          <View style={{ paddingVertical: 80, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
+            <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
+            <Text style={{ color: textColor, fontWeight: '700', fontSize: 14, marginTop: 12 }}>Failed to load subscriptions</Text>
+            <TouchableOpacity
+              onPress={() => refetch()}
+              style={{ marginTop: 16, paddingHorizontal: 20, paddingVertical: 8, backgroundColor: '#ef4444', borderRadius: 12 }}
+            >
+              <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 12 }}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : filteredSubs.length === 0 ? (
+          <View style={{ paddingVertical: 80, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
+            <Ionicons name="cube-outline" size={48} color={isDark ? '#475569' : '#cbd5e1'} />
+            <Text style={{ color: subTextColor, fontWeight: '700', fontSize: 14, marginTop: 12 }}>No subscriptions match filters</Text>
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: 16, gap: 12 }}>
+            {filteredSubs.map((sub) => {
+              const planColors = getPlanColors(sub.planName);
+              const billingColors = getBillingColors(sub.billingCycle);
+              const isSubExpired = isExpired(sub.endDate);
+              const initials = sub.companyName
+                ? sub.companyName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+                : 'T';
 
-                {filteredSubs.map((sub, idx) => {
-                  const planColors = getPlanColors(sub.planName);
-                  const billingColors = getBillingColors(sub.billingCycle);
-                  const isSubExpired = isExpired(sub.endDate);
-
-                  return (
-                    <View
-                      key={sub.subscriptionId}
-                      style={{
-                        flexDirection: 'row',
-                        paddingVertical: 14,
-                        alignItems: 'center',
-                        borderBottomWidth: 1,
-                        borderBottomColor: borderCol,
-                        paddingHorizontal: 16,
-                        backgroundColor: idx % 2 === 1 ? (isDark ? '#0f172a' : '#f8fafc') : cardBg,
-                      }}
-                    >
-                      <View style={{ width: '18%' }}>
-                        <Text style={{ color: '#1e73be', fontWeight: '700', fontSize: 13 }}>
-                          {sub.companyName}
-                        </Text>
-                      </View>
-
-                      <View style={{ width: '12%', alignItems: 'center' }}>
-                        <View
-                          style={{ backgroundColor: planColors.bg, borderColor: planColors.border, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 2, borderRadius: 20 }}
-                        >
-                          <Text style={{ color: planColors.text, fontSize: 11, fontWeight: '700' }}>
+              return (
+                <View
+                  key={sub.subscriptionId}
+                  style={{
+                    backgroundColor: cardBg,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: borderCol,
+                    padding: 16,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: isDark ? 0.2 : 0.015,
+                    shadowRadius: 4,
+                    elevation: 1,
+                  }}
+                >
+                  {/* Row 1: Header */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#1e73be15', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#1e73be30' }}>
+                      <Text style={{ color: '#1e73be', fontWeight: '700', fontSize: 15 }}>
+                        {initials}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: textColor, fontWeight: '700', fontSize: 15 }}>{sub.companyName}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                        {/* Plan Tag */}
+                        <View style={{ backgroundColor: planColors.bg, borderColor: planColors.border, borderWidth: 0.5, paddingHorizontal: 8, paddingVertical: 1, borderRadius: 20 }}>
+                          <Text style={{ color: planColors.text, fontSize: 10, fontWeight: '700' }}>
                             {sub.planName}
                           </Text>
                         </View>
-                      </View>
-
-                      <View style={{ width: '12%', alignItems: 'center' }}>
-                        <View
-                          style={{ backgroundColor: billingColors.bg, borderColor: billingColors.border, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 2, borderRadius: 20 }}
-                        >
-                          <Text style={{ color: billingColors.text, fontSize: 11, fontWeight: '700' }}>
+                        {/* Billing Tag */}
+                        <View style={{ backgroundColor: billingColors.bg, borderColor: billingColors.border, borderWidth: 0.5, paddingHorizontal: 8, paddingVertical: 1, borderRadius: 20 }}>
+                          <Text style={{ color: billingColors.text, fontSize: 10, fontWeight: '700' }}>
                             {sub.billingCycle}
                           </Text>
                         </View>
                       </View>
+                    </View>
 
-                      <View style={{ width: '12%', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: sub.amount > 0 ? '#10b981' : subTextColor }}>
-                          {formatPrice(sub.amount)}
-                        </Text>
-                      </View>
+                    {/* Amount */}
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: sub.amount > 0 ? '#10b981' : subTextColor }}>
+                        {formatPrice(sub.amount)}
+                      </Text>
+                    </View>
+                  </View>
 
-                      <View style={{ width: '15%', alignItems: 'center' }}>
-                        <Text style={{ color: textColor, fontSize: 13 }}>
+                  {/* Row 2: Dates Grid */}
+                  <View style={{ flexDirection: 'row', gap: 16, borderTopWidth: 1, borderTopColor: borderCol, paddingTop: 12, marginTop: 4 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: subTextColor, fontSize: 10, fontWeight: '600', textTransform: 'uppercase' }}>Start Date</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                        <Ionicons name="calendar-outline" size={12} color={subTextColor} />
+                        <Text style={{ color: textColor, fontSize: 12, fontWeight: '500' }}>
                           {formatDateDDMMYYYY(sub.startDate)}
                         </Text>
                       </View>
+                    </View>
 
-                      <View style={{ width: '15%', alignItems: 'center', flexDirection: 'column', gap: 2 }}>
-                        <Text style={{ color: textColor, fontSize: 13 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: subTextColor, fontSize: 10, fontWeight: '600', textTransform: 'uppercase' }}>End Date</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                        <Ionicons name="calendar-outline" size={12} color={isSubExpired ? '#ef4444' : subTextColor} />
+                        <Text style={{ color: isSubExpired ? '#ef4444' : textColor, fontSize: 12, fontWeight: '500' }}>
                           {formatDateDDMMYYYY(sub.endDate)}
                         </Text>
                         {isSubExpired && (
-                          <View style={{ backgroundColor: isDark ? '#7f1d1d40' : '#fee2e2', borderColor: isDark ? '#7f1d1d' : '#fca5a5', borderWidth: 1, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 }}>
-                            <Text style={{ color: '#ef4444', fontSize: 9, fontWeight: '700', textTransform: 'uppercase' }}>Expired</Text>
+                          <View style={{ backgroundColor: isDark ? '#7f1d1d40' : '#fee2e2', borderColor: isDark ? '#7f1d1d' : '#fca5a5', borderWidth: 0.5, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 }}>
+                            <Text style={{ color: '#ef4444', fontSize: 8, fontWeight: '700', textTransform: 'uppercase' }}>Expired</Text>
                           </View>
                         )}
                       </View>
-
-                      <View style={{ width: '16%', alignItems: 'center' }}>
-                        <TouchableOpacity
-                          onPress={() => openAssignModal(sub)}
-                          style={{ backgroundColor: '#f0ad4e', borderColor: '#eea236', borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                        >
-                          <Ionicons name="add-circle" size={12} color="#fff" />
-                          <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 11 }}>+ Assign Plan</Text>
-                        </TouchableOpacity>
-                      </View>
                     </View>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          )}
-        </View>
+                  </View>
+
+                  {/* Row 3: Action Button */}
+                  <TouchableOpacity
+                    onPress={() => openAssignModal(sub)}
+                    style={{
+                      backgroundColor: '#1e73be',
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      marginTop: 14
+                    }}
+                  >
+                    <Ionicons name="create-outline" size={14} color="#fff" />
+                    <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>
+                      Assign Subscription Plan
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
       {/* Assign Plan Modal */}

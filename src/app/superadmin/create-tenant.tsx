@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 // import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,18 +17,26 @@ import BottomNav from '@/superadmin/components/BottomNav';
 
 export default function CreateTenantScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    companyName?: string;
+    subdomain?: string;
+    contactPerson?: string;
+    email?: string;
+    phone?: string;
+    referralCode?: string;
+  }>();
   const createMutation = useCreateTenantMutation();
   const { isDark } = useTheme();
 
   const [formData, setFormData] = useState({
-    companyName: '',
-    subdomain: '',
+    companyName: params.companyName || '',
+    subdomain: params.subdomain || '',
     plan: '',      // human-readable plan name (set by picker)
     planId: 0,     // actual planId (set by picker)
-    contactPerson: '',
-    email: '',
-    phone: '',
-    referralCode: '',
+    contactPerson: params.contactPerson || '',
+    email: params.email || '',
+    phone: params.phone || '',
+    referralCode: params.referralCode || '',
   });
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
