@@ -46,6 +46,16 @@ import {
   MessageSquare,
   Landmark,
   DollarSign,
+  Home,
+  Handshake,
+  Wallet,
+  CalendarCheck,
+  Coins,
+  UserCog,
+  SlidersHorizontal,
+  Zap,
+  Star,
+  BotMessageSquare,
 } from 'lucide-react-native';
 
 import { useTheme } from '../../contexts/ThemeContext';
@@ -72,7 +82,7 @@ export const MODULES: ModuleItem[] = [
   {
     id: 'leads-properties',
     title: 'Leads & Props',
-    icon: FolderOpen,
+    icon: Home,
     color: '#10b981',
     bgColor: '#10b9811f',
     category: 'Sales & Marketing',
@@ -87,7 +97,7 @@ export const MODULES: ModuleItem[] = [
   {
     id: 'sales',
     title: 'Sales',
-    icon: ShoppingCart,
+    icon: Handshake,
     color: '#6366f1',
     bgColor: '#6366f11f',
     category: 'Sales & Marketing',
@@ -101,7 +111,7 @@ export const MODULES: ModuleItem[] = [
   {
     id: 'finance',
     title: 'Finance',
-    icon: CreditCard,
+    icon: Wallet,
     color: '#f59e0b',
     bgColor: '#f59e0b1f',
     category: 'Financial Management',
@@ -126,7 +136,7 @@ export const MODULES: ModuleItem[] = [
   {
     id: 'attendance',
     title: 'Attendance',
-    icon: Clock,
+    icon: CalendarCheck,
     color: '#06b6d4',
     bgColor: '#06b6d41f',
     category: 'Human Resources',
@@ -137,7 +147,7 @@ export const MODULES: ModuleItem[] = [
   {
     id: 'payouts',
     title: 'Payouts',
-    icon: DollarSign,
+    icon: Coins,
     color: '#ec4899',
     bgColor: '#ec48991f',
     category: 'Financial Management',
@@ -149,7 +159,7 @@ export const MODULES: ModuleItem[] = [
   {
     id: 'user-management',
     title: 'User Mgmt',
-    icon: Shield,
+    icon: UserCog,
     color: '#ef4444',
     bgColor: '#ef44441f',
     category: 'System & Security',
@@ -161,7 +171,7 @@ export const MODULES: ModuleItem[] = [
   {
     id: 'settings',
     title: 'Settings',
-    icon: Settings,
+    icon: SlidersHorizontal,
     color: '#64748b',
     bgColor: '#64748b1f',
     category: 'System Settings',
@@ -174,7 +184,7 @@ export const MODULES: ModuleItem[] = [
   {
     id: 'subscriptions',
     title: 'Subscriptions',
-    icon: Package,
+    icon: Zap,
     color: '#14b8a6',
     bgColor: '#14b8a61f',
     category: 'Subscriptions & Billing',
@@ -202,7 +212,7 @@ export const MODULES: ModuleItem[] = [
   {
     id: 'testimonials',
     title: 'Testimonials',
-    icon: MessageSquare,
+    icon: Star,
     color: '#f43f5e',
     bgColor: '#f43f5e1f',
     category: 'Marketing & Feedback',
@@ -213,7 +223,7 @@ export const MODULES: ModuleItem[] = [
   {
     id: 'chatbot-dashboard',
     title: 'Chatbot',
-    icon: Bot,
+    icon: BotMessageSquare,
     color: '#0284c7',
     bgColor: '#0284c71f',
     category: 'AI & Automation',
@@ -243,7 +253,7 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
   useEffect(() => {
     if (modalVisible) {
       const backAction = () => {
-        onClose();
+        onCloseRef.current();
         return true;
       };
       const backHandler = BackHandler.addEventListener(
@@ -258,8 +268,8 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
   const [contentHeight, setContentHeight] = useState(320); // Fallback content height
   const contentHeightRef = useRef(320);
 
-  const getMinHeight = () => Math.min(contentHeightRef.current, windowHeight * 0.40);
-  const getMaxHeight = () => Math.min(contentHeightRef.current, windowHeight * 0.92);
+  const getMinHeight = () => Math.max(320, Math.min(contentHeightRef.current, windowHeight * 0.40));
+  const getMaxHeight = () => Math.max(320, Math.min(contentHeightRef.current, windowHeight * 0.92));
 
   const sheetHeight = useRef(new Animated.Value(320)).current;
   const translateY = useRef(new Animated.Value(windowHeight)).current;
@@ -298,7 +308,7 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
       setFocusedModuleId(null);
       setIsExpanded(false);
       isExpandedRef.current = false;
-      
+
       const initialHeight = getMinHeight();
       committedHeightRef.current = initialHeight;
       scrollYRef.current = 0;
@@ -477,14 +487,17 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
   };
 
   const handleContentHeightChange = (height: number) => {
+    if (!isOpen) return;
     const roundedHeight = Math.round(height);
+    if (roundedHeight < 50) return;
+
     if (Math.abs(roundedHeight - contentHeightRef.current) > 2) {
       contentHeightRef.current = roundedHeight;
       setContentHeight(roundedHeight);
-      
+
       if (isOpen) {
-        const targetHeight = isExpandedRef.current || focusedModuleId 
-          ? getMaxHeight() 
+        const targetHeight = isExpandedRef.current || focusedModuleId
+          ? getMaxHeight()
           : getMinHeight();
 
         committedHeightRef.current = targetHeight;
@@ -515,7 +528,8 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
 
   // Theme colors
   const cardBg = adminTheme.cardBg;
-  const sheetBg = adminTheme.cardBg;
+  const primaryBg = adminTheme.primaryBg;
+  const sheetBg = adminTheme.primaryBg;
   const textColor = adminTheme.textPrimary;
   const subTextColor = adminTheme.textSecondary;
   const borderColor = adminTheme.border;
@@ -529,7 +543,7 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
         {/* Backdrop container with Gaussian Blur */}
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}>
           <BlurView
-            intensity={4}
+            intensity={isDark ? 14 : 8}
             tint={isDark ? 'dark' : 'light'}
             blurMethod="dimezisBlurView"
             blurTarget={blurTargetRef}
@@ -539,7 +553,7 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
           <Pressable
             style={[
               styles.backdrop,
-              { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)' }
+              { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.25)' }
             ]}
             onPress={onClose}
           />
@@ -557,185 +571,196 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
             style={[
               styles.sheetContainer,
               {
-                backgroundColor: sheetBg,
+                backgroundColor: isDark ? 'rgba(12, 12, 12, 0.55)' : '#ffffff',
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)',
+                borderTopWidth: 1.5,
+                borderLeftWidth: 1.5,
+                borderRightWidth: 1.5,
                 height: sheetHeight,
               },
             ]}
           >
-          {/* Drag Handle — always interactive */}
-          <View style={styles.dragHandleContainer} {...panResponder.panHandlers}>
-            <View style={styles.dragHandle} />
-          </View>
-
-          {/* Animating overall content opacity */}
-          <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
-            {/* Header Row */}
-            <View style={[styles.headerRow, { borderBottomColor: borderColor }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.headerTitle, { color: textColor }]}>
-                  {focusedModule ? focusedModule.title : 'Role:Admin'}
-                </Text>
-                <Text style={[styles.headerSubtitle, { color: subTextColor }]}>
-                  {focusedModule ? focusedModule.category : 'Quick Actions & Modules'}
-                </Text>
-              </View>
-
-              {focusedModule ? (
-                <TouchableOpacity
-                  onPress={() => setFocusedModuleId(null)}
-                  style={[styles.backButton, { backgroundColor: inputBg }]}
-                >
-                  <ArrowLeft size={16} color={textColor} />
-                  <Text style={[styles.backButtonText, { color: textColor }]}>Back</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: inputBg }]}>
-                  <X size={18} color={textColor} />
-                </TouchableOpacity>
-              )}
+            {/* Glass blur — dark mode only */}
+            {isDark && (
+              <BlurView
+                intensity={30}
+                tint="dark"
+                style={[StyleSheet.absoluteFill, { borderTopLeftRadius: 50, borderTopRightRadius: 50 }]}
+              />
+            )}
+            {/* Drag Handle — always interactive */}
+            <View style={styles.dragHandleContainer} {...panResponder.panHandlers}>
+              <View style={styles.dragHandle} />
             </View>
 
-            {/* Search Input (When not focused) */}
-            {!focusedModuleId && (
-              <View style={[styles.searchWrapper, { backgroundColor: inputBg, borderColor }]}>
-                <Search size={16} color={subTextColor} />
-                <TextInput
-                  placeholder="Search modules..."
-                  placeholderTextColor={subTextColor}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  style={[styles.searchInput, { color: textColor }]}
-                />
-                {searchQuery !== '' && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <X size={16} color={subTextColor} />
+            {/* Animating overall content opacity */}
+            <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
+              {/* Header Row */}
+              <View style={[styles.headerRow, { borderBottomColor: borderColor, position: 'relative', justifyContent: 'center', minHeight: 40, paddingBottom: 16 }]}>
+                {focusedModule && (
+                  <TouchableOpacity
+                    onPress={() => setFocusedModuleId(null)}
+                    style={[styles.backButton, { backgroundColor: inputBg, position: 'absolute', left: 0, zIndex: 10 }]}
+                  >
+                    <ArrowLeft size={16} color={textColor} />
+                    <Text style={[styles.backButtonText, { color: textColor }]}>Back</Text>
                   </TouchableOpacity>
                 )}
+
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 60 }}>
+                  <Text style={{
+                    color: textColor,
+                    fontSize: 16,
+                    fontWeight: '700',
+                    textAlign: 'center',
+                    letterSpacing: -0.2,
+                  }}>
+                    {focusedModule ? focusedModule.category : 'Quick Actions & Modules'}
+                  </Text>
+                </View>
               </View>
-            )}
 
-            {/* Content Area — wrap with panHandlers so swipe-up anywhere expands */}
-            <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-              <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                scrollEnabled={isExpanded}
-                onScroll={(e) => {
-                  scrollYRef.current = e.nativeEvent.contentOffset.y;
-                }}
-                scrollEventThrottle={16}
-              >
-                {focusedModule ? (
-                  /* Focused Module Sub-Links View */
-                  <Animated.View
-                    onLayout={(e) => handleInnerContentLayout(e.nativeEvent.layout.height)}
-                    style={[
-                      styles.focusedContainer,
-                      {
-                        opacity: subLinkAnim,
-                        transform: [
-                          {
-                            translateY: subLinkAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [15, 0],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  >
-                    <View style={[styles.focusedBadgeCard, { backgroundColor: focusedModule.bgColor }]}>
-                      <focusedModule.icon size={28} color={focusedModule.color} />
-                      <Text style={[styles.focusedBadgeTitle, { color: textColor }]}>
-                        {focusedModule.title}
-                      </Text>
-                      <Text style={[styles.focusedBadgeCategory, { color: subTextColor }]}>
-                        {focusedModule.category}
-                      </Text>
-                    </View>
+              {/* Search Input (When not focused) */}
+              {!focusedModuleId && (
+                <View style={[styles.searchWrapper, { backgroundColor: inputBg, borderColor }]}>
+                  <Search size={16} color={subTextColor} />
+                  <TextInput
+                    placeholder="Search modules..."
+                    placeholderTextColor={subTextColor}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    style={[styles.searchInput, { color: textColor }]}
+                  />
+                  {searchQuery !== '' && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                      <X size={16} color={subTextColor} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
 
-                    <Text style={[styles.subLinksHeading, { color: subTextColor }]}>SELECT ACTION ITEM</Text>
-
-                    {focusedModule.subLinks.map((item, idx) => (
-                      <TouchableOpacity
-                        key={idx}
-                        onPress={() => handleNavigate(item.route)}
-                        style={[styles.subLinkCard, { backgroundColor: cardBg, borderColor }]}
-                      >
-                        <View style={styles.subLinkRow}>
-                          <View style={[styles.subLinkIconBadge, { backgroundColor: inputBg }]}>
-                            <ChevronRight size={16} color={focusedModule.color} />
-                          </View>
-                          <Text style={[styles.subLinkLabel, { color: textColor }]}>{item.label}</Text>
-                        </View>
-                        <ChevronRight size={16} color={subTextColor} />
-                      </TouchableOpacity>
-                    ))}
-                  </Animated.View>
-                ) : (
-                  /* 3-Column Modules Grid with Staggered Entrance */
-                  <View 
-                    onLayout={(e) => handleInnerContentLayout(e.nativeEvent.layout.height)}
-                    style={styles.gridContainer}
-                  >
-                    {filteredModules.length > 0 ? (
-                      filteredModules.map((module, index) => {
-                        const IconComp = module.icon;
-                        const anim = itemAnims[index] || new Animated.Value(1);
-
-                        return (
-                          <Animated.View
-                            key={module.id}
-                            style={[
-                              styles.moduleCardWrapper,
-                              {
-                                opacity: anim,
-                                transform: [
-                                  {
-                                    translateY: anim.interpolate({
-                                      inputRange: [0, 1],
-                                      outputRange: [20, 0],
-                                    }),
-                                  },
-                                  {
-                                    scale: anim.interpolate({
-                                      inputRange: [0, 1],
-                                      outputRange: [0.93, 1],
-                                    }),
-                                  },
-                                ],
-                              },
-                            ]}
-                          >
-                            <TouchableOpacity
-                              onPress={() => handleModulePress(module)}
-                              style={[styles.moduleCard, { backgroundColor: cardBg, borderColor }]}
-                              activeOpacity={0.7}
-                            >
-                              <View style={[styles.iconBadge, { backgroundColor: module.bgColor }]}>
-                                <IconComp size={22} color={module.color} />
-                              </View>
-                              <Text style={[styles.moduleTitle, { color: textColor }]} numberOfLines={1}>
-                                {module.title}
-                              </Text>
-                            </TouchableOpacity>
-                          </Animated.View>
-                        );
-                      })
-                    ) : (
-                      <View style={styles.emptyState}>
-                        <Info size={24} color={subTextColor} />
-                        <Text style={[styles.emptyText, { color: subTextColor }]}>No modules match "{searchQuery}"</Text>
+              {/* Content Area — wrap with panHandlers so swipe-up anywhere expands */}
+              <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+                <ScrollView
+                  contentContainerStyle={styles.scrollContent}
+                  showsVerticalScrollIndicator={false}
+                  scrollEnabled={isExpanded}
+                  onScroll={(e) => {
+                    scrollYRef.current = e.nativeEvent.contentOffset.y;
+                  }}
+                  scrollEventThrottle={16}
+                >
+                  {focusedModule ? (
+                    /* Focused Module Sub-Links View */
+                    <Animated.View
+                      onLayout={(e) => handleInnerContentLayout(e.nativeEvent.layout.height)}
+                      style={[
+                        styles.focusedContainer,
+                        {
+                          opacity: subLinkAnim,
+                          transform: [
+                            {
+                              translateY: subLinkAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [15, 0],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <View style={[styles.focusedBadgeCard, { backgroundColor: focusedModule.bgColor }]}>
+                        <focusedModule.icon size={28} color={focusedModule.color} />
+                        <Text style={[styles.focusedBadgeTitle, { color: textColor }]}>
+                          {focusedModule.title}
+                        </Text>
+                        <Text style={[styles.focusedBadgeCategory, { color: subTextColor }]}>
+                          {focusedModule.category}
+                        </Text>
                       </View>
-                    )}
-                  </View>
-                )}
-              </ScrollView>
-            </View>
 
+                      <Text style={[styles.subLinksHeading, { color: subTextColor }]}>SELECT ACTION ITEM</Text>
+
+                      {focusedModule.subLinks.map((item, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          onPress={() => handleNavigate(item.route)}
+                          style={[styles.subLinkCard, { backgroundColor: cardBg, borderColor }]}
+                        >
+                          <View style={styles.subLinkRow}>
+                            <View style={[styles.subLinkIconBadge, { backgroundColor: inputBg }]}>
+                              <ChevronRight size={16} color={focusedModule.color} />
+                            </View>
+                            <Text style={[styles.subLinkLabel, { color: textColor }]}>{item.label}</Text>
+                          </View>
+                          <ChevronRight size={16} color={subTextColor} />
+                        </TouchableOpacity>
+                      ))}
+                    </Animated.View>
+                  ) : (
+                    /* 3-Column Modules Grid with Staggered Entrance */
+                    <View
+                      onLayout={(e) => handleInnerContentLayout(e.nativeEvent.layout.height)}
+                      style={styles.gridContainer}
+                    >
+                      {filteredModules.length > 0 ? (
+                        filteredModules.map((module, index) => {
+                          const IconComp = module.icon;
+                          const anim = itemAnims[index] || new Animated.Value(1);
+
+                          return (
+                            <Animated.View
+                              key={module.id}
+                              style={[
+                                styles.moduleCardWrapper,
+                                {
+                                  opacity: anim,
+                                  transform: [
+                                    {
+                                      translateY: anim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [20, 0],
+                                      }),
+                                    },
+                                    {
+                                      scale: anim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [0.93, 1],
+                                      }),
+                                    },
+                                  ],
+                                },
+                              ]}
+                            >
+                              <TouchableOpacity
+                                onPress={() => handleModulePress(module)}
+                                style={styles.moduleCard}
+                                activeOpacity={0.7}
+                              >
+                                <View style={[styles.iconBadge, { backgroundColor: cardBg, borderColor }]}>
+                                  <IconComp size={32} color={module.color} />
+                                </View>
+                                <Text style={[styles.moduleTitle, { color: textColor }]} numberOfLines={1}>
+                                  {module.title}
+                                </Text>
+                              </TouchableOpacity>
+                            </Animated.View>
+                          );
+                        })
+                      ) : (
+                        <View style={styles.emptyState}>
+                          <Info size={24} color={subTextColor} />
+                          <Text style={[styles.emptyText, { color: subTextColor }]}>No modules match "{searchQuery}"</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+
+            </Animated.View>
           </Animated.View>
         </Animated.View>
-      </Animated.View>
       </View>
     </View>
   );
@@ -831,27 +856,24 @@ const styles = StyleSheet.create({
   },
   moduleCardWrapper: {
     width: '31%',
-    aspectRatio: 1.05,
+    marginBottom: 16,
   },
   moduleCard: {
     width: '100%',
-    height: '100%',
-    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBadge: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
-  },
-  iconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   moduleTitle: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },

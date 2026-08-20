@@ -7,9 +7,20 @@ import {
   LeadFullDetails,
   AddNotePayload,
   AddFollowUpPayload,
+  AddLeadPayload,
+  LeadItem,
 } from '../models/LeadTypes';
 
 export const LeadService = {
+
+  addLead: async (payload: AddLeadPayload): Promise<ApiResponse<LeadItem>> => {
+    return apiClient.post<ApiResponse<LeadItem>>(
+      API_ENDPOINTS.LEADS.ADD_LEAD(''),
+      payload
+    );
+  },
+
+
   getLeads: async (params?: LeadQueryParams, signal?: AbortSignal): Promise<ApiResponse<LeadListResponseData>> => {
     return apiClient.get<ApiResponse<LeadListResponseData>>(
       API_ENDPOINTS.LEADS.BASE,
@@ -107,9 +118,29 @@ export const LeadService = {
     );
   },
 
+  editFollowUp: async (id: number | string, followUpId: number | string, payload: any): Promise<ApiResponse<any>> => {
+    return apiClient.put<ApiResponse<any>>(
+      API_ENDPOINTS.LEADS.EDIT_FOLLOW_UP(id, followUpId),
+      payload
+    );
+  },
+
+  updateLead: async (id: number | string, payload: AddLeadPayload): Promise<ApiResponse<any>> => {
+    return apiClient.put<ApiResponse<any>>(
+      API_ENDPOINTS.LEADS.BY_ID(id),
+      payload
+    );
+  },
+
+  getFormOptions: async (): Promise<ApiResponse<any>> => {
+    return apiClient.get<ApiResponse<any>>(
+      API_ENDPOINTS.LEADS.ADD_OPTIONS('')
+    );
+  },
+
   uploadDocument: async (id: number | string, formData: FormData): Promise<ApiResponse<any>> => {
     return apiClient.postForm<ApiResponse<any>>(
-      `/api/v1/LeadsApi/${id}/documents`,
+      API_ENDPOINTS.LEADS.UPLOAD_DOC(id),
       formData
     );
   },

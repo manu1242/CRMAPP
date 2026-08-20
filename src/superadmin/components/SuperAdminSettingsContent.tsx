@@ -15,8 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 
 import AppFooter from '../../auth/components/AppFooter';
-import { SaaSSettings } from '@/superadmin/tenants/models/Tenant';
-import { settingsApi } from '@/superadmin/tenants/api/settings.api';
+import { SaaSSettings } from '../tenants/models/Tenant';
+import { settingsApi } from '../tenants/api/settings.api';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const emptySettings: SaaSSettings = {
@@ -56,15 +56,15 @@ export default function SuperAdminSettingsContent() {
                 // but our SaaSSettings interface uses camelCase. Map manually.
                 const d: Record<string, string> = response.data as any;
                 setSettings({
-                    companyName:           d['CompanyName']            ?? '',
-                    companyEmail:          d['CompanyEmail']           ?? '',
-                    companyPhone:          d['CompanyPhone']           ?? '',
-                    companyAddress:        d['CompanyAddress']         ?? '',
-                    copyrightText:         d['CopyrightText']          ?? '',
-                    referralReferrerAmount:d['ReferralReferrerAmount'] ?? '',
-                    referralJoinerAmount:  d['ReferralJoinerAmount']   ?? '',
-                    companyLogo:           d['CompanyLogo']            ?? '',
-                    companyMapUrl:         d['CompanyMapUrl']          ?? '',
+                    companyName: d['CompanyName'] ?? '',
+                    companyEmail: d['CompanyEmail'] ?? '',
+                    companyPhone: d['CompanyPhone'] ?? '',
+                    companyAddress: d['CompanyAddress'] ?? '',
+                    copyrightText: d['CopyrightText'] ?? '',
+                    referralReferrerAmount: d['ReferralReferrerAmount'] ?? '',
+                    referralJoinerAmount: d['ReferralJoinerAmount'] ?? '',
+                    companyLogo: d['CompanyLogo'] ?? '',
+                    companyMapUrl: d['CompanyMapUrl'] ?? '',
                 });
             } else {
                 Toast.show({ type: 'error', text1: 'Error', text2: response.message });
@@ -111,8 +111,7 @@ export default function SuperAdminSettingsContent() {
 
         const result =
             await ImagePicker.launchImageLibraryAsync({
-                mediaTypes:
-                    ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 quality: 0.8,
                 base64: true,
             });
@@ -131,15 +130,15 @@ export default function SuperAdminSettingsContent() {
             setSaving(true);
             // Backend stores keys as PascalCase — send matching keys
             const payload: Record<string, string> = {
-                CompanyName:            settings.companyName,
-                CompanyEmail:           settings.companyEmail,
-                CompanyPhone:           settings.companyPhone,
-                CompanyAddress:         settings.companyAddress,
-                CopyrightText:          settings.copyrightText,
+                CompanyName: settings.companyName,
+                CompanyEmail: settings.companyEmail,
+                CompanyPhone: settings.companyPhone,
+                CompanyAddress: settings.companyAddress,
+                CopyrightText: settings.copyrightText,
                 ReferralReferrerAmount: settings.referralReferrerAmount,
-                ReferralJoinerAmount:   settings.referralJoinerAmount,
-                CompanyLogo:            settings.companyLogo,
-                CompanyMapUrl:          settings.companyMapUrl,
+                ReferralJoinerAmount: settings.referralJoinerAmount,
+                CompanyLogo: settings.companyLogo,
+                CompanyMapUrl: settings.companyMapUrl,
             };
             const response = await settingsApi.saveSettings(payload as any);
 
@@ -177,7 +176,7 @@ export default function SuperAdminSettingsContent() {
                     />
                 }
                 contentContainerStyle={{
-                    paddingBottom: 100,
+                    paddingBottom: 160,
                     paddingHorizontal: 16,
                 }}
             >

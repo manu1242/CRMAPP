@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../../../contexts/ThemeContext';
-import { getAdminTheme } from '@/theme/adminTheme';
+import { getAdminTheme } from '../../../../theme/adminTheme';
 import {
   Zap,
   CheckCircle2,
@@ -234,7 +234,7 @@ export default function MyCrmPlanScreen() {
           </View>
         ) : planData ? (
           <View style={{ gap: 18 }}>
-            
+
             {/* 1. Teal/Green Trial Header Card */}
             {sub.isTrial && (
               <View style={{ backgroundColor: '#0f766e', borderRadius: 16, padding: 18, gap: 12 }}>
@@ -446,7 +446,7 @@ export default function MyCrmPlanScreen() {
                       {type.key === 'existing_upgrade' && <Sparkles size={18} color={isSelected ? '#3b82f6' : subTextColor} />}
                       {type.key === 'immediate' && <Zap size={18} color={isSelected ? '#3b82f6' : subTextColor} />}
                       {type.key === 'scheduled' && <Calendar size={18} color={isSelected ? '#3b82f6' : subTextColor} />}
-                      
+
                       <Text style={{ fontSize: 11, fontWeight: '700', color: isSelected ? textColor : subTextColor, textAlign: 'center' }}>
                         {type.label}
                       </Text>
@@ -490,7 +490,7 @@ export default function MyCrmPlanScreen() {
                 <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
                   Select New Plan:
                 </Text>
-                
+
                 {/* Billing cycle switch (Monthly vs Annual) */}
                 <View style={{ flexDirection: 'row', backgroundColor: borderCol, borderRadius: 20, padding: 2 }}>
                   <TouchableOpacity
@@ -526,7 +526,7 @@ export default function MyCrmPlanScreen() {
                 const price = billingCycle === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
                 const cycleText = billingCycle === 'monthly' ? '/mo' : '/yr';
                 const isCurrent = plan.planName.toLowerCase() === sub.planName.toLowerCase();
-                
+
                 return (
                   <View
                     key={plan.planId}

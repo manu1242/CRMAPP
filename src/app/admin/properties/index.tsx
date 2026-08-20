@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getApiUrl } from '@/api/remoteConfig';
+import { getApiUrl } from '../../../api/remoteConfig';
 import {
   View,
   Text,

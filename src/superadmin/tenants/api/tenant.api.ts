@@ -1,10 +1,10 @@
-import { apiClient } from '@/api/apiClient';
-import { API_ENDPOINTS } from '@/api/endpoints';
-import { 
-  Tenant, 
-  TenantCreateRequest, 
-  TenantUpdateRequest, 
-  PaginatedTenantsResponse 
+import { apiClient } from '../../../api/apiClient';
+import { API_ENDPOINTS } from '../../../api/endpoints';
+import {
+  Tenant,
+  TenantCreateRequest,
+  TenantUpdateRequest,
+  PaginatedTenantsResponse
 } from '../models/Tenant';
 
 export interface ApiResponse<T> {

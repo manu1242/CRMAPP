@@ -18,6 +18,7 @@ import {
   FileText,
   CalendarCheck,
   Filter,
+  Plus,
   ChevronDown,
   Check,
 } from 'lucide-react-native';
@@ -173,11 +174,17 @@ export default function LeadsScreen() {
               </TouchableOpacity>
             )}
           </View>
-          <View style={[styles.countBadge, { backgroundColor: inputBg }]}>
+          {/* <View style={[styles.countBadge, { backgroundColor: inputBg }]}>
             <Text style={[styles.countBadgeText, { color: subTextColor }]}>
               {totalCount}Leads
             </Text>
-          </View>
+          </View> */}
+          <TouchableOpacity onPress={() => router.push('/admin/leads/AddLead')}>
+            <View style={[styles.filterDropdownBtn, { backgroundColor: cardBg, borderColor: status ? brandCol : borderCol }]}>
+              <Plus size={20} color={brandCol} />
+              <Text style={{ color: brandCol }}>Add</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Filter Dropdown Modal */}

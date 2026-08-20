@@ -11,10 +11,10 @@ import {
   Switch,
   Alert,
 } from 'react-native';
-import Toast from 'react-native-toast-message';
-import { useRouter } from 'expo-router';
+import Toast, { BaseToast } from 'react-native-toast-message';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { getAdminTheme } from '@/theme/adminTheme';
+import { getAdminTheme } from '../../../theme/adminTheme';
 import {
   Users,
   Search,
@@ -49,6 +49,7 @@ import {
   CreateUserPayload,
 } from '../../../admin/services/userManagementService';
 import { useAuthStore } from '../../../auth/store/authStore';
+import { useUserStore } from '../../../admin/store/useUserStore';
 
 const MONTHS_LIST = [
   'January',
@@ -76,19 +77,24 @@ export default function ManageUsers() {
   const subTextColor = adminTheme.textSecondary;
   const borderCol = adminTheme.border;
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [users, setUsers] = useState<UserItem[]>([]);
-  const [summary, setSummary] = useState<UserSummary | null>(null);
-  const [availableRoles, setAvailableRoles] = useState<string[]>(['Admin', 'Agent', 'Partner']);
-
-  // Filters State
-  const [search, setSearch] = useState('');
-  const [selectedRole, setSelectedRole] = useState<string>('All');
-  const [selectedStatus, setSelectedStatus] = useState<string>('All');
-  const [page] = useState(1);
+  // Subscribe to Zustand Store
+  const {
+    users,
+    summary,
+    availableRoles,
+    isLoading: loading,
+    isRefreshing: refreshing,
+    error,
+    search,
+    selectedRole,
+    selectedStatus,
+    page,
+    fetchUsers,
+    setSearch,
+    setSelectedRole,
+    setSelectedStatus,
+    setPage,
+  } = useUserStore();
 
   // Dropdown Modals Visibility
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
@@ -98,30 +104,8 @@ export default function ManageUsers() {
   const [impersonateTargetUser, setImpersonateTargetUser] = useState<UserItem | null>(null);
   const [impersonatingLoading, setImpersonatingLoading] = useState(false);
 
-  // Create User Modal State
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createLoading, setCreateLoading] = useState(false);
-  const [createForm, setCreateForm] = useState<CreateUserPayload>({
-    username: '',
-    email: '',
-    password: '',
-    role: 'Agent',
-    phone: '',
-    isActive: true,
-  });
-
-  // Edit User Modal State
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
-  const [selectedUserForEdit, setSelectedUserForEdit] = useState<UserItem | null>(null);
-  const [editForm, setEditForm] = useState({
-    username: '',
-    email: '',
-    phone: '',
-    role: 'Agent',
-    isActive: true,
-    password: '',
-  });
+  // Deactivate Confirmation State
+  const [deactivateTargetUser, setDeactivateTargetUser] = useState<UserItem | null>(null);
 
   // Attendance Modal State
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
@@ -131,106 +115,19 @@ export default function ManageUsers() {
   const [attendanceMonthIndex, setAttendanceMonthIndex] = useState(6); // Default July
   const [attendanceYear, setAttendanceYear] = useState(2026);
 
-  // Fetch Users
-  const fetchUsers = useCallback(
-    async (isRefresh = false) => {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      setError(null);
-
-      try {
-        const response = await userManagementService.getUsers({
-          search: search.trim() || undefined,
-          roleFilter: selectedRole !== 'All' ? selectedRole : undefined,
-          statusFilter: selectedStatus !== 'All' ? selectedStatus : undefined,
-          page,
-          pageSize: 10,
-        });
-
-        if (response && response.success !== false) {
-          setUsers(response.data || []);
-          setSummary(response.summary || null);
-          if (response.availableRoles && response.availableRoles.length > 0) {
-            setAvailableRoles(response.availableRoles);
-          }
-        } else {
-          setError('Failed to fetch user management data');
-          Toast.show({
-            type: 'error',
-            text1: 'Fetch Error',
-            text2: 'Failed to fetch user management data',
-          });
-        }
-      } catch (err: any) {
-        console.error('Error fetching users:', err);
-        setError(err.message || 'Error connecting to user service');
-        Toast.show({
-          type: 'error',
-          text1: 'Connection Error',
-          text2: err.message || 'Error connecting to user service',
-        });
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [search, selectedRole, selectedStatus, page]
-  );
-
+  // Initial fetch and fetch on filter modification
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]);
+  }, [search, selectedRole, selectedStatus, page]);
 
-  // Handle Create User
-  const handleCreateUser = async () => {
-    if (!createForm.username || !createForm.email) {
-      Toast.show({
-        type: 'error',
-        text1: 'Validation Error',
-        text2: 'Please enter username and email.',
-      });
-      return;
-    }
+  // Refetch when screen is focused (returning from Create/Edit User)
+  useFocusEffect(
+    useCallback(() => {
+      fetchUsers();
+    }, [])
+  );
 
-    setCreateLoading(true);
-    try {
-      const res = await userManagementService.createUser(createForm);
-      if (res && res.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'User Created',
-          text2: res.message || 'User created successfully!',
-        });
-        setIsCreateModalOpen(false);
-        setCreateForm({
-          username: '',
-          email: '',
-          password: '',
-          role: 'Agent',
-          phone: '',
-          isActive: true,
-        });
-        fetchUsers();
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Creation Failed',
-          text2: res.message || 'Failed to create user',
-        });
-      }
-    } catch (err: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Server Error',
-        text2: err.message || 'Server error creating user',
-      });
-    } finally {
-      setCreateLoading(false);
-    }
-  };
+
 
   // Confirm and Execute Impersonate
   const confirmImpersonate = async () => {
@@ -266,113 +163,24 @@ export default function ManageUsers() {
     }
   };
 
-  // Open Edit User Modal
+  // Open Edit User Page
   const handleOpenEdit = (user: UserItem) => {
-    setSelectedUserForEdit(user);
-    setEditForm({
-      username: user.username || '',
-      email: user.email || '',
-      phone: user.phone || '',
-      role: user.role || 'Agent',
-      isActive: user.isActive,
-      password: '',
+    router.push({
+      pathname: '/admin/usemanagement/EditUser',
+      params: {
+        userId: String(user.userId),
+        username: user.username || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        role: user.role || 'Agent',
+        isActive: String(user.isActive),
+      },
     });
-    setIsEditModalOpen(true);
-  };
-
-  // Handle Edit User details submission
-  const handleUpdateUser = async () => {
-    if (!selectedUserForEdit) return;
-    if (!editForm.username.trim() || !editForm.email.trim()) {
-      Toast.show({
-        type: 'error',
-        text1: 'Validation Error',
-        text2: 'Username and email are required.',
-      });
-      return;
-    }
-
-    setEditLoading(true);
-    try {
-      const payload: any = {
-        username: editForm.username.trim(),
-        email: editForm.email.trim(),
-        role: editForm.role,
-        isActive: editForm.isActive,
-        phone: editForm.phone.trim() || undefined,
-      };
-      if (editForm.password.trim()) {
-        payload.password = editForm.password.trim();
-      }
-
-      const res = await userManagementService.updateUser(selectedUserForEdit.userId, payload);
-      if (res && res.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'User Updated',
-          text2: res.message || 'User updated successfully!',
-        });
-        setIsEditModalOpen(false);
-        setSelectedUserForEdit(null);
-        fetchUsers();
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Update Failed',
-          text2: res.message || 'Failed to update user details',
-        });
-      }
-    } catch (err: any) {
-      console.error('Error updating user:', err);
-      Toast.show({
-        type: 'error',
-        text1: 'Server Error',
-        text2: err.message || 'Server error updating user',
-      });
-    } finally {
-      setEditLoading(false);
-    }
   };
 
   // Handle User Deactivation (Delete API)
   const handleDeleteUser = (user: UserItem) => {
-    Alert.alert(
-      'Deactivate User',
-      `Are you sure you want to deactivate account for ${user.username}? This will set their account to Inactive.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Deactivate',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const res = await userManagementService.deleteUser(user.userId);
-              if (res && res.success) {
-                Toast.show({
-                  type: 'success',
-                  text1: 'Account Deactivated',
-                  text2: res.message || 'User deactivated successfully',
-                });
-                fetchUsers();
-              } else {
-                Toast.show({
-                  type: 'error',
-                  text1: 'Deactivation Failed',
-                  text2: res.message || 'Failed to deactivate account',
-                });
-              }
-            } catch (err: any) {
-              console.error('Error deactivating user:', err);
-              Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: err.message || 'Server error deactivating user',
-              });
-            }
-          },
-        },
-      ]
-    );
+    setDeactivateTargetUser(user);
   };
 
   // Open Attendance Modal
@@ -462,39 +270,6 @@ export default function ManageUsers() {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      {/* Top Header Bar */}
-      <View
-        style={{
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          backgroundColor: cardBg,
-          borderBottomWidth: 1,
-          borderBottomColor: borderCol,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>Manage Users</Text>
-
-        <TouchableOpacity
-          onPress={() => setIsCreateModalOpen(true)}
-          style={{
-            backgroundColor: '#10b981',
-            paddingHorizontal: 14,
-            height: 38,
-            borderRadius: 10,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-          }}
-        >
-          <Plus size={16} color="#ffffff" />
-          <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 13 }}>Add User</Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
         refreshControl={
@@ -514,44 +289,63 @@ export default function ManageUsers() {
           }}
         >
           {/* Search Box */}
-          <View
-            style={{
-              height: 40,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: borderCol,
-              paddingHorizontal: 12,
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: bgColor,
-            }}
-          >
-            <Search size={16} color={subTextColor} style={{ marginRight: 8 }} />
-            <TextInput
-              style={{ flex: 1, color: textColor, fontSize: 13 }}
-              placeholder="Search by username, email, phone..."
-              placeholderTextColor={subTextColor}
-              value={search}
-              onChangeText={setSearch}
-            />
-            {search ? (
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <X size={16} color={subTextColor} />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-
-          {/* Dropdown Filters Row */}
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {/* Role Dropdown Trigger */}
-            <TouchableOpacity
-              onPress={() => setIsRoleDropdownOpen(true)}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+            <View
               style={{
                 flex: 1,
                 height: 40,
                 borderRadius: 10,
                 borderWidth: 1,
                 borderColor: borderCol,
+                paddingHorizontal: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: bgColor,
+              }}
+            >
+              <Search size={16} color={subTextColor} style={{ marginRight: 8 }} />
+              <TextInput
+                style={{ flex: 1, color: textColor, fontSize: 13 }}
+                placeholder="Search by username, email, phone..."
+                placeholderTextColor={subTextColor}
+                value={search}
+                onChangeText={setSearch}
+              />
+              {search ? (
+                <TouchableOpacity onPress={() => setSearch('')} style={{ marginRight: 8 }}>
+                  <X size={16} color={subTextColor} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push('/admin/usemanagement/CreateUser')}
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: '#10b981',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Plus size={16} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Dropdown Filters Row */}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {/* Role Dropdown Trigger */}
+            <TouchableOpacity
+              onPress={() => {
+                setIsRoleDropdownOpen(!isRoleDropdownOpen);
+                setIsStatusDropdownOpen(false);
+              }}
+              style={{
+                flex: 1,
+                height: 40,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: isRoleDropdownOpen ? '#3b82f6' : borderCol,
                 paddingHorizontal: 12,
                 backgroundColor: bgColor,
                 flexDirection: 'row',
@@ -570,13 +364,16 @@ export default function ManageUsers() {
 
             {/* Status Dropdown Trigger */}
             <TouchableOpacity
-              onPress={() => setIsStatusDropdownOpen(true)}
+              onPress={() => {
+                setIsStatusDropdownOpen(!isStatusDropdownOpen);
+                setIsRoleDropdownOpen(false);
+              }}
               style={{
                 flex: 1,
                 height: 40,
                 borderRadius: 10,
                 borderWidth: 1,
-                borderColor: borderCol,
+                borderColor: isStatusDropdownOpen ? '#10b981' : borderCol,
                 paddingHorizontal: 12,
                 backgroundColor: bgColor,
                 flexDirection: 'row',
@@ -593,6 +390,102 @@ export default function ManageUsers() {
               <ChevronDown size={16} color={subTextColor} />
             </TouchableOpacity>
           </View>
+
+          {/* Inline Role Dropdown Panel */}
+          {isRoleDropdownOpen && (
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: borderCol,
+                padding: 6,
+                marginTop: 4,
+                gap: 2,
+              }}
+            >
+              {allRoleOptions.map((roleOpt) => {
+                const isSelected = selectedRole === roleOpt;
+                return (
+                  <TouchableOpacity
+                    key={roleOpt}
+                    onPress={() => {
+                      setSelectedRole(roleOpt);
+                      setIsRoleDropdownOpen(false);
+                    }}
+                    style={{
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                      backgroundColor: isSelected ? '#3b82f612' : 'transparent',
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: isSelected ? '700' : '500',
+                        color: isSelected ? '#3b82f6' : textColor,
+                      }}
+                    >
+                      {roleOpt}
+                    </Text>
+                    {isSelected && <Check size={14} color="#3b82f6" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Inline Status Dropdown Panel */}
+          {isStatusDropdownOpen && (
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: borderCol,
+                padding: 6,
+                marginTop: 4,
+                gap: 2,
+              }}
+            >
+              {allStatusOptions.map((statusOpt) => {
+                const isSelected = selectedStatus === statusOpt;
+                return (
+                  <TouchableOpacity
+                    key={statusOpt}
+                    onPress={() => {
+                      setSelectedStatus(statusOpt);
+                      setIsStatusDropdownOpen(false);
+                    }}
+                    style={{
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                      backgroundColor: isSelected ? '#10b98112' : 'transparent',
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: isSelected ? '700' : '500',
+                        color: isSelected ? '#10b981' : textColor,
+                      }}
+                    >
+                      {statusOpt}
+                    </Text>
+                    {isSelected && <Check size={14} color="#10b981" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         {/* User List */}
@@ -693,7 +586,7 @@ export default function ManageUsers() {
                             style={{
                               paddingHorizontal: 8,
                               paddingVertical: 2,
-                              borderRadius: 10,
+                              borderRadius: 4,
                               backgroundColor: u.isActive ? '#10b98115' : '#ef444415',
                             }}
                           >
@@ -732,7 +625,7 @@ export default function ManageUsers() {
                       style={{
                         paddingHorizontal: 10,
                         paddingVertical: 4,
-                        borderRadius: 12,
+                        borderRadius: 8,
                         backgroundColor: roleBadge.bg,
                         borderWidth: 1,
                         borderColor: roleBadge.border,
@@ -741,7 +634,6 @@ export default function ManageUsers() {
                         gap: 4,
                       }}
                     >
-                      <Shield size={11} color={roleBadge.color} />
                       <Text style={{ color: roleBadge.color, fontSize: 11, fontWeight: '700' }}>
                         {u.role}
                       </Text>
@@ -763,33 +655,19 @@ export default function ManageUsers() {
                     }}
                   >
                     {/* Left Actions (Manage Context) */}
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                    <View style={{ flexDirection: 'row', gap: 18 }}>
                       {/* Edit Button */}
                       <TouchableOpacity
                         onPress={() => handleOpenEdit(u)}
-                        style={{
-                          padding: 8,
-                          borderRadius: 8,
-                          backgroundColor: `${adminTheme.brand}10`,
-                          borderWidth: 1,
-                          borderColor: `${adminTheme.brand}30`,
-                        }}
                       >
-                        <Edit2 size={13} color={adminTheme.brand} />
+                        <Edit2 size={18} color={adminTheme.brand} />
                       </TouchableOpacity>
 
                       {/* Delete (Deactivate) Button */}
                       <TouchableOpacity
                         onPress={() => handleDeleteUser(u)}
-                        style={{
-                          padding: 8,
-                          borderRadius: 8,
-                          backgroundColor: '#ef444410',
-                          borderWidth: 1,
-                          borderColor: '#ef444430',
-                        }}
                       >
-                        <Trash2 size={13} color="#ef4444" />
+                        <Trash2 size={18} color="#ef4444" />
                       </TouchableOpacity>
                     </View>
 
@@ -935,339 +813,9 @@ export default function ManageUsers() {
         </View>
       </Modal>
 
-      {/* ROLE DROPDOWN MODAL */}
-      <Modal visible={isRoleDropdownOpen} transparent animationType="fade">
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setIsRoleDropdownOpen(false)}
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            padding: 24,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: cardBg,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: borderCol,
-              padding: 16,
-            }}
-          >
-            <Text style={{ fontSize: 15, fontWeight: '700', color: textColor, marginBottom: 12 }}>
-              Select Role Filter
-            </Text>
-            {allRoleOptions.map((roleOpt) => {
-              const isSelected = selectedRole === roleOpt;
-              return (
-                <TouchableOpacity
-                  key={roleOpt}
-                  onPress={() => {
-                    setSelectedRole(roleOpt);
-                    setIsRoleDropdownOpen(false);
-                  }}
-                  style={{
-                    paddingVertical: 12,
-                    paddingHorizontal: 12,
-                    borderRadius: 8,
-                    backgroundColor: isSelected ? '#3b82f615' : 'transparent',
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 4,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: isSelected ? '700' : '500',
-                      color: isSelected ? '#3b82f6' : textColor,
-                    }}
-                  >
-                    {roleOpt}
-                  </Text>
-                  {isSelected && <Check size={16} color="#3b82f6" />}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* ROLE and STATUS DROPDOWN MODALS removed (uses inline selectors now) */}
 
-      {/* STATUS DROPDOWN MODAL */}
-      <Modal visible={isStatusDropdownOpen} transparent animationType="fade">
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setIsStatusDropdownOpen(false)}
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            padding: 24,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: cardBg,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: borderCol,
-              padding: 16,
-            }}
-          >
-            <Text style={{ fontSize: 15, fontWeight: '700', color: textColor, marginBottom: 12 }}>
-              Select Status Filter
-            </Text>
-            {allStatusOptions.map((statusOpt) => {
-              const isSelected = selectedStatus === statusOpt;
-              return (
-                <TouchableOpacity
-                  key={statusOpt}
-                  onPress={() => {
-                    setSelectedStatus(statusOpt);
-                    setIsStatusDropdownOpen(false);
-                  }}
-                  style={{
-                    paddingVertical: 12,
-                    paddingHorizontal: 12,
-                    borderRadius: 8,
-                    backgroundColor: isSelected ? '#10b98115' : 'transparent',
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 4,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: isSelected ? '700' : '500',
-                      color: isSelected ? '#10b981' : textColor,
-                    }}
-                  >
-                    {statusOpt}
-                  </Text>
-                  {isSelected && <Check size={16} color="#10b981" />}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* CREATE USER MODAL */}
-      <Modal visible={isCreateModalOpen} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
-          <View
-            style={{
-              backgroundColor: cardBg,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: borderCol,
-              padding: 20,
-              maxHeight: '90%',
-            }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ fontSize: 17, fontWeight: '700', color: textColor }}>Create New User</Text>
-              <TouchableOpacity onPress={() => setIsCreateModalOpen(false)}>
-                <X size={20} color={subTextColor} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={{ gap: 12 }}>
-              {/* Username */}
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                  Full Name / Username *
-                </Text>
-                <TextInput
-                  style={{
-                    height: 42,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: borderCol,
-                    paddingHorizontal: 12,
-                    color: textColor,
-                    backgroundColor: bgColor,
-                    fontSize: 13,
-                  }}
-                  placeholder="e.g. Ravi Teja"
-                  placeholderTextColor={subTextColor}
-                  value={createForm.username}
-                  onChangeText={(val) => setCreateForm({ ...createForm, username: val })}
-                />
-              </View>
-
-              {/* Email */}
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                  Email Address *
-                </Text>
-                <TextInput
-                  style={{
-                    height: 42,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: borderCol,
-                    paddingHorizontal: 12,
-                    color: textColor,
-                    backgroundColor: bgColor,
-                    fontSize: 13,
-                  }}
-                  keyboardType="email-address"
-                  placeholder="e.g. ravi@example.com"
-                  placeholderTextColor={subTextColor}
-                  value={createForm.email}
-                  onChangeText={(val) => setCreateForm({ ...createForm, email: val })}
-                />
-              </View>
-
-              {/* Password */}
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                  Password
-                </Text>
-                <TextInput
-                  style={{
-                    height: 42,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: borderCol,
-                    paddingHorizontal: 12,
-                    color: textColor,
-                    backgroundColor: bgColor,
-                    fontSize: 13,
-                  }}
-                  secureTextEntry
-                  placeholder="Leave blank for default"
-                  placeholderTextColor={subTextColor}
-                  value={createForm.password}
-                  onChangeText={(val) => setCreateForm({ ...createForm, password: val })}
-                />
-              </View>
-
-              {/* Phone */}
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                  Phone Number
-                </Text>
-                <TextInput
-                  style={{
-                    height: 42,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: borderCol,
-                    paddingHorizontal: 12,
-                    color: textColor,
-                    backgroundColor: bgColor,
-                    fontSize: 13,
-                  }}
-                  keyboardType="phone-pad"
-                  placeholder="e.g. 9876543210"
-                  placeholderTextColor={subTextColor}
-                  value={createForm.phone}
-                  onChangeText={(val) => setCreateForm({ ...createForm, phone: val })}
-                />
-              </View>
-
-              {/* Role Selection */}
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 6 }}>
-                  User Role
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                  {['Admin', 'Agent', 'Partner'].map((r) => {
-                    const selected = createForm.role === r;
-                    return (
-                      <TouchableOpacity
-                        key={r}
-                        onPress={() => setCreateForm({ ...createForm, role: r })}
-                        style={{
-                          paddingHorizontal: 14,
-                          paddingVertical: 7,
-                          borderRadius: 8,
-                          backgroundColor: selected ? '#3b82f6' : bgColor,
-                          borderWidth: 1,
-                          borderColor: selected ? '#3b82f6' : borderCol,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 12,
-                            fontWeight: selected ? '700' : '500',
-                            color: selected ? '#ffffff' : textColor,
-                          }}
-                        >
-                          {r}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* Is Active Switch */}
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginTop: 6,
-                  paddingVertical: 4,
-                }}
-              >
-                <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
-                  Account Active
-                </Text>
-                <Switch
-                  value={createForm.isActive}
-                  onValueChange={(val) => setCreateForm({ ...createForm, isActive: val })}
-                  trackColor={{ false: borderCol, true: '#10b981' }}
-                />
-              </View>
-            </ScrollView>
-
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-              <TouchableOpacity
-                onPress={() => setIsCreateModalOpen(false)}
-                style={{
-                  flex: 1,
-                  height: 42,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: borderCol,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ color: subTextColor, fontWeight: '600', fontSize: 13 }}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleCreateUser}
-                disabled={createLoading}
-                style={{
-                  flex: 1,
-                  height: 42,
-                  borderRadius: 8,
-                  backgroundColor: '#10b981',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
-              >
-                {createLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Create User</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* CREATE USER MODAL removed (uses standalone CreateUser screen) */}
 
       {/* POLISHED HIGH-END ATTENDANCE CALENDAR MODAL */}
       <Modal visible={isAttendanceModalOpen} animationType="slide" transparent>
@@ -1621,218 +1169,110 @@ export default function ManageUsers() {
         </View>
       </Modal>
 
-      {/* Edit User Modal */}
-      <Modal
-        visible={isEditModalOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
-          if (!editLoading) {
-            setIsEditModalOpen(false);
-            setSelectedUserForEdit(null);
-          }
-        }}
-      >
+      {/* Edit User Modal removed (uses standalone EditUser screen) */}
+
+      {/* Sleek Toast-like Confirmation Overlay Card */}
+      {deactivateTargetUser && (
         <View
           style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
+            position: 'absolute',
+            bottom: 20,
+            left: 20,
+            right: 20,
+            backgroundColor: cardBg,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: '#ef444450',
             padding: 16,
+            flexDirection: 'column',
+            gap: 12,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 12,
+            elevation: 8,
+            zIndex: 9999,
           }}
         >
-          <ScrollView
-            style={{ flexGrow: 0 }}
-            contentContainerStyle={{
-              backgroundColor: cardBg,
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: borderCol,
-              padding: 20,
-              gap: 14,
-              shadowColor: '#000',
-              shadowOpacity: 0.25,
-              shadowRadius: 10,
-              elevation: 5,
-            }}
-          >
-            {/* Header */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>Edit User Details</Text>
-              <TouchableOpacity
-                disabled={editLoading}
-                onPress={() => {
-                  setIsEditModalOpen(false);
-                  setSelectedUserForEdit(null);
-                }}
-                style={{ padding: 4 }}
-              >
-                <X size={20} color={textColor} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Username Input */}
-            <View style={{ gap: 4 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: subTextColor }}>USERNAME *</Text>
-              <TextInput
-                style={{
-                  height: 40,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: borderCol,
-                  paddingHorizontal: 12,
-                  color: textColor,
-                  backgroundColor: bgColor,
-                  fontSize: 13,
-                }}
-                placeholder="Enter username"
-                placeholderTextColor={subTextColor}
-                value={editForm.username}
-                onChangeText={(val) => setEditForm((prev) => ({ ...prev, username: val }))}
-              />
-            </View>
-
-            {/* Email Input */}
-            <View style={{ gap: 4 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: subTextColor }}>EMAIL ADDRESS *</Text>
-              <TextInput
-                style={{
-                  height: 40,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: borderCol,
-                  paddingHorizontal: 12,
-                  color: textColor,
-                  backgroundColor: bgColor,
-                  fontSize: 13,
-                }}
-                placeholder="email@example.com"
-                placeholderTextColor={subTextColor}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={editForm.email}
-                onChangeText={(val) => setEditForm((prev) => ({ ...prev, email: val }))}
-              />
-            </View>
-
-            {/* Phone Input */}
-            <View style={{ gap: 4 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: subTextColor }}>PHONE NUMBER</Text>
-              <TextInput
-                style={{
-                  height: 40,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: borderCol,
-                  paddingHorizontal: 12,
-                  color: textColor,
-                  backgroundColor: bgColor,
-                  fontSize: 13,
-                }}
-                placeholder="Enter phone number"
-                placeholderTextColor={subTextColor}
-                keyboardType="phone-pad"
-                value={editForm.phone}
-                onChangeText={(val) => setEditForm((prev) => ({ ...prev, phone: val }))}
-              />
-            </View>
-
-            {/* Optional Password Change Input */}
-            <View style={{ gap: 4 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: subTextColor }}>PASSWORD (OPTIONAL)</Text>
-              <TextInput
-                style={{
-                  height: 40,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: borderCol,
-                  paddingHorizontal: 12,
-                  color: textColor,
-                  backgroundColor: bgColor,
-                  fontSize: 13,
-                }}
-                placeholder="Leave blank to keep current password"
-                placeholderTextColor={subTextColor}
-                secureTextEntry
-                autoCapitalize="none"
-                value={editForm.password}
-                onChangeText={(val) => setEditForm((prev) => ({ ...prev, password: val }))}
-              />
-            </View>
-
-            {/* Role Select Buttons */}
-            <View style={{ gap: 6 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: subTextColor }}>USER ROLE *</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {availableRoles.map((r) => {
-                  const isSelected = editForm.role === r;
-                  return (
-                    <TouchableOpacity
-                      key={r}
-                      onPress={() => setEditForm((prev) => ({ ...prev, role: r }))}
-                      style={{
-                        flex: 1,
-                        paddingVertical: 8,
-                        borderRadius: 10,
-                        alignItems: 'center',
-                        borderWidth: 1,
-                        borderColor: isSelected ? '#3b82f6' : borderCol,
-                        backgroundColor: isSelected ? '#3b82f615' : cardBg,
-                      }}
-                    >
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: isSelected ? '#3b82f6' : textColor }}>
-                        {r}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Active Switch */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
-              <View>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>Account Active Status</Text>
-                <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
-                  Set inactive to restrict account access
-                </Text>
-              </View>
-              <Switch
-                value={editForm.isActive}
-                onValueChange={(val) => setEditForm((prev) => ({ ...prev, isActive: val }))}
-                trackColor={{ false: '#ef444430', true: '#10b98130' }}
-                thumbColor={editForm.isActive ? '#10b981' : '#ef4444'}
-              />
-            </View>
-
-            {/* Action Save Button */}
-            <TouchableOpacity
-              disabled={editLoading}
-              onPress={handleUpdateUser}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View
               style={{
-                backgroundColor: adminTheme.brand,
-                padding: 12,
-                borderRadius: 12,
-                alignItems: 'center',
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: '#ef444415',
                 justifyContent: 'center',
-                flexDirection: 'row',
-                gap: 8,
-                marginTop: 6,
-                opacity: editLoading ? 0.6 : 1,
+                alignItems: 'center',
               }}
             >
-              {editLoading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <>
-                  <Check size={16} color="#ffffff" />
-                  <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>Save Changes</Text>
-                </>
-              )}
+              <Trash2 size={18} color="#ef4444" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>
+                Deactivate User?
+              </Text>
+              <Text style={{ fontSize: 12, color: subTextColor, marginTop: 2 }}>
+                Are you sure you want to deactivate {deactivateTargetUser.username}?
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => setDeactivateTargetUser(null)}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: borderCol,
+                backgroundColor: bgColor,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor }}>Cancel</Text>
             </TouchableOpacity>
-          </ScrollView>
+
+            <TouchableOpacity
+              onPress={async () => {
+                const target = deactivateTargetUser;
+                setDeactivateTargetUser(null);
+                try {
+                  const res = await userManagementService.deleteUser(target.userId);
+                  if (res && res.success) {
+                    Toast.show({
+                      type: 'success',
+                      text1: 'Account Deactivated',
+                      text2: res.message || 'User deactivated successfully',
+                    });
+                    fetchUsers();
+                  } else {
+                    Toast.show({
+                      type: 'error',
+                      text1: 'Deactivation Failed',
+                      text2: res.message || 'Failed to deactivate account',
+                    });
+                  }
+                } catch (err: any) {
+                  console.error('Error deactivating user:', err);
+                  Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: err.message || 'Server error deactivating user',
+                  });
+                }
+              }}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: '#ef4444',
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#ffffff' }}>Deactivate</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </Modal>
+      )}
     </View>
   );
 }

@@ -4,9 +4,7 @@ import { Menu, Moon, Sun, Bell, Coins } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
-import NotificationModal from '../../app/components/NotififcationModal';
 import ReferralWalletSidebar from '../../app/components/ReferralWalletSidebar';
-import { NotificationService } from '../../Services/NotificationService';
 
 interface HeaderProps {
   onMenuPress?: () => void;
@@ -17,30 +15,12 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
   const insets = useSafeAreaInsets();
   const adminTheme = getAdminTheme(isDark);
 
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isRewardsOpen, setIsRewardsOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const res = await NotificationService.getNotifications();
-      setUnreadCount(res.count || 0);
-    } catch (err) {
-      console.error('Failed to get unread count:', err);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUnreadCount();
-  }, [fetchUnreadCount]);
 
   const handleOpenRewards = useCallback(() => setIsRewardsOpen(true), []);
   const handleCloseRewards = useCallback(() => setIsRewardsOpen(false), []);
-  const handleOpenNotifications = useCallback(() => setIsNotificationOpen(true), []);
-  const handleCloseNotifications = useCallback(() => {
-    setIsNotificationOpen(false);
-    fetchUnreadCount();
-  }, [fetchUnreadCount]);
+
 
   const containerStyle = useMemo(
     () => ({
@@ -84,14 +64,7 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
       </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        {/* Dark/Light Mode Toggle */}
-        <TouchableOpacity onPress={toggleTheme} style={{ padding: 4 }}>
-          {isDark ? (
-            <Sun size={20} color={adminTheme.textSecondary} />
-          ) : (
-            <Moon size={20} color={adminTheme.textSecondary} />
-          )}
-        </TouchableOpacity>
+       
 
         {/* Referral Wallet Icon */}
         <TouchableOpacity 
@@ -102,38 +75,7 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
           <Coins size={20} color={adminTheme.textSecondary} />
         </TouchableOpacity>
 
-        {/* Notifications Icon */}
-        <TouchableOpacity 
-          onPress={handleOpenNotifications}
-          style={{ padding: 4, position: 'relative' }}
-          activeOpacity={0.7}
-        >
-          <Bell size={20} color={adminTheme.textSecondary} />
-          {unreadCount > 0 && (
-            <View 
-              style={{
-                position: 'absolute',
-                top: 2,
-                right: 2,
-                backgroundColor: '#ef4444',
-                borderRadius: 7,
-                width: 14,
-                height: 14,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 8, fontWeight: '700' }}>
-                {unreadCount}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        <NotificationModal 
-          isOpen={isNotificationOpen} 
-          onClose={handleCloseNotifications} 
-        />
+       
 
         <ReferralWalletSidebar 
           isOpen={isRewardsOpen} 

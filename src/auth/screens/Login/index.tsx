@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import AuthHeader from '../../components/AuthHeader';
 import LoginForm from '../../components/LoginForm';
-import { useAuthStore } from '@/auth/store/authStore';
+import { useAuthStore } from '../../store/authStore';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 export default function LoginScreen() {

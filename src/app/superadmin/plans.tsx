@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,26 +7,26 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  BackHandler
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Header from '@/superadmin/components/Header';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Header from '../../superadmin/components/Header';
 import SidebarDrawer from '../../auth/components/SidebarDrawer';
-import { usePlansQuery, useDeletePlanMutation } from '@/superadmin/plans/hooks/usePlans';
-import { Plan } from '@/superadmin/plans/models/Plan';
+import { usePlansQuery, useDeletePlanMutation } from '../../superadmin/plans/hooks/usePlans';
+import { Plan } from '../../superadmin/plans/models/Plan';
 import { useTheme } from '../../contexts/ThemeContext';
-import BottomNav from '@/superadmin/components/BottomNav';
 
 const PLAN_TYPE_COLORS: Record<string, { bg: string; border: string; badge: string; text: string }> = {
-  Basic:      { bg: '#f0fdf4', border: '#86efac', badge: '#16a34a', text: '#15803d' },
-  Standard:   { bg: '#eff6ff', border: '#93c5fd', badge: '#2563eb', text: '#1d4ed8' },
+  Basic: { bg: '#f0fdf4', border: '#86efac', badge: '#16a34a', text: '#15803d' },
+  Standard: { bg: '#eff6ff', border: '#93c5fd', badge: '#2563eb', text: '#1d4ed8' },
   Enterprise: { bg: '#fdf4ff', border: '#c4b5fd', badge: '#9333ea', text: '#7e22ce' },
 };
 
 const PLAN_TYPE_DARK_COLORS: Record<string, { bg: string; border: string; badge: string; text: string }> = {
-  Basic:      { bg: '#062f17', border: '#15803d', badge: '#16a34a', text: '#86efac' },
-  Standard:   { bg: '#0f2042', border: '#1d4ed8', badge: '#2563eb', text: '#93c5fd' },
+  Basic: { bg: '#062f17', border: '#15803d', badge: '#16a34a', text: '#86efac' },
+  Standard: { bg: '#0f2042', border: '#1d4ed8', badge: '#2563eb', text: '#93c5fd' },
   Enterprise: { bg: '#240b36', border: '#7e22ce', badge: '#9333ea', text: '#c4b5fd' },
 };
 
@@ -36,7 +36,23 @@ function formatPrice(price: number) {
 
 export default function PlansScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Handle Android physical back button override to go to subscriptions hub
+  useEffect(() => {
+    const backAction = () => {
+      router.replace('/superadmin/subscriptions-hub');
+      return true; // prevent default behavior
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [router]);
   const { data, isLoading, isError, refetch, isRefetching } = usePlansQuery();
   const deleteMutation = useDeletePlanMutation();
   const plans: Plan[] = data?.data ?? [];
@@ -60,19 +76,20 @@ export default function PlansScreen() {
       `Are you sure you want to delete the plan "${plan.planName}"? This action cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
+        {
+          text: 'Delete',
           style: 'destructive',
           onPress: () => {
             deleteMutation.mutate(plan.planId);
-          } 
+          }
         }
       ]
     );
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }} edges={['bottom', 'left', 'right']}>
+      <View style={{ flex: 1, backgroundColor: bgColor }}>
 
         <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View>
@@ -81,7 +98,7 @@ export default function PlansScreen() {
               Manage SaaS pricing tiers
             </Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => router.push('/superadmin/create-plan')}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#1e73be', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 }}
           >
@@ -147,13 +164,13 @@ export default function PlansScreen() {
                       ) : null}
                     </View>
                     <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         onPress={() => router.push({ pathname: '/superadmin/create-plan', params: { id: plan.planId } })}
                         style={{ padding: 8, backgroundColor: isDark ? '#1e293b' : '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#334155' : '#cbd5e1' }}
                       >
                         <Ionicons name="create-outline" size={16} color={isDark ? '#cbd5e1' : '#475569'} />
                       </TouchableOpacity>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         onPress={() => handleDeletePlan(plan)}
                         style={{ padding: 8, backgroundColor: isDark ? '#7f1d1d30' : '#fef2f2', borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#7f1d1d' : '#fca5a5' }}
                       >
@@ -211,6 +228,7 @@ export default function PlansScreen() {
           )}
         </ScrollView>
       </View>
+    </SafeAreaView>
   );
 }
 

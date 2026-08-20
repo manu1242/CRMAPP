@@ -3,9 +3,12 @@ const { withNativeWind } = require("nativewind/metro");
 
 const config = getDefaultConfig(__dirname);
 
-// Add webp to assetExts if not present
+// Add webp and lottie to assetExts if not present
 if (!config.resolver.assetExts.includes("webp")) {
   config.resolver.assetExts.push("webp");
+}
+if (!config.resolver.assetExts.includes("lottie")) {
+  config.resolver.assetExts.push("lottie");
 }
 
 const path = require('path');

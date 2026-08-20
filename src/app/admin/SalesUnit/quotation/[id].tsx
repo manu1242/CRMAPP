@@ -37,7 +37,7 @@ function formatDate(dateStr: string | null | undefined): string {
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return 'N/A';
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]} ${d.getFullYear()}`;
   } catch {
     return 'N/A';
@@ -78,9 +78,9 @@ export default function QuotationDetailScreen() {
     switch (status) {
       case 'Accepted': return { bg: isDark ? '#064e3b' : '#d1fae5', text: isDark ? '#34d399' : '#059669' };
       case 'Rejected': return { bg: isDark ? '#7f1d1d' : '#fee2e2', text: isDark ? '#f87171' : '#dc2626' };
-      case 'Sent':     return { bg: isDark ? '#1e3a8a' : '#dbeafe', text: isDark ? '#60a5fa' : '#2563eb' };
-      case 'Expired':  return { bg: isDark ? '#3f3f46' : '#f4f4f5', text: isDark ? '#a1a1aa' : '#71717a' };
-      default:         return { bg: isDark ? '#27272a' : '#f3f4f6', text: isDark ? '#d4d4d8' : '#4b5563' };
+      case 'Sent': return { bg: isDark ? '#1e3a8a' : '#dbeafe', text: isDark ? '#60a5fa' : '#2563eb' };
+      case 'Expired': return { bg: isDark ? '#3f3f46' : '#f4f4f5', text: isDark ? '#a1a1aa' : '#71717a' };
+      default: return { bg: isDark ? '#27272a' : '#f3f4f6', text: isDark ? '#d4d4d8' : '#4b5563' };
     }
   };
 
@@ -172,7 +172,7 @@ export default function QuotationDetailScreen() {
         </View>
       ) : quotation ? (
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
         >
           {/* Client & Property Info */}
@@ -281,7 +281,7 @@ export default function QuotationDetailScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => router.push({ pathname: '/admin/SalesUnit/quotation', params: { editId: String(quotationId) } })}
+              onPress={() => router.push({ pathname: '/admin/SalesUnit/quotation/CreateQuotation', params: { editId: String(quotationId) } })}
               style={[styles.actionBtn, { backgroundColor: theme.secondaryBg, borderWidth: 1, borderColor: theme.border }]}
             >
               <Edit size={15} color={theme.textPrimary} />

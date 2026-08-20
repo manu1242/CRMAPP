@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import ScreenLoader from '../../components/ScreenLoader';
 
-const TasksContent = lazy(() => import('@/admin/components/TasksContent'));
+const TasksContent = lazy(() => import('../../../admin/components/TasksContent'));
 
 export default function AdminTasksScreen() {
   return (

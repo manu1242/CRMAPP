@@ -149,17 +149,17 @@ function AuthGuardLayout() {
   return null;
 }
 
-import SuperAdminHeader from '@/superadmin/components/Header';
-import SuperAdminBottomNav from '@/superadmin/components/BottomNav';
-import AdminHeader from '@/admin/components/Header';
-import AdminBottomNav from '@/admin/components/BottomNav';
-import { BottomMenuSheet } from '@/admin/components/BottomMenuSheet';
+import SuperAdminHeader from '../superadmin/components/Header';
+import SuperAdminBottomNav from '../superadmin/components/BottomNav';
+import AdminHeader from '../admin/components/Header';
+import AdminBottomNav from '../admin/components/BottomNav';
+import { BottomMenuSheet } from '../admin/components/BottomMenuSheet';
 import { View, StatusBar, Text, TouchableOpacity, Alert, Modal, ActivityIndicator, Platform } from 'react-native';
 import { BlurTargetView } from 'expo-blur';
 import * as SystemUI from 'expo-system-ui';
 import { NavigationBar } from 'expo-navigation-bar';
 import { LogOut } from 'lucide-react-native';
-import { getAdminTheme } from '@/theme/adminTheme';
+import { getAdminTheme } from '../theme/adminTheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface OTAUpdateModalProps {
@@ -171,11 +171,11 @@ interface OTAUpdateModalProps {
 
 function OTAUpdateModal({ visible, isDark, adminTheme }: Omit<OTAUpdateModalProps, 'onClose'>) {
   return (
-    <Modal 
-      visible={visible} 
-      transparent 
+    <Modal
+      visible={visible}
+      transparent
       animationType="fade"
-      onRequestClose={() => {}}
+      onRequestClose={() => { }}
     >
       <View
         style={{
@@ -302,7 +302,7 @@ function InnerLayout() {
         console.warn('OTA Check failed:', error);
       }
     }
-    
+
     const timer = setTimeout(() => {
       checkOTAUpdates();
     }, 2000);
@@ -310,10 +310,10 @@ function InnerLayout() {
     return () => clearTimeout(timer);
   }, []);
 
-  const isSuperAdminFlow = (segments[0] as string) === 'superadmin' || 
+  const isSuperAdminFlow = (segments[0] as string) === 'superadmin' ||
     (['profile', 'change-password', 'select-workspace'].includes(segments[0] as string) && userRole === 'superadmin');
 
-  const isAdminFlow = (segments[0] as string) === 'admin' || 
+  const isAdminFlow = (segments[0] as string) === 'admin' ||
     (['profile', 'change-password', 'select-workspace'].includes(segments[0] as string) && userRole === 'admin');
 
   // Sync Android System Navigation Bar & Root Background Color to match Active Login Theme
@@ -323,7 +323,7 @@ function InnerLayout() {
         ? (isDark ? '#0f172a' : '#ffffff')
         : adminTheme.cardBg;
 
-      SystemUI.setBackgroundColorAsync(activeNavBg).catch(() => {});
+      SystemUI.setBackgroundColorAsync(activeNavBg).catch(() => { });
     }
   }, [isDark, isSuperAdminFlow, adminTheme.cardBg]);
 
@@ -360,30 +360,39 @@ function InnerLayout() {
     activeTab = 'inquiries';
   } else if (path.includes('superadmin/subscriptions') || path.includes('superadmin/plans') || path.includes('superadmin/create-plan')) {
     activeTab = 'subscriptions';
-  } else if (path.includes('profile') || path.includes('superadmin/payment-config') || path.includes('superadmin/settings') || path.includes('superadmin/transactions')) {
+  } else if (path.includes('profile') || path.includes('change-password') || path.includes('superadmin/payment-config') || path.includes('superadmin/settings') || path.includes('superadmin/transactions')) {
     activeTab = 'profile';
   }
 
   if (path.includes('admin/dashboard')) {
     adminActiveTab = 'dashboard';
-  } else if (path.includes('admin/users')) {
+  } else if (path.includes('admin/users') || path.includes('admin/usemanagement')) {
     adminActiveTab = 'users';
-  } else if (path.includes('admin/settings')) {
+  } else if (path.includes('admin/settings') || path.includes('admin/paymentconfig') || path.includes('admin/bankaccountconfig')) {
     adminActiveTab = 'settings';
-  } else if (path.includes('profile')) {
+  } else if (path.includes('profile') || path.includes('change-password')) {
     adminActiveTab = 'profile';
+
   }
 
+
   const themeClass = isSuperAdminFlow ? 'superadmin-theme' : isAdminFlow ? 'admin-theme' : '';
+
+  // Pages that have their own custom/sticky headers and don't need the global header
+  const hideHeader =
+    path === 'profile' ||
+    path.endsWith('/profile') ||
+    path.includes('SalesUnit/invoice/') && path !== 'admin/SalesUnit/invoice/index';
+    
 
   let headerComponent = null;
   let bottomNavComponent = null;
 
   if (isSuperAdminFlow) {
-    headerComponent = <SuperAdminHeader />;
+    headerComponent = !hideHeader ? <SuperAdminHeader /> : null;
     bottomNavComponent = <SuperAdminBottomNav active={activeTab} />;
   } else if (isAdminFlow) {
-    headerComponent = <AdminHeader onMenuPress={() => setIsMenuOpen(true)} />;
+    headerComponent = !hideHeader ? <AdminHeader onMenuPress={() => setIsMenuOpen(true)} /> : null;
     bottomNavComponent = <AdminBottomNav active={adminActiveTab} />;
   }
 
@@ -399,6 +408,7 @@ function InnerLayout() {
       <Stack.Screen name="select-workspace" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="admin/dashboard" />
+      <Stack.Screen name="admin/AdminNotification" />
       <Stack.Screen name="admin/PartnerDashboard" />
       <Stack.Screen name="admin/leads" />
       <Stack.Screen name="admin/users" />
@@ -429,6 +439,8 @@ function InnerLayout() {
       <Stack.Screen name="superadmin/settings" />
       <Stack.Screen name="superadmin/profile" />
       <Stack.Screen name="admin/SalesUnit/quotation/[id]" />
+      <Stack.Screen name="admin/SalesUnit/invoice/[id]" />
+      <Stack.Screen name="admin/SalesUnit/invoice/GenerateInvoice" />
     </Stack>
   );
 
@@ -438,10 +450,10 @@ function InnerLayout() {
         <View className="flex-1 bg-primary-bg">
           {stackComponent}
         </View>
-        <OTAUpdateModal 
-          visible={isUpdateModalVisible} 
-          isDark={isDark} 
-          adminTheme={adminTheme} 
+        <OTAUpdateModal
+          visible={isUpdateModalVisible}
+          isDark={isDark}
+          adminTheme={adminTheme}
         />
         <AuthGuardLayout />
         <Toast />
@@ -451,10 +463,10 @@ function InnerLayout() {
 
   return (
     <ExpoThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
+      <StatusBar barStyle={(isDark || hideHeader) ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
       <NavigationBar style={isDark ? 'light' : 'dark'} />
-      <SafeAreaView 
-        className={`flex-1 bg-primary-bg ${themeClass}`} 
+      <SafeAreaView
+        className={`flex-1 bg-primary-bg ${themeClass}`}
         style={{ backgroundColor: isAdminFlow ? adminTheme.primaryBg : undefined }}
         edges={['bottom', 'left', 'right']}
       >
@@ -610,10 +622,10 @@ function InnerLayout() {
               </View>
             </View>
           </Modal>
-          <OTAUpdateModal 
-            visible={isUpdateModalVisible} 
-            isDark={isDark} 
-            adminTheme={adminTheme} 
+          <OTAUpdateModal
+            visible={isUpdateModalVisible}
+            isDark={isDark}
+            adminTheme={adminTheme}
           />
           <View style={{ flex: 1 }}>
             {stackComponent}

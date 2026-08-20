@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getApiUrl } from '@/api/remoteConfig';
+import { getApiUrl } from '../../../api/remoteConfig';
 import {
   View,
   Text,
@@ -263,7 +263,7 @@ export default function PropertyDetailsScreen() {
     }
 
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: false,
       quality: 0.8,
     });
@@ -364,7 +364,7 @@ export default function PropertyDetailsScreen() {
     } else {
       // In native React Native, we use expo-image-picker as a document library fallback
       const pickerResult = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
         allowsEditing: false,
       });
 

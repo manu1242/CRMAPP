@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../../../contexts/ThemeContext';
-import { getAdminTheme } from '@/theme/adminTheme';
+import { getAdminTheme } from '../../../../theme/adminTheme';
 import {
   Mail,
   Lock,
@@ -198,7 +198,7 @@ export default function EmailConfigScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 160 }}>
         {loading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}>
             <ActivityIndicator size="large" color="#3b82f6" />
@@ -354,89 +354,89 @@ export default function EmailConfigScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
-          <View
-            style={{
-              backgroundColor: cardBg,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: borderCol,
-              padding: 20,
-            }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ fontSize: 17, fontWeight: '700', color: textColor }}>Send Test Email</Text>
-              <TouchableOpacity onPress={() => setIsTestModalOpen(false)}>
-                <X size={20} color={subTextColor} />
-              </TouchableOpacity>
-            </View>
+            <View
+              style={{
+                backgroundColor: cardBg,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: borderCol,
+                padding: 20,
+              }}
+            >
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: textColor }}>Send Test Email</Text>
+                <TouchableOpacity onPress={() => setIsTestModalOpen(false)}>
+                  <X size={20} color={subTextColor} />
+                </TouchableOpacity>
+              </View>
 
-            <View style={{ gap: 12 }}>
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                  Recipient Email Address *
-                </Text>
-                <TextInput
+              <View style={{ gap: 12 }}>
+                <View>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
+                    Recipient Email Address *
+                  </Text>
+                  <TextInput
+                    style={{
+                      height: 42,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: borderCol,
+                      paddingHorizontal: 12,
+                      color: textColor,
+                      backgroundColor: bgColor,
+                      fontSize: 13,
+                    }}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholder="e.g. user@example.com"
+                    placeholderTextColor={subTextColor}
+                    value={testRecipient}
+                    onChangeText={setTestRecipient}
+                  />
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                <TouchableOpacity
+                  onPress={() => setIsTestModalOpen(false)}
                   style={{
+                    flex: 1,
                     height: 42,
                     borderRadius: 8,
                     borderWidth: 1,
                     borderColor: borderCol,
-                    paddingHorizontal: 12,
-                    color: textColor,
-                    backgroundColor: bgColor,
-                    fontSize: 13,
+                    justifyContent: 'center',
+                    alignItems: 'center',
                   }}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  placeholder="e.g. user@example.com"
-                  placeholderTextColor={subTextColor}
-                  value={testRecipient}
-                  onChangeText={setTestRecipient}
-                />
+                >
+                  <Text style={{ color: subTextColor, fontWeight: '600', fontSize: 13 }}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleSendTestEmail}
+                  disabled={testing}
+                  style={{
+                    flex: 1,
+                    height: 42,
+                    borderRadius: 8,
+                    backgroundColor: '#8b5cf6',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    gap: 6,
+                  }}
+                >
+                  {testing ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <Send size={15} color="#fff" />
+                      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Send Test</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
-
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
-              <TouchableOpacity
-                onPress={() => setIsTestModalOpen(false)}
-                style={{
-                  flex: 1,
-                  height: 42,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: borderCol,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ color: subTextColor, fontWeight: '600', fontSize: 13 }}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleSendTestEmail}
-                disabled={testing}
-                style={{
-                  flex: 1,
-                  height: 42,
-                  borderRadius: 8,
-                  backgroundColor: '#8b5cf6',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  flexDirection: 'row',
-                  gap: 6,
-                }}
-              >
-                {testing ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Send size={15} color="#fff" />
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Send Test</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>

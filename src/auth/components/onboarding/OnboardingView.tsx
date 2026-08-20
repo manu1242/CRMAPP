@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { CheckCircle2 } from 'lucide-react-native';
 import { 
   LeadPipelineIllustration, 
@@ -186,7 +188,14 @@ export default function OnboardingView({ isDark, onComplete }: OnboardingViewPro
   const navBtnColor = isDark ? '#ffffff' : '#0f172a';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#f8fafc' }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#f8fafc' }]}>
+      {isDark && (
+        <ExpoLinearGradient
+          colors={['#000000', '#012713']}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
+      <SafeAreaView style={styles.container}>
       {/* Top Right Skip Button */}
       {!isLastPage && (
         <TouchableOpacity 
@@ -225,58 +234,45 @@ export default function OnboardingView({ isDark, onComplete }: OnboardingViewPro
             // Page 1 & 2 Action Buttons (Next is full width)
             <TouchableOpacity 
               onPress={handleNext}
-              style={styles.getStartedButton}
-              activeOpacity={0.85}
+              style={[
+                styles.getStartedButton,
+                {
+                  backgroundColor: '#10b981',
+                  // borderColor: isDark ? 'rgba(16, 185, 129, 0.5)' : 'rgba(16, 185, 129, 0.8)',
+                  // borderWidth: 1.5,
+                  // shadowOpacity: isDark ? 0.35 : 0.15,
+                }
+              ]}
+              // activeOpacity={0.85}
             >
-              {/* Glow & Premium Gradient */}
-              <Svg height="54" width={width - 48} style={StyleSheet.absoluteFill}>
-                <Defs>
-                  <LinearGradient id="nextGrad" x1="0" y1="0" x2="1" y2="0">
-                    <Stop offset="0%" stopColor="#10b981" />
-                    <Stop offset="100%" stopColor="#059669" />
-                  </LinearGradient>
-                </Defs>
-                <Rect x="0" y="0" width={width - 48} height="54" rx="27" fill="url(#nextGrad)" />
-              </Svg>
-              <Text style={styles.getStartedText}>Next</Text>
+            
+              <Text style={[styles.getStartedText, { color: '#ffffff' }]}>Next</Text>
             </TouchableOpacity>
           ) : (
             // Page 3 (Get Started Call to Action)
             <View style={styles.ctaWrapper}>
               <TouchableOpacity 
                 onPress={onComplete}
-                style={styles.getStartedButton}
-                activeOpacity={0.85}
-              >
-                {/* Glow & Premium Gradient */}
-                <Svg height="54" width={width - 48} style={StyleSheet.absoluteFill}>
-                  <Defs>
-                    <LinearGradient id="getStartedGrad" x1="0" y1="0" x2="1" y2="0">
-                      <Stop offset="0%" stopColor="#10b981" />
-                      <Stop offset="100%" stopColor="#059669" />
-                    </LinearGradient>
-                  </Defs>
-                  <Rect x="0" y="0" width={width - 48} height="54" rx="27" fill="url(#getStartedGrad)" />
-                </Svg>
-                <Text style={styles.getStartedText}>Get Started</Text>
-              </TouchableOpacity>
-
-              <Pressable 
-                onPress={onComplete}
-                style={({ pressed }) => [
-                  styles.signInLink,
-                  { opacity: pressed ? 0.65 : 1 }
+                style={[
+                  styles.getStartedButton,
+                  {
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 4)',
+                    borderColor: isDark ? 'rgba(16, 185, 129, 0.5)' : 'rgba(16, 185, 129, 0.8)',
+                    borderWidth: 1,
+                  }
                 ]}
               >
-                <Text style={styles.signInSecondaryText}>
-                  Already have an account? <Text style={styles.signInPrimaryText}>Sign In</Text>
-                </Text>
-              </Pressable>
+               
+                <Text style={[styles.getStartedText, { color: '#ffffff' }]}>Get Started</Text>
+              </TouchableOpacity>
+
+             
             </View>
           )}
         </View>
       </View>
     </SafeAreaView>
+  </View>
   );
 }
 

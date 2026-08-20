@@ -238,12 +238,10 @@ export default function ReferralWalletSidebar({ isOpen, onClose }: ReferralWalle
                       },
                     ]}
                   >
-                    <Text style={[styles.codeText, { color: adminTheme.textPrimary }]}>
+                    <View style={{ width: 24 }} />
+                    <Text style={[styles.codeText, { color: adminTheme.textPrimary, flex: 1, textAlign: 'center' }]}>
                       {data.referralCode}
                     </Text>
-                  </View>
-
-                  <View style={styles.actionRow}>
                     <TouchableOpacity
                       onPress={handleCopyCode}
                       style={styles.copyBtn}
@@ -252,6 +250,8 @@ export default function ReferralWalletSidebar({ isOpen, onClose }: ReferralWalle
                       <Copy size={16} color="#d97706" />
                     </TouchableOpacity>
                   </View>
+
+
                 </View>
               ) : null}
             </ScrollView>
@@ -407,10 +407,11 @@ const styles = StyleSheet.create({
   codeContainer: {
     width: '100%',
     paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
   },
   codeText: {
     fontSize: 16,
@@ -418,15 +419,14 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   actionRow: {
-    width: '100%',
-    alignItems: 'flex-start',
+    // width: '100%',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
     marginTop: 4,
   },
   copyBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    width: 24,
+    height: 24,
     borderColor: '#eab308',
     justifyContent: 'center',
     alignItems: 'center',

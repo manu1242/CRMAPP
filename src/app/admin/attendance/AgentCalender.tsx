@@ -16,7 +16,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { getAdminTheme } from '@/theme/adminTheme';
+import { getAdminTheme } from '../../../theme/adminTheme';
 import {
   ChevronLeft,
   ChevronRight,

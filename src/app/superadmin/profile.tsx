@@ -27,13 +27,16 @@ import {
   Layers,
   Activity,
   ArrowRightLeft,
+  Sun,
+  Moon,
+  Smartphone,
 } from 'lucide-react-native';
 
 export default function SuperAdminProfileScreen() {
   const router = useRouter();
   const logout = useAuthStore((state) => state.logout);
   const user = useAuthStore((state) => state.user);
-  const { isDark } = useTheme();
+  const { isDark, preference, setPreference } = useTheme();
 
   const handleLogout = async () => {
     await logout();
@@ -117,7 +120,7 @@ export default function SuperAdminProfileScreen() {
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32, flexGrow: 1, gap: 14 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 160, flexGrow: 1, gap: 14 }}
         showsVerticalScrollIndicator={false}
       >
         {/* ── SUPERADMIN HERO HEADER CARD ──────────────────────────── */}
@@ -220,6 +223,57 @@ export default function SuperAdminProfileScreen() {
                     <Text style={[styles.linkSub, { color: subTextColor }]}>{link.desc}</Text>
                   </View>
                   <ChevronRight size={15} color={subTextColor} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ── APPEARANCE & THEME SETTINGS ──────────────────────────── */}
+        <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol, ...cardShadow }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <View style={{ backgroundColor: 'rgba(37, 99, 235, 0.12)', padding: 6, borderRadius: 8 }}>
+              <Sun size={15} color="#2563eb" />
+            </View>
+            <Text style={[styles.sectionTitleText, { color: textColor }]}>
+              Appearance & Theme
+            </Text>
+          </View>
+
+          <Text style={{ fontSize: 11, color: subTextColor, marginBottom: 12 }}>
+            Select how the CRM application looks on your device. Choose to match system display settings or force a specific mode.
+          </Text>
+
+          <View style={styles.themeSelectorRow}>
+            {(['light', 'dark'] as const).map((pref) => {
+              const isActive = preference === pref;
+              const Icon = pref === 'light' ? Sun : pref === 'dark' ? Moon : Smartphone;
+              const label = pref.charAt(0).toUpperCase() + pref.slice(1);
+
+              return (
+                <TouchableOpacity
+                  key={pref}
+                  onPress={() => setPreference(pref)}
+                  style={[
+                    styles.themeOption,
+                    {
+                      backgroundColor: isActive
+                        ? (isDark ? 'rgba(37, 99, 235, 0.2)' : 'rgba(37, 99, 235, 0.08)')
+                        : cardBg,
+                      borderColor: isActive ? brandColor : borderCol,
+                    }
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Icon size={16} color={isActive ? brandColor : subTextColor} />
+                  <Text
+                    style={[
+                      styles.themeOptionText,
+                      { color: isActive ? textColor : subTextColor, fontWeight: isActive ? '700' : '500' }
+                    ]}
+                  >
+                    {label}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -432,5 +486,22 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontSize: 13,
     fontWeight: '700',
+  },
+  themeSelectorRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  themeOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  themeOptionText: {
+    fontSize: 12,
   },
 });

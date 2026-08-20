@@ -203,7 +203,7 @@ export default function PartnerDetailsScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
         allowsEditing: false,
         quality: 0.8,
       });
@@ -1108,7 +1108,7 @@ export default function PartnerDetailsScreen() {
             {/* Header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>Configure Upload Document</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 disabled={uploadDocMutation.isPending}
                 onPress={() => {
                   setUploadModalOpen(false);

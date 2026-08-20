@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../../../contexts/ThemeContext';
-import { getAdminTheme } from '@/theme/adminTheme';
+import { getAdminTheme } from '../../../../theme/adminTheme';
 import {
   RotateCcw,
   CheckCircle,

@@ -120,7 +120,7 @@ export default function CreateAgentScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
         allowsEditing: false,
         quality: 0.8,
       });
@@ -177,14 +177,14 @@ export default function CreateAgentScreen() {
         formData.append('Address', form.address.trim());
       }
       formData.append('AgentType', form.agentType);
-      
+
       const salaryVal = parseFloat(form.salary);
       if ((form.agentType === 'Salary' || form.agentType === 'Hybrid') && !isNaN(salaryVal)) {
         formData.append('Salary', salaryVal.toString());
       } else {
         formData.append('Salary', '0');
       }
-      
+
       formData.append('CommissionRules', form.commissionRules);
 
       // Append files and their parallel custom details

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,9 @@ import {
   Modal,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { getAdminTheme } from '@/theme/adminTheme';
+import { getAdminTheme } from '../../../theme/adminTheme';
 import {
   Shield,
   ShieldCheck,
@@ -22,14 +23,18 @@ import {
   AlertCircle,
   Settings,
   Save,
+  ArrowLeft,
+  ChevronRight,
 } from 'lucide-react-native';
 import {
   roleManagementService,
   RoleItem,
   RolePermissionsMatrixResponse,
 } from '../../../admin/services/roleManagementService';
+import { useRolePermissionsStore } from '../../../hooks/useRolePermissionsStore';
 
 export default function RolesManagement() {
+  const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
 
@@ -46,19 +51,13 @@ export default function RolesManagement() {
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [search, setSearch] = useState('');
 
+
+
   // Add Role Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
   const [newAllowedModules, setNewAllowedModules] = useState('');
-
-  // Permissions Matrix Modal State
-  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
-  const [permissionsLoading, setPermissionsLoading] = useState(false);
-  const [savingPermissions, setSavingPermissions] = useState(false);
-  const [selectedRoleForPerms, setSelectedRoleForPerms] = useState<string | null>(null);
-  const [permissionsMatrix, setPermissionsMatrix] = useState<RolePermissionsMatrixResponse | null>(null);
-  const [permState, setPermState] = useState<Record<string, boolean>>({});
 
   // Fetch Roles
   const fetchRoles = useCallback(
@@ -76,7 +75,11 @@ export default function RolesManagement() {
         });
 
         if (response && response.success !== false) {
-          setRoles(response.data || []);
+          const rolesList = response.data || [];
+          setRoles(rolesList);
+          rolesList.forEach((r) => {
+            useRolePermissionsStore.getState().fetchPermissionsForRole(r.roleName);
+          });
         } else {
           setError('Failed to fetch role management data');
           Toast.show({
@@ -148,113 +151,6 @@ export default function RolesManagement() {
       });
     } finally {
       setAddLoading(false);
-    }
-  };
-
-  // Open Permissions Matrix Modal
-  const handleOpenPermissions = async (roleName: string) => {
-    setSelectedRoleForPerms(roleName);
-    setIsPermissionsModalOpen(true);
-    setPermissionsLoading(true);
-
-    try {
-      const res = await roleManagementService.getRolePermissions(roleName);
-      if (res && res.success) {
-        setPermissionsMatrix(res);
-        const initialState: Record<string, boolean> = {};
-        if (res.modules) {
-          res.modules.forEach((mod) => {
-            mod.pages.forEach((page) => {
-              if (page.permissions) {
-                Object.entries(page.permissions).forEach(([permType, isAllowed]) => {
-                  initialState[`${page.pageId}_${permType}`] = !!isAllowed;
-                });
-              }
-            });
-          });
-        }
-        setPermState(initialState);
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Permissions Error',
-          text2: 'Failed to load permissions matrix',
-        });
-      }
-    } catch (err: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: err.message || 'Error loading permissions matrix',
-      });
-    } finally {
-      setPermissionsLoading(false);
-    }
-  };
-
-  // Toggle single permission state
-  const togglePermission = (pageId: number, permType: string) => {
-    const key = `${pageId}_${permType}`;
-    setPermState((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  // Save Permissions Matrix
-  const handleSavePermissions = async () => {
-    if (!selectedRoleForPerms || !permissionsMatrix) return;
-
-    setSavingPermissions(true);
-
-    const permissionsPayload: Array<{ pageId: number; permissionName: string; isAllowed: boolean }> = [];
-    if (permissionsMatrix.modules) {
-      permissionsMatrix.modules.forEach((mod) => {
-        mod.pages.forEach((page) => {
-          (permissionsMatrix.availablePermissionTypes || ['View', 'Create', 'Edit', 'Delete', 'Export', 'Bulk Upload']).forEach(
-            (permType) => {
-              const key = `${page.pageId}_${permType}`;
-              const isAllowed = !!permState[key];
-              permissionsPayload.push({
-                pageId: page.pageId,
-                permissionName: permType,
-                isAllowed,
-              });
-            }
-          );
-        });
-      });
-    }
-
-    try {
-      const res = await roleManagementService.saveRolePermissions({
-        roleName: selectedRoleForPerms,
-        permissions: permissionsPayload as any,
-      });
-
-      if (res && res.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Permissions Saved',
-          text2: res.message || 'Permissions updated successfully!',
-        });
-        setIsPermissionsModalOpen(false);
-        fetchRoles();
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Save Failed',
-          text2: res.message || 'Failed to save permissions',
-        });
-      }
-    } catch (err: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Server Error',
-        text2: err.message || 'Server error saving permissions',
-      });
-    } finally {
-      setSavingPermissions(false);
     }
   };
 
@@ -444,7 +340,7 @@ export default function RolesManagement() {
 
                   {/* Configure Permissions Button */}
                   <TouchableOpacity
-                    onPress={() => handleOpenPermissions(r.roleName)}
+                    onPress={() => router.push({ pathname: '/admin/usemanagement/RolePermissions', params: { roleName: r.roleName } })}
                     style={{
                       paddingHorizontal: 12,
                       paddingVertical: 8,
@@ -573,184 +469,6 @@ export default function RolesManagement() {
         </View>
       </Modal>
 
-      {/* PERMISSIONS MATRIX MODAL */}
-      <Modal visible={isPermissionsModalOpen} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 }}>
-          <View
-            style={{
-              backgroundColor: cardBg,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: borderCol,
-              padding: 16,
-              maxHeight: '90%',
-            }}
-          >
-            {/* Modal Header */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <ShieldCheck size={20} color="#10b981" />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>
-                  Permissions: {selectedRoleForPerms}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setIsPermissionsModalOpen(false)}>
-                <X size={20} color={subTextColor} />
-              </TouchableOpacity>
-            </View>
-
-            {permissionsLoading ? (
-              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#10b981" />
-                <Text style={{ marginTop: 10, fontSize: 12, color: subTextColor }}>
-                  Loading permissions matrix...
-                </Text>
-              </View>
-            ) : permissionsMatrix ? (
-              <ScrollView contentContainerStyle={{ gap: 16 }}>
-                {permissionsMatrix.modules && permissionsMatrix.modules.length > 0 ? (
-                  permissionsMatrix.modules.map((mod) => (
-                    <View
-                      key={mod.moduleId}
-                      style={{
-                        backgroundColor: bgColor,
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: borderCol,
-                        padding: 12,
-                      }}
-                    >
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#10b981', marginBottom: 10 }}>
-                        Module: {mod.moduleName}
-                      </Text>
-
-                      {mod.pages.map((page) => (
-                        <View
-                          key={page.pageId}
-                          style={{
-                            backgroundColor: cardBg,
-                            borderRadius: 8,
-                            padding: 10,
-                            marginBottom: 8,
-                            borderWidth: 1,
-                            borderColor: borderCol,
-                          }}
-                        >
-                          <Text style={{ fontSize: 13, fontWeight: '600', color: textColor, marginBottom: 8 }}>
-                            {page.pageName} ({page.pageKey})
-                          </Text>
-
-                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                            {(
-                              permissionsMatrix.availablePermissionTypes || [
-                                'View',
-                                'Create',
-                                'Edit',
-                                'Delete',
-                                'Export',
-                                'Bulk Upload',
-                              ]
-                            ).map((permType) => {
-                              const key = `${page.pageId}_${permType}`;
-                              const isChecked = !!permState[key];
-                              return (
-                                <TouchableOpacity
-                                  key={permType}
-                                  onPress={() => togglePermission(page.pageId, permType)}
-                                  style={{
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 5,
-                                    borderRadius: 6,
-                                    backgroundColor: isChecked ? '#10b98120' : bgColor,
-                                    borderWidth: 1,
-                                    borderColor: isChecked ? '#10b981' : borderCol,
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                  }}
-                                >
-                                  {isChecked ? (
-                                    <CheckCircle size={12} color="#10b981" />
-                                  ) : (
-                                    <View
-                                      style={{
-                                        width: 12,
-                                        height: 12,
-                                        borderRadius: 6,
-                                        borderWidth: 1,
-                                        borderColor: borderCol,
-                                      }}
-                                    />
-                                  )}
-                                  <Text
-                                    style={{
-                                      fontSize: 11,
-                                      fontWeight: isChecked ? '700' : '500',
-                                      color: isChecked ? '#10b981' : subTextColor,
-                                    }}
-                                  >
-                                    {permType}
-                                  </Text>
-                                </TouchableOpacity>
-                              );
-                            })}
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  ))
-                ) : (
-                  <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 13, color: subTextColor }}>No module pages configured</Text>
-                  </View>
-                )}
-              </ScrollView>
-            ) : null}
-
-            {/* Save Button */}
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-              <TouchableOpacity
-                onPress={() => setIsPermissionsModalOpen(false)}
-                style={{
-                  flex: 1,
-                  height: 42,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: borderCol,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ color: subTextColor, fontWeight: '600', fontSize: 13 }}>Close</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleSavePermissions}
-                disabled={savingPermissions || permissionsLoading}
-                style={{
-                  flex: 1,
-                  height: 42,
-                  borderRadius: 8,
-                  backgroundColor: '#10b981',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  flexDirection: 'row',
-                  gap: 6,
-                }}
-              >
-                {savingPermissions ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Save size={16} color="#fff" />
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Save Matrix</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }

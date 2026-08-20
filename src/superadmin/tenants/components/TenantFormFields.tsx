@@ -10,9 +10,9 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { usePlansQuery } from '@/superadmin/plans/hooks/usePlans';
-import { Plan } from '@/superadmin/plans/models/Plan';
-import { useTheme } from '@/contexts/ThemeContext';
+import { usePlansQuery } from '../../plans/hooks/usePlans';
+import { Plan } from '../../plans/models/Plan';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 interface TenantFormFieldsProps {
   formData: any;
@@ -26,8 +26,8 @@ function formatPrice(price: number) {
 }
 
 const PLAN_TYPE_COLORS: Record<string, { bg: string; border: string; badge: string; text: string }> = {
-  Basic:      { bg: '#f0fdf4', border: '#bbf7d0', badge: '#16a34a', text: '#15803d' },
-  Standard:   { bg: '#eff6ff', border: '#bfdbfe', badge: '#2563eb', text: '#1d4ed8' },
+  Basic: { bg: '#f0fdf4', border: '#bbf7d0', badge: '#16a34a', text: '#15803d' },
+  Standard: { bg: '#eff6ff', border: '#bfdbfe', badge: '#2563eb', text: '#1d4ed8' },
   Enterprise: { bg: '#fdf4ff', border: '#e9d5ff', badge: '#9333ea', text: '#7e22ce' },
 };
 
@@ -95,23 +95,32 @@ export const TenantFormFields = ({
     <View style={{ gap: 16 }}>
       {/* Company Name */}
       <View>
-        <Text style={{ color: labelColor, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Company Name</Text>
-        <TextInput
-          style={{
-            height: 44,
-            borderWidth: 1,
-            borderColor: validationErrors.companyName ? '#ef4444' : borderCol,
-            backgroundColor: validationErrors.companyName ? (isDark ? '#7f1d1d20' : '#fef2f2') : inputBg,
-            borderRadius: 12,
-            paddingHorizontal: 12,
-            fontSize: 15,
-            color: textColor,
-          }}
-          value={formData.companyName}
-          onChangeText={(v) => updateField('companyName', v)}
-          placeholder="e.g. Alpha Realty"
-          placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-        />
+        <Text style={{ color: labelColor, fontSize: 13, fontWeight: '600', marginBottom: 6 }}>Company Name</Text>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          height: 48,
+          borderWidth: 1,
+          borderColor: validationErrors.companyName ? '#ef4444' : borderCol,
+          backgroundColor: validationErrors.companyName ? (isDark ? '#7f1d1d15' : '#fef2f2') : inputBg,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          gap: 10,
+        }}>
+          <Ionicons name="business-outline" size={18} color={validationErrors.companyName ? '#ef4444' : (isDark ? '#94a3b8' : '#64748b')} />
+          <TextInput
+            style={{
+              flex: 1,
+              height: '100%',
+              fontSize: 14,
+              color: textColor,
+            }}
+            value={formData.companyName}
+            onChangeText={(v) => updateField('companyName', v)}
+            placeholder="e.g. Alpha Realty"
+            placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+          />
+        </View>
         {validationErrors.companyName && (
           <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 4, fontWeight: '600' }}>{validationErrors.companyName}</Text>
         )}
@@ -120,19 +129,23 @@ export const TenantFormFields = ({
       {/* Subdomain (Only for Create) */}
       {!isEdit && (
         <View>
-          <Text style={{ color: labelColor, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Subdomain</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ color: labelColor, fontSize: 13, fontWeight: '600', marginBottom: 6 }}>Subdomain Prefix</Text>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            height: 48,
+            borderWidth: 1,
+            borderColor: validationErrors.subdomain ? '#ef4444' : borderCol,
+            backgroundColor: validationErrors.subdomain ? (isDark ? '#7f1d1d15' : '#fef2f2') : inputBg,
+            borderRadius: 10,
+            paddingLeft: 12,
+          }}>
+            <Ionicons name="globe-outline" size={18} color={validationErrors.subdomain ? '#ef4444' : (isDark ? '#94a3b8' : '#64748b')} style={{ marginRight: 10 }} />
             <TextInput
               style={{
                 flex: 1,
-                height: 44,
-                borderWidth: 1,
-                borderColor: validationErrors.subdomain ? '#ef4444' : borderCol,
-                backgroundColor: validationErrors.subdomain ? (isDark ? '#7f1d1d20' : '#fef2f2') : inputBg,
-                borderTopLeftRadius: 12,
-                borderBottomLeftRadius: 12,
-                paddingHorizontal: 12,
-                fontSize: 15,
+                height: '100%',
+                fontSize: 14,
                 color: textColor,
               }}
               value={formData.subdomain}
@@ -142,17 +155,16 @@ export const TenantFormFields = ({
               placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
             />
             <View style={{
-              height: 44,
+              height: '100%',
               justifyContent: 'center',
-              backgroundColor: labelBg,
-              borderWidth: 1,
-              borderLeftWidth: 0,
-              borderColor: borderCol,
-              borderTopRightRadius: 12,
-              borderBottomRightRadius: 12,
+              backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+              borderLeftWidth: 1,
+              borderLeftColor: borderCol,
+              borderTopRightRadius: 9,
+              borderBottomRightRadius: 9,
               paddingHorizontal: 12,
             }}>
-              <Text style={{ color: subTextColor, fontSize: 14 }}>.uproptech.com</Text>
+              <Text style={{ color: subTextColor, fontSize: 13, fontWeight: '600' }}>.uproptech.com</Text>
             </View>
           </View>
           {validationErrors.subdomain ? (
@@ -165,23 +177,32 @@ export const TenantFormFields = ({
 
       {/* Contact Person */}
       <View>
-        <Text style={{ color: labelColor, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Contact Person</Text>
-        <TextInput
-          style={{
-            height: 44,
-            borderWidth: 1,
-            borderColor: validationErrors.contactPerson ? '#ef4444' : borderCol,
-            backgroundColor: validationErrors.contactPerson ? (isDark ? '#7f1d1d20' : '#fef2f2') : inputBg,
-            borderRadius: 12,
-            paddingHorizontal: 12,
-            fontSize: 15,
-            color: textColor,
-          }}
-          value={formData.contactPerson}
-          onChangeText={(v) => updateField('contactPerson', v)}
-          placeholder="e.g. Jane Smith"
-          placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-        />
+        <Text style={{ color: labelColor, fontSize: 13, fontWeight: '600', marginBottom: 6 }}>Contact Person</Text>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          height: 48,
+          borderWidth: 1,
+          borderColor: validationErrors.contactPerson ? '#ef4444' : borderCol,
+          backgroundColor: validationErrors.contactPerson ? (isDark ? '#7f1d1d15' : '#fef2f2') : inputBg,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          gap: 10,
+        }}>
+          <Ionicons name="person-outline" size={18} color={validationErrors.contactPerson ? '#ef4444' : (isDark ? '#94a3b8' : '#64748b')} />
+          <TextInput
+            style={{
+              flex: 1,
+              height: '100%',
+              fontSize: 14,
+              color: textColor,
+            }}
+            value={formData.contactPerson}
+            onChangeText={(v) => updateField('contactPerson', v)}
+            placeholder="e.g. Jane Smith"
+            placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+          />
+        </View>
         {validationErrors.contactPerson && (
           <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 4, fontWeight: '600' }}>{validationErrors.contactPerson}</Text>
         )}
@@ -189,25 +210,34 @@ export const TenantFormFields = ({
 
       {/* Email */}
       <View>
-        <Text style={{ color: labelColor, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Email Address</Text>
-        <TextInput
-          style={{
-            height: 44,
-            borderWidth: 1,
-            borderColor: validationErrors.email ? '#ef4444' : borderCol,
-            backgroundColor: validationErrors.email ? (isDark ? '#7f1d1d20' : '#fef2f2') : inputBg,
-            borderRadius: 12,
-            paddingHorizontal: 12,
-            fontSize: 15,
-            color: textColor,
-          }}
-          value={formData.email}
-          onChangeText={(v) => updateField('email', v)}
-          placeholder="e.g. contact@company.com"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-        />
+        <Text style={{ color: labelColor, fontSize: 13, fontWeight: '600', marginBottom: 6 }}>Email Address</Text>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          height: 48,
+          borderWidth: 1,
+          borderColor: validationErrors.email ? '#ef4444' : borderCol,
+          backgroundColor: validationErrors.email ? (isDark ? '#7f1d1d15' : '#fef2f2') : inputBg,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          gap: 10,
+        }}>
+          <Ionicons name="mail-outline" size={18} color={validationErrors.email ? '#ef4444' : (isDark ? '#94a3b8' : '#64748b')} />
+          <TextInput
+            style={{
+              flex: 1,
+              height: '100%',
+              fontSize: 14,
+              color: textColor,
+            }}
+            value={formData.email}
+            onChangeText={(v) => updateField('email', v)}
+            placeholder="e.g. contact@company.com"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+          />
+        </View>
         {validationErrors.email && (
           <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 4, fontWeight: '600' }}>{validationErrors.email}</Text>
         )}
@@ -215,24 +245,33 @@ export const TenantFormFields = ({
 
       {/* Phone */}
       <View>
-        <Text style={{ color: labelColor, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Phone Number</Text>
-        <TextInput
-          style={{
-            height: 44,
-            borderWidth: 1,
-            borderColor: validationErrors.phone ? '#ef4444' : borderCol,
-            backgroundColor: validationErrors.phone ? (isDark ? '#7f1d1d20' : '#fef2f2') : inputBg,
-            borderRadius: 12,
-            paddingHorizontal: 12,
-            fontSize: 15,
-            color: textColor,
-          }}
-          value={formData.phone}
-          onChangeText={(v) => updateField('phone', v)}
-          placeholder="e.g. 9876543210"
-          keyboardType="phone-pad"
-          placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-        />
+        <Text style={{ color: labelColor, fontSize: 13, fontWeight: '600', marginBottom: 6 }}>Phone Number</Text>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          height: 48,
+          borderWidth: 1,
+          borderColor: validationErrors.phone ? '#ef4444' : borderCol,
+          backgroundColor: validationErrors.phone ? (isDark ? '#7f1d1d15' : '#fef2f2') : inputBg,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          gap: 10,
+        }}>
+          <Ionicons name="call-outline" size={18} color={validationErrors.phone ? '#ef4444' : (isDark ? '#94a3b8' : '#64748b')} />
+          <TextInput
+            style={{
+              flex: 1,
+              height: '100%',
+              fontSize: 14,
+              color: textColor,
+            }}
+            value={formData.phone}
+            onChangeText={(v) => updateField('phone', v)}
+            placeholder="e.g. 9876543210"
+            keyboardType="phone-pad"
+            placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+          />
+        </View>
         {validationErrors.phone && (
           <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 4, fontWeight: '600' }}>{validationErrors.phone}</Text>
         )}
@@ -240,17 +279,17 @@ export const TenantFormFields = ({
 
       {/* ── Plan Selector ── */}
       <View>
-        <Text style={{ color: labelColor, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>
+        <Text style={{ color: labelColor, fontSize: 13, fontWeight: '600', marginBottom: 6 }}>
           Subscription Plan <Text style={{ color: '#ef4444' }}>*</Text>
         </Text>
 
         {plansLoading ? (
-          <View style={{ height: 48, borderWidth: 1, borderColor: borderCol, backgroundColor: inputBg, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+          <View style={{ height: 48, borderWidth: 1, borderColor: borderCol, backgroundColor: inputBg, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
             <ActivityIndicator size="small" color="#1e73be" />
             <Text style={{ color: subTextColor, fontSize: 12 }}>Loading plans…</Text>
           </View>
         ) : plansError ? (
-          <View style={{ height: 48, borderWidth: 1, borderColor: '#fca5a5', backgroundColor: isDark ? '#7f1d1d20' : '#fef2f2', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ height: 48, borderWidth: 1, borderColor: '#fca5a5', backgroundColor: isDark ? '#7f1d1d20' : '#fef2f2', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>Failed to load plans. Check connection.</Text>
           </View>
         ) : (
@@ -258,19 +297,19 @@ export const TenantFormFields = ({
             onPress={() => setPlanModalVisible(true)}
             activeOpacity={0.75}
             style={{
+              height: 48,
               borderWidth: 1,
               borderColor: validationErrors.plan ? '#ef4444' : borderCol,
-              backgroundColor: validationErrors.plan ? (isDark ? '#7f1d1d20' : '#fef2f2') : inputBg,
-              borderRadius: 12,
+              backgroundColor: validationErrors.plan ? (isDark ? '#7f1d1d15' : '#fef2f2') : inputBg,
+              borderRadius: 10,
               paddingHorizontal: 12,
-              paddingVertical: 12,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
             }}
           >
             {selectedPlan ? (
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 {/* Coloured dot */}
                 <View
                   style={{
@@ -281,8 +320,8 @@ export const TenantFormFields = ({
                   }}
                 />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: textColor, fontWeight: '700', fontSize: 14 }}>{selectedPlan.planName}</Text>
-                  <Text style={{ color: subTextColor, fontSize: 10, marginTop: 2 }}>
+                  <Text style={{ color: textColor, fontWeight: '700', fontSize: 13 }}>{selectedPlan.planName}</Text>
+                  <Text style={{ color: subTextColor, fontSize: 10 }}>
                     {formatPrice(selectedPlan.monthlyPrice)}/mo · {formatPrice(selectedPlan.yearlyPrice)}/yr
                   </Text>
                 </View>
@@ -296,15 +335,18 @@ export const TenantFormFields = ({
                     paddingVertical: 2,
                   }}
                 >
-                  <Text style={{ color: getColors(selectedPlan.planType).text, fontSize: 10, fontWeight: '700' }}>
+                  <Text style={{ color: getColors(selectedPlan.planType).text, fontSize: 9, fontWeight: '700' }}>
                     {selectedPlan.planType}
                   </Text>
                 </View>
               </View>
             ) : (
-              <Text style={{ color: subTextColor, fontSize: 14, flex: 1 }}>Select a subscription plan…</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <Ionicons name="card-outline" size={18} color={isDark ? '#94a3b8' : '#64748b'} />
+                <Text style={{ color: subTextColor, fontSize: 14, flex: 1 }}>Select a subscription plan…</Text>
+              </View>
             )}
-            <Ionicons name="chevron-down" size={18} color={isDark ? '#64748b' : '#94a3b8'} style={{ marginLeft: 8 }} />
+            <Ionicons name="chevron-down" size={16} color={isDark ? '#64748b' : '#94a3b8'} style={{ marginLeft: 8 }} />
           </TouchableOpacity>
         )}
 
@@ -316,24 +358,33 @@ export const TenantFormFields = ({
       {/* Max Users (Only for Edit) */}
       {isEdit && (
         <View>
-          <Text style={{ color: labelColor, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Max Users Limit</Text>
-          <TextInput
-            style={{
-              height: 44,
-              borderWidth: 1,
-              borderColor: validationErrors.maxUsers ? '#ef4444' : borderCol,
-              backgroundColor: validationErrors.maxUsers ? (isDark ? '#7f1d1d20' : '#fef2f2') : inputBg,
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              fontSize: 15,
-              color: textColor,
-            }}
-            value={formData.maxUsers?.toString()}
-            onChangeText={(v) => updateField('maxUsers', parseInt(v, 10) || 0)}
-            placeholder="e.g. 50"
-            keyboardType="number-pad"
-            placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-          />
+          <Text style={{ color: labelColor, fontSize: 13, fontWeight: '600', marginBottom: 6 }}>Max Users Limit</Text>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            height: 48,
+            borderWidth: 1,
+            borderColor: validationErrors.maxUsers ? '#ef4444' : borderCol,
+            backgroundColor: validationErrors.maxUsers ? (isDark ? '#7f1d1d15' : '#fef2f2') : inputBg,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            gap: 10,
+          }}>
+            <Ionicons name="people-outline" size={18} color={validationErrors.maxUsers ? '#ef4444' : (isDark ? '#94a3b8' : '#64748b')} />
+            <TextInput
+              style={{
+                flex: 1,
+                height: '100%',
+                fontSize: 14,
+                color: textColor,
+              }}
+              value={formData.maxUsers?.toString()}
+              onChangeText={(v) => updateField('maxUsers', parseInt(v, 10) || 0)}
+              placeholder="e.g. 50"
+              keyboardType="number-pad"
+              placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+            />
+          </View>
           {validationErrors.maxUsers && (
             <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 4, fontWeight: '600' }}>{validationErrors.maxUsers}</Text>
           )}
@@ -343,24 +394,33 @@ export const TenantFormFields = ({
       {/* Referral Code (Only for Create) */}
       {!isEdit && (
         <View>
-          <Text style={{ color: labelColor, fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Referral Code (Optional)</Text>
-          <TextInput
-            style={{
-              height: 44,
-              borderWidth: 1,
-              borderColor: borderCol,
-              backgroundColor: inputBg,
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              fontSize: 15,
-              color: textColor,
-            }}
-            value={formData.referralCode}
-            onChangeText={(v) => updateField('referralCode', v)}
-            placeholder="e.g. PR7394"
-            autoCapitalize="characters"
-            placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-          />
+          <Text style={{ color: labelColor, fontSize: 13, fontWeight: '600', marginBottom: 6 }}>Referral Code (Optional)</Text>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            height: 48,
+            borderWidth: 1,
+            borderColor: borderCol,
+            backgroundColor: inputBg,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            gap: 10,
+          }}>
+            <Ionicons name="gift-outline" size={18} color={isDark ? '#94a3b8' : '#64748b'} />
+            <TextInput
+              style={{
+                flex: 1,
+                height: '100%',
+                fontSize: 14,
+                color: textColor,
+              }}
+              value={formData.referralCode}
+              onChangeText={(v) => updateField('referralCode', v)}
+              placeholder="e.g. PR7394"
+              autoCapitalize="characters"
+              placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+            />
+          </View>
         </View>
       )}
 
@@ -436,7 +496,7 @@ export const TenantFormFields = ({
                         borderWidth: isSelected ? 2 : 1,
                         borderColor: isSelected ? colors.badge : borderCol,
                         backgroundColor: isSelected ? (isDark ? '#1e293b' : colors.bg) : planCardBg,
-                        borderRadius: 16,
+                        borderRadius: 10,
                         padding: 16,
                         marginBottom: 4,
                       }}
@@ -475,13 +535,13 @@ export const TenantFormFields = ({
 
                       {/* Pricing */}
                       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-                        <View style={{ flex: 1, backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderRadius: 12, padding: 10, alignItems: 'center' }}>
+                        <View style={{ flex: 1, backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderRadius: 10, padding: 10, alignItems: 'center' }}>
                           <Text style={{ color: subTextColor, fontSize: 10, fontWeight: '600', textTransform: 'uppercase' }}>Monthly</Text>
                           <Text style={{ color: textColor, fontWeight: '700', fontSize: 14, marginTop: 2 }}>
                             {formatPrice(plan.monthlyPrice)}
                           </Text>
                         </View>
-                        <View style={{ flex: 1, backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderRadius: 12, padding: 10, alignItems: 'center' }}>
+                        <View style={{ flex: 1, backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderRadius: 10, padding: 10, alignItems: 'center' }}>
                           <Text style={{ color: subTextColor, fontSize: 10, fontWeight: '600', textTransform: 'uppercase' }}>Yearly</Text>
                           <Text style={{ color: textColor, fontWeight: '700', fontSize: 14, marginTop: 2 }}>
                             {formatPrice(plan.yearlyPrice)}

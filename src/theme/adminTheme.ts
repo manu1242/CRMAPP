@@ -20,6 +20,7 @@ export interface AdminThemeTokens {
   activePillText: string;
   badgeBg: string;
   badgeText: string;
+  FooterText:string;
 }
 
 export const adminThemeTokens: { light: AdminThemeTokens; dark: AdminThemeTokens } = {
@@ -42,6 +43,7 @@ export const adminThemeTokens: { light: AdminThemeTokens; dark: AdminThemeTokens
     activePillText: '#ffffff',
     badgeBg: '#10b98115',
     badgeText: '#10b981',
+    FooterText:'#40403f'
   },
   dark: {
     primaryBg: '#000000',
@@ -62,6 +64,7 @@ export const adminThemeTokens: { light: AdminThemeTokens; dark: AdminThemeTokens
     activePillText: '#ffffff',
     badgeBg: '#10b98120',
     badgeText: '#34d399',
+    FooterText:'#40403f'
   },
 };
 

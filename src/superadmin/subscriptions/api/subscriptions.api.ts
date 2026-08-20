@@ -1,5 +1,5 @@
-import { apiClient } from '@/api/apiClient';
-import { API_ENDPOINTS } from '@/api/endpoints';
+import { apiClient } from '../../../api/apiClient';
+import { API_ENDPOINTS } from '../../../api/endpoints';
 
 export interface TenantSubscription {
   subscriptionId: number;

@@ -9,12 +9,14 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../contexts/ThemeContext';
 import AppFooter from '../../auth/components/AppFooter';
-import { apiClient } from '@/api/apiClient';
-import { API_ENDPOINTS } from '@/api/endpoints';
+import { apiClient } from '../../api/apiClient';
+import { API_ENDPOINTS } from '../../api/endpoints';
 
 interface PaymentConfig {
   razorpayKeyId: string;
@@ -30,7 +32,7 @@ const emptyConfig: PaymentConfig = {
 
 export default function SuperAdminPaymentConfigContent() {
   const { isDark } = useTheme();
-
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<PaymentConfig>(emptyConfig);
@@ -38,12 +40,12 @@ export default function SuperAdminPaymentConfigContent() {
   const [showWebhook, setShowWebhook] = useState(false);
 
   // Theme
-  const bgColor    = isDark ? '#0f172a' : '#f8fafc';
-  const cardBg     = isDark ? '#1e293b' : '#ffffff';
-  const textColor  = isDark ? '#f1f5f9' : '#1e293b';
+  const bgColor = isDark ? '#0f172a' : '#f8fafc';
+  const cardBg = isDark ? '#1e293b' : '#ffffff';
+  const textColor = isDark ? '#f1f5f9' : '#1e293b';
   const labelColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol  = isDark ? '#334155' : '#e2e8f0';
-  const inputBg    = isDark ? '#0f172a' : '#ffffff';
+  const borderCol = isDark ? '#334155' : '#e2e8f0';
+  const inputBg = isDark ? '#0f172a' : '#ffffff';
 
   const loadConfig = useCallback(async () => {
     try {
@@ -52,8 +54,8 @@ export default function SuperAdminPaymentConfigContent() {
       if (res?.success && res?.data) {
         const d = res.data;
         setConfig({
-          razorpayKeyId:       d.razorpayKeyId       ?? d.RazorpayKeyId       ?? '',
-          razorpayKeySecret:   d.razorpayKeySecret   ?? d.RazorpayKeySecret   ?? '',
+          razorpayKeyId: d.razorpayKeyId ?? d.RazorpayKeyId ?? '',
+          razorpayKeySecret: d.razorpayKeySecret ?? d.RazorpayKeySecret ?? '',
           razorpayWebhookSecret: d.razorpayWebhookSecret ?? d.RazorpayWebhookSecret ?? '',
         });
       }
@@ -74,8 +76,8 @@ export default function SuperAdminPaymentConfigContent() {
     try {
       setSaving(true);
       const res: any = await apiClient.put(API_ENDPOINTS.PAYMENT_CONFIG.SAVE, {
-        razorpayKeyId:        config.razorpayKeyId.trim(),
-        razorpayKeySecret:    config.razorpayKeySecret.trim(),
+        razorpayKeyId: config.razorpayKeyId.trim(),
+        razorpayKeySecret: config.razorpayKeySecret.trim(),
         razorpayWebhookSecret: config.razorpayWebhookSecret.trim(),
       });
       if (res?.success) {
@@ -104,7 +106,7 @@ export default function SuperAdminPaymentConfigContent() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, backgroundColor: bgColor }}
+      style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }}
     >
       <ScrollView
         style={{ flex: 1 }}

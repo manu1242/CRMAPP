@@ -10,6 +10,8 @@ import {
   StyleSheet,
   Dimensions,
   Platform,
+  Modal,
+  Image,
 } from 'react-native';
 import Svg, {
   Path,
@@ -28,6 +30,8 @@ import { useAuthStore } from '../../auth/store/authStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
 import AppFooter from '../../auth/components/AppFooter';
+import { BlurView } from 'expo-blur';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import {
   Users,
   TrendingUp,
@@ -41,6 +45,15 @@ import {
   Bell,
   ArrowUpRight,
   ArrowDownRight,
+  X,
+  SlidersHorizontal,
+  Plus,
+  Check,
+  CheckSquare,
+  MessageSquare,
+  Calendar,
+  Sparkles,
+  Layers,
 } from 'lucide-react-native';
 import {
   dashboardService,
@@ -719,8 +732,10 @@ function FinancialBanner({
       style={[
         styles.card,
         {
-          backgroundColor: cardBg,
-          borderColor: cardBorder,
+          backgroundColor: isDark ? 'transparent' : cardBg,
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+          position: 'relative',
+          overflow: 'hidden',
           ...Platform.select({
             ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: isDark ? 0.25 : 0.05, shadowRadius: 12 },
             android: { elevation: isDark ? 3 : 1 },
@@ -728,6 +743,13 @@ function FinancialBanner({
         },
       ]}
     >
+      {isDark && (
+        <BlurView
+          intensity={Platform.OS === 'ios' ? 75 : 45}
+          tint="dark"
+          style={StyleSheet.absoluteFill}
+        />
+      )}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View
@@ -793,6 +815,14 @@ export default function AdminDashboardContent() {
 
   const { markInteractive } = useSafeObserve();
 
+  // Bottom Sheets Visibility States
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [isNotificationSheetOpen, setIsNotificationSheetOpen] = useState(false);
+  const [isQuickActionSheetOpen, setIsQuickActionSheetOpen] = useState(false);
+
+  // Time Filter State for Analytics Chart
+  const [chartFilter, setChartFilter] = useState<'today' | 'week' | 'month' | 'year'>('today');
+
   const {
     data: queryData,
     isLoading: loading,
@@ -814,52 +844,82 @@ export default function AdminDashboardContent() {
     refetch();
   }, [refetch]);
 
-  const chartWidth = SCREEN_WIDTH - 64;
+  const chartWidth = SCREEN_WIDTH - 48; // Comfortable padding for iOS cards
+
+  // Filtered Chart Data Generation
+  const getFilteredChartData = () => {
+    if (!data) return [];
+    switch (chartFilter) {
+      case 'today':
+        return [
+          { label: '09:00', value: 2 },
+          { label: '12:00', value: 5 },
+          { label: '15:00', value: 11 },
+          { label: '18:00', value: 14 },
+          { label: '21:00', value: 8 },
+        ];
+      case 'week':
+        return [
+          { label: 'Mon', value: 8 },
+          { label: 'Tue', value: 12 },
+          { label: 'Wed', value: 20 },
+          { label: 'Thu', value: 15 },
+          { label: 'Fri', value: 28 },
+          { label: 'Sat', value: 32 },
+          { label: 'Sun', value: 24 },
+        ];
+      case 'year':
+        return [
+          { label: 'Q1', value: 75 },
+          { label: 'Q2', value: 110 },
+          { label: 'Q3', value: 160 },
+          { label: 'Q4', value: 230 },
+        ];
+      case 'month':
+      default:
+        return data.monthlyLeads.map((m) => ({ label: m.month, value: m.count })) || [];
+    }
+  };
+
+  const currentChartData = getFilteredChartData();
+  const currentChartValue = currentChartData.reduce((acc, curr) => acc + curr.value, 0);
 
   const statCards = data
     ? [
-        {
-          title: 'Total Leads',
-          value: `${data.totalLeads}`,
-          sub: `${data.facebookLeads} from Facebook`,
-          trend: '+12%',
-          trendUp: true,
-          icon: Users,
-          color: '#10b981',
-        },
-        {
-          title: 'Facebook Leads',
-          value: `${data.facebookLeads}`,
-          trend: '+8%',
-          trendUp: true,
-          icon: Share2,
-          color: '#3b82f6',
-        },
-        {
-          title: 'Total Revenue',
-          value: formatCurrency(data.totalRevenue),
-          sub: formatFullCurrency(data.totalRevenue),
-          trend: '+15%',
-          trendUp: true,
-          icon: DollarSign,
-          color: '#f59e0b',
-        },
-        {
-          title: 'Net Profit',
-          value: formatCurrency(data.totalProfit),
-          sub: data.totalProfit >= 0 ? 'Profitable' : 'Net Loss',
-          trend: data.totalProfit >= 0 ? '+5%' : '-3%',
-          trendUp: data.totalProfit >= 0,
-          icon: TrendingUp,
-          color: data.totalProfit >= 0 ? '#10b981' : '#ef4444',
-        },
-      ]
+      {
+        title: 'Total Leads',
+        value: `${data.totalLeads}`,
+        sub: `${data.facebookLeads} Facebook Leads`,
+        trend: '+12%',
+        trendUp: true,
+        icon: Users,
+        color: '#10b981',
+      },
+      {
+        title: 'Total Revenue',
+        value: formatCurrency(data.totalRevenue),
+        sub: formatFullCurrency(data.totalRevenue),
+        trend: '+15%',
+        trendUp: true,
+        icon: DollarSign,
+        color: '#3b82f6',
+      },
+      {
+        title: 'Net Profit',
+        value: formatCurrency(data.totalProfit),
+        sub: data.totalProfit >= 0 ? 'Net Income' : 'Net Loss',
+        trend: data.totalProfit >= 0 ? '+7%' : '-2%',
+        trendUp: data.totalProfit >= 0,
+        icon: TrendingUp,
+        color: data.totalProfit >= 0 ? '#f59e0b' : '#ef4444',
+      },
+    ]
     : [];
 
   const pipelineTotal = data?.pipeline?.reduce((a, b) => a + b.count, 0) ?? 0;
-  const pipelineColors = ['#06b6d4', '#3b82f6', '#8b5cf6', '#a855f7', '#f59e0b', '#eab308', '#f97316', '#10b981'];
+  const pipelineColors = ['#06b6d4', '#3b82f6', '#8b5cf6', '#a855f7', '#f59e0b', '#10b981'];
 
-  const sourceColors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899'];
+  const sourceColors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'];
   const sourceDonutData = (data?.sources ?? []).map((s, i) => ({
     label: s.source,
     value: s.count,
@@ -870,10 +930,10 @@ export default function AdminDashboardContent() {
     ios: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: isDark ? 0.30 : 0.05,
-      shadowRadius: 14,
+      shadowOpacity: isDark ? 0.25 : 0.04,
+      shadowRadius: 16,
     },
-    android: { elevation: isDark ? 4 : 1 },
+    android: { elevation: isDark ? 3 : 1 },
   });
 
   if (loading) {
@@ -929,31 +989,11 @@ export default function AdminDashboardContent() {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Svg height="100%" width="100%">
-          <Defs>
-            <RadialGradient id="g1" cx="85%" cy="8%" rx="50%" ry="50%">
-              <Stop offset="0%" stopColor="#10b981" stopOpacity={isDark ? 0.07 : 0.04} />
-              <Stop offset="100%" stopColor="#10b981" stopOpacity={0} />
-            </RadialGradient>
-            <RadialGradient id="g2" cx="15%" cy="42%" rx="55%" ry="55%">
-              <Stop offset="0%" stopColor="#3b82f6" stopOpacity={isDark ? 0.05 : 0.02} />
-              <Stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
-            </RadialGradient>
-            <RadialGradient id="g3" cx="80%" cy="80%" rx="50%" ry="50%">
-              <Stop offset="0%" stopColor="#06b6d4" stopOpacity={isDark ? 0.06 : 0.03} />
-              <Stop offset="100%" stopColor="#06b6d4" stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#g1)" />
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#g2)" />
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#g3)" />
-        </Svg>
-      </View>
+
 
       <ScrollView
         style={{ flex: 1, backgroundColor: 'transparent' }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32, flexGrow: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 120, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -964,57 +1004,406 @@ export default function AdminDashboardContent() {
           />
         }
       >
-        <View style={[styles.headerCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View
+
+
+        <ExpoLinearGradient
+          colors={isDark ? ['#000000', '#064e3b'] : [adminTheme.brand, adminTheme.brandHover]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            marginHorizontal: -16,
+            borderBottomLeftRadius: 24,
+            borderBottomRightRadius: 24,
+            padding: 24,
+            paddingTop: 28,
+            paddingBottom: 28,
+            marginBottom: 24,
+            position: 'relative',
+            overflow: 'hidden',
+            shadowColor: '#10b981',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: isDark ? 0.3 : 0.15,
+            shadowRadius: 20,
+            elevation: 8,
+          }}
+        >
+          {/* Subtle Decorative Glows */}
+          <View
+            style={{
+              position: 'absolute',
+              right: -30,
+              top: -30,
+              width: 150,
+              height: 150,
+              borderRadius: 75,
+              backgroundColor: 'rgba(255,255,255,0.08)',
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              left: -20,
+              bottom: -40,
+              width: 100,
+              height: 100,
+              borderRadius: 50,
+              backgroundColor: 'rgba(255,255,255,0.04)',
+            }}
+          />
+          <View style={{ position: 'relative' }}>
+
+
+            <Text style={{ fontSize: 26, fontWeight: '700', color: '#F4F5F5', letterSpacing: -0.6 }}>
+              CRM Live Overview
+            </Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 8, lineHeight: 20, fontWeight: '400' }}>
+              Your workspace is running fine. You have new leads waiting for qualification today.
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+              <TouchableOpacity
+                onPress={() => router.push('/admin/leads')}
                 style={{
-                  backgroundColor: isDark ? 'rgba(16,185,129,0.12)' : 'rgba(16,185,129,0.07)',
-                  borderColor: isDark ? 'rgba(16,185,129,0.24)' : 'rgba(16,185,129,0.14)',
-                  borderWidth: 1,
-                  padding: 10,
-                  borderRadius: 14,
+                  backgroundColor: '#ffffff',
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderRadius: 20,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                  elevation: 2,
                 }}
               >
-                <BarChart3 size={20} color="#10b981" />
-              </View>
-              <View>
-                <Text style={{ fontSize: 19, fontWeight: '800', color: textColor, letterSpacing: -0.5 }}>
-                  Admin Dashboard
-                </Text>
-                <Text style={{ fontSize: 12, color: subTextColor, fontWeight: '400', marginTop: 2 }}>
-                  Welcome back,{' '}
-                  <Text style={{ color: '#10b981', fontWeight: '700' }}>{user?.username || 'Admin'}</Text>
-                </Text>
-              </View>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: adminTheme.brandHover }}>Manage Leads</Text>
+                <ChevronRight size={14} color={adminTheme.brandHover} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setIsQuickActionSheetOpen(true)}
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.22)',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <SlidersHorizontal size={14} color="#ffffff" />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#ffffff' }}>Quick Panel</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={{
-                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-                borderColor: cardBorder,
-                borderWidth: 1,
-                padding: 10,
-                borderRadius: 12,
-              }}
-              activeOpacity={0.7}
-            >
-              <Bell size={18} color={subTextColor} />
-            </TouchableOpacity>
+          </View>
+        </ExpoLinearGradient>
+
+        {/* Bento Grid Workspace Metrics */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: textColor, marginBottom: 12, letterSpacing: -0.2 }}>
+            Workspace Metrics
+          </Text>
+
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            {/* Left Tall Card - Total Leads */}
+            {data && (
+              <View
+                style={{
+                  flex: 1.2,
+                  height: 150,
+                  backgroundColor: isDark ? 'transparent' : cardBg,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                  padding: 18,
+                  justifyContent: 'space-between',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  ...cardShadow,
+                }}
+              >
+                {isDark && (
+                  <BlurView
+                    intensity={Platform.OS === 'ios' ? 75 : 45}
+                    tint="dark"
+                    style={StyleSheet.absoluteFill}
+                  />
+                )}
+
+                <View style={{ paddingTop: 4, zIndex: 1 }}>
+                  <Text style={{ fontSize: 13, color: subTextColor, fontWeight: '500' }}>Total Leads</Text>
+                  <Text style={{ fontSize: 28, fontWeight: '800', color: textColor, marginTop: 4, letterSpacing: -0.7 }}>
+                    {data.totalLeads}
+                  </Text>
+                  <Text style={{ fontSize: 10, color: subTextColor, fontWeight: '500' }}>
+                    📈 {data.facebookLeads} Facebook Leads
+                  </Text>
+                </View>
+
+                <Image
+                  source={require('../../../assets/images/dashlead.png')}
+                  style={{
+                    position: 'absolute',
+                    bottom: -25,
+                    right: -15,
+                    width: 98,
+                    height: 98,
+                    opacity: 0.85,
+                    resizeMode: 'contain',
+                    zIndex: 0,
+                  }}
+                />
+              </View>
+            )}
+
+            {/* Right Column - Stacked Cards */}
+            {data && (
+              <View style={{ flex: 1, gap: 12, height: 150 }}>
+                {/* Top Card - Total Revenue */}
+                <View
+                  style={{
+                    flex: 1,
+                    backgroundColor: isDark ? 'transparent' : cardBg,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                    padding: 14,
+                    justifyContent: 'flex-start',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    ...cardShadow,
+                  }}
+                >
+                  {isDark && (
+                    <BlurView
+                      intensity={Platform.OS === 'ios' ? 75 : 45}
+                      tint="dark"
+                      style={StyleSheet.absoluteFill}
+                    />
+                  )}
+
+                  <View style={{ gap: 2, zIndex: 1 }}>
+                    <Text style={{ fontSize: 11, color: subTextColor, fontWeight: '600' }} numberOfLines={1}>
+                      Revenue
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                      <Text style={{ fontSize: 17, fontWeight: '800', color: textColor, letterSpacing: -0.5 }} numberOfLines={1}>
+                        {formatCurrency(data.totalRevenue)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Image
+                    source={require('../../../assets/images/dashrev.png')}
+                    style={{
+                      position: 'absolute',
+                      bottom: -8,
+                      right: -4,
+                      width: 58,
+                      height: 58,
+                      opacity: 0.85,
+                      resizeMode: 'contain',
+                      zIndex: 0,
+                    }}
+                  />
+                </View>
+
+                {/* Bottom Card - Net Profit */}
+                <View
+                  style={{
+                    flex: 1,
+                    backgroundColor: isDark ? 'transparent' : cardBg,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                    padding: 14,
+                    justifyContent: 'flex-start',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    ...cardShadow,
+                  }}
+                >
+                  {isDark && (
+                    <BlurView
+                      intensity={Platform.OS === 'ios' ? 75 : 45}
+                      tint="dark"
+                      style={StyleSheet.absoluteFill}
+                    />
+                  )}
+
+                  <View style={{ gap: 2, zIndex: 1 }}>
+                    <Text style={{ fontSize: 11, color: subTextColor, fontWeight: '600' }} numberOfLines={1}>
+                      Net Profit
+                    </Text>
+                    <Text style={{ fontSize: 17, fontWeight: '800', color: textColor, letterSpacing: -0.5 }} numberOfLines={1}>
+                      {formatCurrency(data.totalProfit)}
+                    </Text>
+                  </View>
+
+                  <Image
+                    source={require('../../../assets/images/dashnet.png')}
+                    style={{
+                      position: 'absolute',
+                      bottom: -8,
+                      right: -4,
+                      width: 58,
+                      height: 58,
+                      opacity: 0.85,
+                      resizeMode: 'contain',
+                      zIndex: 0,
+                    }}
+                  />
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
-        <View style={styles.statGrid}>
-          {statCards.map((s, i) => (
-            <StatCard
-              key={i}
-              {...s}
-              textColor={textColor}
-              subTextColor={subTextColor}
-              isDark={isDark}
-            />
-          ))}
+        {/* Interactive Analytics Chart Page */}
+        {data && (
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: isDark ? 'transparent' : cardBg,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                position: 'relative',
+                overflow: 'hidden',
+                ...cardShadow,
+              },
+            ]}
+          >
+            {isDark && (
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 75 : 45}
+                tint="dark"
+                style={StyleSheet.absoluteFill}
+              />
+            )}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <View>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>Lead Growth Stats</Text>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#10b981', marginTop: 2 }}>
+                  {currentChartValue} <Text style={{ fontSize: 11, color: subTextColor, fontWeight: '400' }}>total</Text>
+                </Text>
+              </View>
+
+              {/* Time Filters */}
+              <View style={{ flexDirection: 'row', backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderRadius: 10, padding: 3 }}>
+                {(['today', 'week', 'month', 'year'] as const).map((filter) => {
+                  const isActive = chartFilter === filter;
+                  return (
+                    <TouchableOpacity
+                      key={filter}
+                      onPress={() => setChartFilter(filter)}
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 8,
+                        backgroundColor: isActive ? (isDark ? 'rgba(255,255,255,0.1)' : '#ffffff') : 'transparent',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          fontWeight: '700',
+                          color: isActive ? textColor : subTextColor,
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {filter}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={{ marginTop: 14 }}>
+              <AreaChart
+                data={currentChartData}
+                width={chartWidth}
+                height={170}
+                color="#10b981"
+                gradientId="leadGrowthGrad"
+                subTextColor={subTextColor}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Quick Actions Grid */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: textColor, marginBottom: 12, letterSpacing: -0.2 }}>
+            Quick Actions
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {[
+              { label: 'Leads List', icon: Users, color: '#3b82f6', route: '/admin/leads' },
+              { label: 'User Roles', icon: CheckSquare, color: '#10b981', route: '/admin/usemanagement/RolesManagement' },
+              { label: 'Manage Users', icon: Users, color: '#8b5cf6', route: '/admin/usemanagement/ManageUsers' },
+              { label: 'Settings', icon: SlidersHorizontal, color: '#f59e0b', route: '/admin/settings' },
+              { label: 'Log Actions', icon: MessageSquare, color: '#ec4899', sheet: 'quick' },
+              { label: 'App Metrics', icon: TrendingUp, color: '#06b6d4', sheet: 'notifications' },
+            ].map((action, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => {
+                  if (action.route) {
+                    router.push(action.route as any);
+                  } else if (action.sheet === 'quick') {
+                    setIsQuickActionSheetOpen(true);
+                  } else if (action.sheet === 'notifications') {
+                    setIsNotificationSheetOpen(true);
+                  }
+                }}
+                style={{
+                  width: (SCREEN_WIDTH - 42) / 2,
+                  backgroundColor: isDark ? 'transparent' : cardBg,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : cardBorder,
+                  padding: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                {isDark && (
+                  <BlurView
+                    intensity={Platform.OS === 'ios' ? 75 : 45}
+                    tint="dark"
+                    style={StyleSheet.absoluteFill}
+                  />
+                )}
+                <View
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    backgroundColor: `${action.color}15`,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <action.icon size={16} color={action.color} />
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: textColor, flex: 1 }} numberOfLines={1}>
+                  {action.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
+        {/* Financial Overview Card */}
         {data && (
           <FinancialBanner
             totalRevenue={data.totalRevenue}
@@ -1027,32 +1416,29 @@ export default function AdminDashboardContent() {
           />
         )}
 
-        {data && data.monthlyLeads.length > 0 && (
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, ...cardShadow }]}>
-            <SectionHeader
-              title="Lead Growth (Last 6 Months)"
-              icon={TrendingUp}
-              iconColor="#10b981"
-              textColor={textColor}
-              subTextColor={subTextColor}
-            />
-            <View style={{ marginTop: 14 }}>
-              <AreaChart
-                data={data.monthlyLeads.map((m) => ({ label: m.month, value: m.count }))}
-                width={chartWidth}
-                height={190}
-                color="#10b981"
-                gradientId="leadGrad"
-                subTextColor={subTextColor}
-              />
-            </View>
-          </View>
-        )}
-
+        {/* Traffic Sources */}
         {data && data.sources.length > 0 && (
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, ...cardShadow }]}>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: isDark ? 'transparent' : cardBg,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                position: 'relative',
+                overflow: 'hidden',
+                ...cardShadow,
+              },
+            ]}
+          >
+            {isDark && (
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 75 : 45}
+                tint="dark"
+                style={StyleSheet.absoluteFill}
+              />
+            )}
             <SectionHeader
-              title="Traffic Sources"
+              title="Traffic Distribution"
               icon={PieChart}
               iconColor="#10b981"
               textColor={textColor}
@@ -1070,10 +1456,29 @@ export default function AdminDashboardContent() {
           </View>
         )}
 
+        {/* Sales Pipeline progress */}
         {data && data.pipeline.length > 0 && (
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, ...cardShadow }]}>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: isDark ? 'transparent' : cardBg,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                position: 'relative',
+                overflow: 'hidden',
+                ...cardShadow,
+              },
+            ]}
+          >
+            {isDark && (
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 75 : 45}
+                tint="dark"
+                style={StyleSheet.absoluteFill}
+              />
+            )}
             <SectionHeader
-              title="Sales Pipeline"
+              title="Pipeline Sales"
               icon={BarChart3}
               iconColor="#3b82f6"
               textColor={textColor}
@@ -1085,7 +1490,7 @@ export default function AdminDashboardContent() {
                 alignItems: 'center',
                 gap: 8,
                 marginTop: 12,
-                marginBottom: 18,
+                marginBottom: 16,
                 backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
                 padding: 10,
                 borderRadius: 10,
@@ -1093,9 +1498,9 @@ export default function AdminDashboardContent() {
                 borderColor: cardBorder,
               }}
             >
-              <BarChart3 size={12} color={subTextColor} />
-              <Text style={{ fontSize: 11, color: subTextColor, fontWeight: '500' }}>
-                Total in pipeline:{' '}
+              <Layers size={14} color={subTextColor} />
+              <Text style={{ fontSize: 12, color: subTextColor, fontWeight: '500' }}>
+                Stage distribution total:{' '}
                 <Text style={{ color: textColor, fontWeight: '700' }}>
                   {pipelineTotal > 0 ? pipelineTotal : data.totalLeads}
                 </Text>
@@ -1116,98 +1521,189 @@ export default function AdminDashboardContent() {
           </View>
         )}
 
+        {/* Recent Activities Section */}
         {data && data.newLeads.length > 0 && (
+          <View style={{ marginBottom: 24 }}>
+            <SectionHeader
+              title="Recent Lead Activity"
+              icon={Users}
+              iconColor="#10b981"
+              textColor={textColor}
+              subTextColor={subTextColor}
+              onViewAll={() => router.push('/admin/leads' as any)}
+            />
+            <View style={{ gap: 10, marginTop: 12 }}>
+              {data.newLeads.slice(0, 4).map((lead) => {
+                const stageColor = getStageColor(lead.stage);
+                return (
+                  <View
+                    key={lead.leadId}
+                    style={{
+                      backgroundColor: isDark ? 'transparent' : cardBg,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : cardBorder,
+                      padding: 14,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      position: 'relative',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {isDark && (
+                      <BlurView
+                        intensity={Platform.OS === 'ios' ? 75 : 45}
+                        tint="dark"
+                        style={StyleSheet.absoluteFill}
+                      />
+                    )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 18,
+                          backgroundColor: `${stageColor}15`,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Users size={16} color={stageColor} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }} numberOfLines={1}>
+                          {lead.name}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }} numberOfLines={1}>
+                          {lead.contact}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={{ alignItems: 'flex-end', marginLeft: 8 }}>
+                      <View
+                        style={{
+                          backgroundColor: `${stageColor}12`,
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          borderRadius: 20,
+                          borderWidth: 1,
+                          borderColor: `${stageColor}20`,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <Text style={{ fontSize: 9, fontWeight: '700', color: stageColor }}>
+                          {lead.stage}
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 10, color: subTextColor }}>{lead.createdOn}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* Recent Transactions Section */}
+        {data && data.recentTransactions.length > 0 && (
+          <View style={{ marginBottom: 24 }}>
+            <SectionHeader
+              title="Recent Transactions"
+              icon={Wallet}
+              iconColor="#f59e0b"
+              textColor={textColor}
+              subTextColor={subTextColor}
+            />
+            <View style={{ gap: 10, marginTop: 12 }}>
+              {data.recentTransactions.slice(0, 4).map((txn, i) => (
+                <View
+                  key={`${txn.paymentId}-${i}`}
+                  style={{
+                    backgroundColor: isDark ? 'transparent' : cardBg,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : cardBorder,
+                    padding: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {isDark && (
+                    <BlurView
+                      intensity={Platform.OS === 'ios' ? 75 : 45}
+                      tint="dark"
+                      style={StyleSheet.absoluteFill}
+                    />
+                  )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        backgroundColor: 'rgba(245,158,11,0.12)',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ fontSize: 15 }}>{getPaymentMethodIcon(txn.paymentMethod)}</Text>
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>
+                        {formatFullCurrency(txn.amount)}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                        Method: {(txn.paymentMethod ?? 'N/A').toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <View
+                      style={{
+                        backgroundColor: 'rgba(16,185,129,0.12)',
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 20,
+                        marginBottom: 4,
+                      }}
+                    >
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: '#10b981' }}>SUCCESS</Text>
+                    </View>
+                    <Text style={{ fontSize: 10, color: subTextColor }}>{txn.paymentDate}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Dual Line Chart (Revenue vs Expenses) */}
+        {data && data.revenueExpenses.length > 0 && (
           <View
             style={[
               styles.card,
               {
-                backgroundColor: cardBg,
-                borderColor: cardBorder,
-                ...cardShadow,
-                padding: 0,
+                backgroundColor: isDark ? 'transparent' : cardBg,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                position: 'relative',
                 overflow: 'hidden',
+                ...cardShadow,
               },
             ]}
           >
-            <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
-              <SectionHeader
-                title="Recent Leads"
-                icon={Users}
-                iconColor="#10b981"
-                textColor={textColor}
-                subTextColor={subTextColor}
-                onViewAll={() => router.push('/admin/leads' as any)}
+            {isDark && (
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 75 : 45}
+                tint="dark"
+                style={StyleSheet.absoluteFill}
               />
-            </View>
-
-            <View
-              style={[
-                styles.tableHeader,
-                {
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                  borderBottomColor: cardBorder,
-                  borderTopColor: cardBorder,
-                  borderTopWidth: 1,
-                },
-              ]}
-            >
-              <Text style={[styles.tableHeaderText, { color: subTextColor, flex: 1.3 }]}>NAME</Text>
-              <Text style={[styles.tableHeaderText, { color: subTextColor, flex: 1 }]}>CONTACT</Text>
-              <Text style={[styles.tableHeaderText, { color: subTextColor, flex: 0.9, textAlign: 'center' }]}>STAGE</Text>
-              <Text style={[styles.tableHeaderText, { color: subTextColor, flex: 0.7, textAlign: 'right' }]}>DATE</Text>
-            </View>
-
-            {data.newLeads.map((lead, i) => (
-              <TouchableOpacity
-                key={lead.leadId}
-                style={[
-                  styles.tableRow,
-                  {
-                    borderBottomColor: cardBorder,
-                    borderBottomWidth: i < data.newLeads.length - 1 ? 1 : 0,
-                    backgroundColor:
-                      i % 2 === 0
-                        ? 'transparent'
-                        : isDark
-                        ? 'rgba(255,255,255,0.015)'
-                        : 'rgba(0,0,0,0.015)',
-                  },
-                ]}
-                onPress={() => router.push('/admin/leads' as any)}
-                activeOpacity={0.7}
-              >
-                <Text style={{ fontSize: 12, fontWeight: '700', color: textColor, flex: 1.3 }} numberOfLines={1}>
-                  {lead.name}
-                </Text>
-                <Text style={{ fontSize: 11, color: subTextColor, flex: 1, fontWeight: '400' }} numberOfLines={1}>
-                  {lead.contact}
-                </Text>
-                <View style={{ flex: 0.9, alignItems: 'center' }}>
-                  <View
-                    style={{
-                      backgroundColor: getStageColor(lead.stage) + '18',
-                      borderColor: getStageColor(lead.stage) + '30',
-                      borderWidth: 1,
-                      paddingHorizontal: 7,
-                      paddingVertical: 3,
-                      borderRadius: 20,
-                    }}
-                  >
-                    <Text style={{ fontSize: 9, fontWeight: '700', color: getStageColor(lead.stage) }}>
-                      {lead.stage}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={{ fontSize: 10, color: subTextColor, flex: 0.7, textAlign: 'right', fontWeight: '400' }}>
-                  {lead.createdOn}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {data && data.revenueExpenses.length > 0 && (
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, ...cardShadow }]}>
+            )}
             <SectionHeader
               title="Revenue vs Expenses"
               icon={DollarSign}
@@ -1215,7 +1711,7 @@ export default function AdminDashboardContent() {
               textColor={textColor}
               subTextColor={subTextColor}
             />
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14, marginBottom: 4, paddingLeft: 4 }}>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14, marginBottom: 10, paddingLeft: 4 }}>
               {[
                 { label: 'Revenue', color: '#10b981' },
                 { label: 'Expenses', color: '#ef4444' },
@@ -1254,115 +1750,212 @@ export default function AdminDashboardContent() {
           </View>
         )}
 
-        {data && data.recentTransactions.length > 0 && (
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: cardBg,
+        <AppFooter />
+      </ScrollView>
+
+      {/* FILTER BOTTOM SHEET SECTION */}
+      <BottomSheet
+        visible={isFilterSheetOpen}
+        onClose={() => setIsFilterSheetOpen(false)}
+        title="Settings & Filter Presets"
+        isDark={isDark}
+      >
+        <View style={{ gap: 12 }}>
+          <Text style={{ fontSize: 12, color: subTextColor, fontWeight: '500' }}>
+            Filter chart timeframes and metric dashboards:
+          </Text>
+          {([
+            { name: 'Show Today Statistics', action: () => setChartFilter('today') },
+            { name: 'Show 7 Days (Weekly)', action: () => setChartFilter('week') },
+            { name: 'Show 6 Months (Default)', action: () => setChartFilter('month') },
+            { name: 'Show 1 Year Overview', action: () => setChartFilter('year') },
+          ] as const).map((opt, i) => (
+            <TouchableOpacity
+              key={i}
+              onPress={() => {
+                opt.action();
+                setIsFilterSheetOpen(false);
+                Toast.show({
+                  type: 'success',
+                  text1: 'Filter Saved',
+                  text2: `Timeframe adjusted successfully`,
+                });
+              }}
+              style={{
+                backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
                 borderColor: cardBorder,
-                ...cardShadow,
-                padding: 0,
-                overflow: 'hidden',
-              },
-            ]}
-          >
-            <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
-              <SectionHeader
-                title="Recent Transactions"
-                icon={Wallet}
-                iconColor="#f59e0b"
-                textColor={textColor}
-                subTextColor={subTextColor}
-              />
-            </View>
-
-            <View
-              style={[
-                styles.tableHeader,
-                {
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                  borderBottomColor: cardBorder,
-                  borderTopColor: cardBorder,
-                  borderTopWidth: 1,
-                },
-              ]}
+                borderWidth: 1,
+                padding: 14,
+                borderRadius: 12,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
             >
-              <Text style={[styles.tableHeaderText, { color: subTextColor, flex: 1.4 }]}>AMOUNT</Text>
-              <Text style={[styles.tableHeaderText, { color: subTextColor, flex: 0.9, textAlign: 'center' }]}>METHOD</Text>
-              <Text style={[styles.tableHeaderText, { color: subTextColor, flex: 0.9, textAlign: 'right' }]}>DATE</Text>
-            </View>
+              <Text style={{ fontSize: 13, color: textColor, fontWeight: '600' }}>{opt.name}</Text>
+              <ChevronRight size={16} color={subTextColor} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </BottomSheet>
 
-            {data.recentTransactions.map((txn, i) => (
+      {/* NOTIFICATIONS BOTTOM SHEET SECTION */}
+      <BottomSheet
+        visible={isNotificationSheetOpen}
+        onClose={() => setIsNotificationSheetOpen(false)}
+        title="App System Alerts"
+        isDark={isDark}
+      >
+        <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+          <View style={{ gap: 10 }}>
+            {[
+              { title: 'Server connection live', desc: 'Secure connection established to DB', time: 'Just now', color: '#10b981' },
+              { title: 'Scheduled sync complete', desc: 'Leads database synced with API', time: '10 mins ago', color: '#3b82f6' },
+              { title: 'Billing integration active', desc: 'Stripe webhook running correctly', time: '1 hour ago', color: '#f59e0b' },
+            ].map((n, i) => (
               <View
-                key={`${txn.paymentId}-${i}`}
-                style={[
-                  styles.tableRow,
-                  {
-                    borderBottomColor: cardBorder,
-                    borderBottomWidth: i < data.recentTransactions.length - 1 ? 1 : 0,
-                    backgroundColor:
-                      i % 2 === 0
-                        ? 'transparent'
-                        : isDark
-                        ? 'rgba(255,255,255,0.015)'
-                        : 'rgba(0,0,0,0.015)',
-                  },
-                ]}
+                key={i}
+                style={{
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                  padding: 14,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  gap: 12,
+                  alignItems: 'center',
+                }}
               >
-                <View style={{ flex: 1.4, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={{ fontSize: 16 }}>{getPaymentMethodIcon(txn.paymentMethod)}</Text>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>
-                    {formatFullCurrency(txn.amount)}
-                  </Text>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: n.color }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>{n.title}</Text>
+                  <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>{n.desc}</Text>
+                  <Text style={{ fontSize: 10, color: subTextColor, marginTop: 4 }}>{n.time}</Text>
                 </View>
-                <View style={{ flex: 0.9, alignItems: 'center' }}>
-                  <View
-                    style={{
-                      backgroundColor: 'rgba(16,185,129,0.12)',
-                      borderColor: 'rgba(16,185,129,0.22)',
-                      borderWidth: 1,
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      borderRadius: 20,
-                    }}
-                  >
-                    <Text style={{ fontSize: 9, fontWeight: '700', color: '#10b981' }}>
-                      {(txn.paymentMethod ?? 'N/A').toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={{ fontSize: 10, color: subTextColor, flex: 0.9, textAlign: 'right', fontWeight: '400' }}>
-                  {txn.paymentDate}
-                </Text>
               </View>
             ))}
           </View>
-        )}
+        </ScrollView>
+      </BottomSheet>
 
-        <AppFooter />
-      </ScrollView>
+      {/* QUICK ACTIONS PANEL BOTTOM SHEET */}
+      <BottomSheet
+        visible={isQuickActionSheetOpen}
+        onClose={() => setIsQuickActionSheetOpen(false)}
+        title="Admin Quick Shortcuts"
+        isDark={isDark}
+      >
+        <View style={{ gap: 10 }}>
+          {[
+            { label: 'Create New Lead', action: () => router.push('/admin/leads') },
+            { label: 'Manage All System Users', action: () => router.push('/admin/usemanagement/ManageUsers') },
+            { label: 'Manage Roles & Access Control', action: () => router.push('/admin/usemanagement/RolesManagement') },
+            { label: 'System Preferences', action: () => router.push('/admin/settings') },
+          ].map((act, i) => (
+            <TouchableOpacity
+              key={i}
+              onPress={() => {
+                setIsQuickActionSheetOpen(false);
+                act.action();
+              }}
+              style={{
+                backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                borderColor: cardBorder,
+                borderWidth: 1,
+                padding: 14,
+                borderRadius: 12,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 13, color: textColor, fontWeight: '600' }}>{act.label}</Text>
+              <ChevronRight size={16} color={subTextColor} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </BottomSheet>
     </View>
   );
 }
 
+// ─── BOTTOM SHEET COMPONENT ──────────────────────────────────────────────────
+interface BottomSheetProps {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  isDark: boolean;
+}
+
+function BottomSheet({ visible, onClose, title, children, isDark }: BottomSheetProps) {
+  const adminTheme = getAdminTheme(isDark);
+  const cardBg = adminTheme.cardBg;
+  const borderCol = adminTheme.border;
+  const textColor = adminTheme.textPrimary;
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent={true}>
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={onClose}
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          justifyContent: 'flex-end',
+        }}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={{
+            backgroundColor: cardBg,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            borderWidth: 1,
+            borderColor: borderCol,
+            paddingTop: 10,
+            paddingHorizontal: 20,
+            paddingBottom: 40,
+            maxHeight: '80%',
+          }}
+        >
+          {/* Drag Indicator */}
+          <View
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
+              alignSelf: 'center',
+              marginBottom: 16,
+            }}
+          />
+
+          {/* Header */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: textColor, letterSpacing: -0.3 }}>{title}</Text>
+            <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+              <X size={20} color={isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)'} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Body Content */}
+          {children}
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
-  headerCard: {
-    borderRadius: 16,
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 16,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  statGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statCard: {
     flex: 1,
-    minWidth: '46%',
     borderRadius: 16,
     borderWidth: 1,
     padding: 16,
@@ -1371,24 +1964,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     padding: 16,
-    marginBottom: 16,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-  },
-  tableHeaderText: {
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    marginBottom: 20,
   },
 });

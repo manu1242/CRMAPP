@@ -1,10 +1,15 @@
 {
   "expo": {
-    "name": "crm",
+    "name": "UPropTech",
     "slug": "crm",
-    "version": "1.0.0",
+    "version": "1.5.1",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/Appicon.jpg",
+    "splash": {
+      "image": "./assets/images/splashscreen.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "scheme": "crm",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -18,25 +23,22 @@
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/images/android-icon-foreground.png"
+        "foregroundImage": "./assets/images/AdaptiveIcon.png"
+      },
+      "splash": {
+        "backgroundColor": "#000000",
+        "image": "./assets/images/splashscreen.png",
+        "resizeMode": "contain"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.ultrakey.crm"
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/Appicon.jpg"
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#ffffff",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 120
-        }
-      ],
       "expo-secure-store",
       "expo-font",
       "expo-image",
@@ -56,7 +58,8 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -76,7 +76,7 @@ export default function AgentDetailsScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
         allowsEditing: false,
         quality: 0.8,
       });
@@ -462,7 +462,7 @@ export default function AgentDetailsScreen() {
         {/* Contact Info Card */}
         <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16, gap: 14 }}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: textColor, marginBottom: 2 }}>Contact Details</Text>
-          
+
           <TouchableOpacity onPress={() => handleEmail(agent.email || '')} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ padding: 8, borderRadius: 10, backgroundColor: bgColor }}>
               <Mail size={16} color={brandColor} />
@@ -729,7 +729,7 @@ export default function AgentDetailsScreen() {
             {/* Header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>Configure Upload Document</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 disabled={uploadDocMutation.isPending}
                 onPress={() => {
                   setUploadModalOpen(false);

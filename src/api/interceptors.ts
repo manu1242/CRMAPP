@@ -10,7 +10,7 @@ export const setupInterceptors = () => {
   axiosInstance.interceptors.request.use(
     async (config: InternalAxiosRequestConfig) => {
       const token = await TokenStorage.getAccessToken();
-      
+
       const isAuthEndpoint = config.url && (
         config.url.includes('/api/login') ||
         config.url.includes('/account/login') ||
@@ -35,9 +35,14 @@ export const setupInterceptors = () => {
     (response: AxiosResponse) => {
       return response;
     },
-    async (error: AxiosError) => {
+    async (error: any) => {
+      // Handle the short-circuit mock response
+      if (error && error.__isMockResponse__ && error.response) {
+        return error.response;
+      }
+
       // 1. Session Expired (401) — clear token and redirect to login
-      if (error.response && error.response.status === 401) {
+      if (error?.response && error.response.status === 401) {
         // Clear the stale token — auth guard in _layout.tsx will redirect to login
         await TokenStorage.clearTokens();
         await AuthService.logout();
@@ -46,12 +51,13 @@ export const setupInterceptors = () => {
           text1: 'Session Expired',
           text2: 'Please log in again.',
         });
+
       }
 
       // 2. Timeout Error
-      else if (error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'))) {
+      else if (error?.code === 'ECONNABORTED' || (error?.message && error.message.toLowerCase().includes('timeout'))) {
         // Trigger background refresh of the remote config in case the URL changed
-        initRemoteConfig(true).catch(() => {});
+        initRemoteConfig(true).catch(() => { });
 
         Toast.show({
           type: 'error',
@@ -61,9 +67,9 @@ export const setupInterceptors = () => {
       }
 
       // 3. Network Offline / DNS Failure
-      else if (error.message === 'Network Error') {
+      else if (error?.message === 'Network Error') {
         // Trigger background refresh of the remote config in case the URL changed
-        initRemoteConfig(true).catch(() => {});
+        initRemoteConfig(true).catch(() => { });
 
         Toast.show({
           type: 'error',
@@ -73,7 +79,7 @@ export const setupInterceptors = () => {
       }
 
       // 4. Backend Server Down (502 / 503 / 504)
-      else if (error.response && error.response.status >= 502 && error.response.status <= 504) {
+      else if (error?.response && error.response.status >= 502 && error.response.status <= 504) {
         Toast.show({
           type: 'error',
           text1: 'Server Unavailable',

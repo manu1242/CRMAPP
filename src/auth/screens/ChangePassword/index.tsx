@@ -94,7 +94,7 @@ export default function ChangePasswordScreen() {
         {/* Scrollable content area */}
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 24 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 120 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -209,28 +209,23 @@ export default function ChangePasswordScreen() {
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               ) : null}
+
+              <TouchableOpacity
+                onPress={handleChange}
+                style={[styles.primaryBtn, { backgroundColor: brandColor, marginTop: 8 }]}
+                disabled={isLoading}
+                activeOpacity={0.8}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Update Password</Text>
+                )}
+              </TouchableOpacity>
             </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* ── Sticky footer — outside KAV, always visible above keyboard ── */}
-      {!success && (
-        <View style={[styles.stickyFooter, { backgroundColor: bgColor, borderTopColor: borderCol }]}>
-          <TouchableOpacity
-            onPress={handleChange}
-            style={[styles.primaryBtn, { backgroundColor: brandColor }]}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.primaryBtnText}>Update Password</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
     </SafeAreaView>
   );
 }

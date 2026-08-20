@@ -4,6 +4,8 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  Linking,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -12,21 +14,32 @@ import {
   ChevronRight,
   Settings,
   CreditCard,
-  LogOut,
-  User,
+
+
   Mail,
   Landmark,
+  ArrowUpCircle,
 } from 'lucide-react-native';
-import { getAdminTheme } from '@/theme/adminTheme';
-import AppFooter from '../../auth/components/AppFooter';
+import { getAdminTheme } from '../../theme/adminTheme';
+// import AppFooter from '../../auth/components/AppFooter';
+import { useUpdateStore } from '../../hooks/useUpdateStore';
 
 export default function AdminSettingsContent() {
   const { isDark } = useTheme();
   const router = useRouter();
-  const logout = useAuthStore((state) => state.logout);
   const isImpersonating = useAuthStore((state) => state.isImpersonating);
   const stopImpersonation = useAuthStore((state) => state.stopImpersonation);
   const adminTheme = getAdminTheme(isDark);
+  const isUpdateAvailable = useUpdateStore((state) => state.isUpdateAvailable);
+
+  const handleUpdateApp = useCallback(() => {
+    const url = Platform.OS === 'ios'
+      ? 'https://apps.apple.com/app/idYOUR_APP_ID'
+      : 'https://play.google.com/store/apps/details?id=com.ultrakey.crm';
+    Linking.openURL(url).catch((err) => {
+      console.error('Failed to open play store URL:', err);
+    });
+  }, []);
 
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
@@ -34,10 +47,7 @@ export default function AdminSettingsContent() {
   const subTextColor = adminTheme.textSecondary;
   const borderCol = adminTheme.border;
 
-  const handleLogout = useCallback(() => {
-    logout();
-    router.replace('/main-login');
-  }, [logout, router]);
+
 
   const handleStopImpersonation = useCallback(async () => {
     await stopImpersonation();
@@ -47,10 +57,9 @@ export default function AdminSettingsContent() {
   const menuSections = useMemo(
     () => [
       {
-        title: 'System Settings',
+        title: 'Settings',
         items: [
-          { title: 'My Profile', icon: User, desc: 'View and update your profile details', route: '/admin/settings/profile/Profile', color: '#10b981' },
-          { title: 'System Settings', icon: Settings, desc: 'General app settings and configurations', route: '/admin/settings/systemsettings/setting', color: '#3b82f6' },
+          { title: 'Company Information', icon: Settings, desc: 'General app settings and configurations', route: '/admin/settings/systemsettings/setting', color: '#3b82f6' },
           { title: 'Email Settings', icon: Mail, desc: 'Configure SMTP, mail server, and templates', route: '/admin/settings/emailconfig/EmailConfig', color: '#eab308' },
         ],
       },
@@ -66,7 +75,38 @@ export default function AdminSettingsContent() {
   );
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: bgColor }} contentContainerStyle={{ padding: 16, paddingBottom: 24, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ flex: 1, backgroundColor: bgColor }} contentContainerStyle={{ padding: 16, paddingBottom: 160, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+      {isUpdateAvailable && (
+        <TouchableOpacity
+          onPress={handleUpdateApp}
+          style={{
+            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.08)',
+            borderWidth: 1,
+            borderColor: 'rgba(16, 185, 129, 0.3)',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 20,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 16,
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={{
+            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+            padding: 10,
+            borderRadius: 10,
+          }}>
+            <ArrowUpCircle size={22} color="#10b981" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#10b981' }}>Update Available!</Text>
+            <Text style={{ fontSize: 12, color: subTextColor, marginTop: 2 }}>A new version of the app is available. Click here to update via Google Play Store.</Text>
+          </View>
+          <ChevronRight size={18} color="#10b981" />
+        </TouchableOpacity>
+      )}
+
       {menuSections.map((sec, idx) => (
         <View key={idx} style={{ marginBottom: 24 }}>
           <Text style={{ fontSize: 11, fontWeight: '600', color: subTextColor, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, marginLeft: 4 }}>
@@ -134,28 +174,9 @@ export default function AdminSettingsContent() {
         </TouchableOpacity>
       )}
 
-      {/* Logout button */}
-      <TouchableOpacity
-        onPress={handleLogout}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: isDark ? '#7f1d1d15' : '#fef2f2',
-          borderWidth: 1,
-          borderColor: isDark ? '#7f1d1d40' : '#fecaca',
-          borderRadius: 12,
-          padding: 14,
-          marginTop: 8,
-          gap: 8
-        }}
-        activeOpacity={0.7}
-      >
-        <LogOut size={16} color="#ef4444" />
-        <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 14 }}>Log Out Workspace</Text>
-      </TouchableOpacity>
+
       {/* Footer */}
-      <AppFooter />
+      {/* <AppFooter /> */}
     </ScrollView>
   );
 }

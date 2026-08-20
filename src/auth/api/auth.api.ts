@@ -15,11 +15,11 @@ export const authApi = {
       Password: credentials.password,
     };
 
-    console.log(`\n=== [AUTH API REQUEST] ===\nURL: ${fullUrl}\nPayload:`, JSON.stringify(payload, null, 2));
+    if (__DEV__) console.log(`\n=== [AUTH API REQUEST] ===\nURL: ${fullUrl}\nPayload:`, JSON.stringify(payload, null, 2));
 
     try {
       const response = await apiClient.post<LoginResponse>(endpoint, payload);
-      console.log(`\n=== [AUTH API SUCCESS] ===\nURL: ${fullUrl}\nResponse:`, JSON.stringify(response, null, 2));
+      if (__DEV__) console.log(`\n=== [AUTH API SUCCESS] ===\nURL: ${fullUrl}\nResponse:`, JSON.stringify(response, null, 2));
       return response;
     } catch (error: any) {
       console.error(`\n=== [AUTH API ERROR] ===\nURL: ${fullUrl}\nError details:`, {

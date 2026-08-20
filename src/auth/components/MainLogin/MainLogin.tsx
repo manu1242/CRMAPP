@@ -8,6 +8,7 @@ import {
     TextInput,
     ActivityIndicator,
     Linking,
+    StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,18 +18,21 @@ import Toast from 'react-native-toast-message';
 import AppFooter from '../AppFooter';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useSafeObserve } from '../../../api/observe';
+import { getAdminTheme } from '../../../theme/adminTheme';
+import { BlurView } from 'expo-blur';
 
 const MainLogin = () => {
     const router = useRouter();
     const { isDark } = useTheme();
     const { markInteractive } = useSafeObserve();
+    const adminTheme = getAdminTheme(isDark);
 
     React.useEffect(() => {
         markInteractive();
     }, [markInteractive]);
 
     // Color palette matching exact design
-    const bgColor = isDark ? '#0f172a' : '#f4f6f9';
+    const bgColor = adminTheme.primaryBg;
     const cardBg = isDark ? '#1e293b' : '#ffffff';
     const textColor = isDark ? '#f1f5f9' : '#1e293b';
     const subtitleColor = isDark ? '#94a3b8' : '#64748b';
@@ -55,6 +59,10 @@ const MainLogin = () => {
             return;
         }
         await login({ username: loginEmail, password: loginPassword });
+    };
+
+    const handleInquiryForm = () => {
+        router.push('/InquiryForm');
     };
 
     return (
@@ -144,9 +152,9 @@ const MainLogin = () => {
 
             {/* Hero Image */}
             <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 10 }}>
-                <Image 
-                    source={require('../../../../assets/login.png')} 
-                    style={{ width: '100%', height: 180, resizeMode: 'contain' }} 
+                <Image
+                    source={require('../../../../assets/login.png')}
+                    style={{ width: '100%', height: 180, resizeMode: 'contain' }}
                 />
             </View>
 
@@ -304,9 +312,12 @@ const MainLogin = () => {
                 <TouchableOpacity
                     onPress={handleLogin}
                     disabled={isLoginLoading}
-                    activeOpacity={0.9}
+                    // activeOpacity={0.85}
                     style={{
                         backgroundColor: '#10b981',
+                        // borderColor: isDark ? 'rgba(16, 185, 129, 0.85)' : 'rgba(16, 185, 129, 1)',
+                        // borderWidth: 1.5,
+                        // shadowOpacity: isDark ? 0.35 : 0.15,
                         height: 46,
                         borderRadius: 8,
                         flexDirection: 'row',
@@ -314,8 +325,11 @@ const MainLogin = () => {
                         alignItems: 'center',
                         gap: 8,
                         marginBottom: 24,
+                        position: 'relative',
+                        overflow: 'hidden',
                     }}
                 >
+                   
                     {isLoginLoading ? (
                         <>
                             <ActivityIndicator color="#ffffff" size="small" />
@@ -352,7 +366,7 @@ const MainLogin = () => {
                     <Text style={{ fontSize: 13, color: subtitleColor }}>
                         Don't have an account?
                     </Text>
-                    <TouchableOpacity onPress={() => Linking.openURL('https://uproptech.com/')}>
+                    <TouchableOpacity onPress={handleInquiryForm}>
                         <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
                             Request access
                         </Text>

@@ -102,7 +102,7 @@ export default function TestimonialScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
@@ -452,7 +452,7 @@ export default function TestimonialScreen() {
             </View>
 
             <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-              
+
               {/* Photo Upload Row */}
               <View style={{ gap: 8 }}>
                 <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>Photo</Text>

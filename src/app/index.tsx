@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import LottieView from 'lottie-react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../auth/store/authStore';
@@ -144,7 +145,7 @@ export default function EntryScreen() {
   // Splash screen (shown during init and on retry)
   if (appState === 'splash' || isRetrying) {
     return (
-      <SplashView onFinish={() => {}} />
+      <SplashView onFinish={() => { }} />
     );
   }
 
@@ -174,7 +175,7 @@ export default function EntryScreen() {
   if (appState === 'server-down') {
     return (
       <ErrorScreen
-        emoji="☁️"
+        lottieSource={require('../../assets/images/503 error service unavailable astronaut.lottie')}
         title="Server Unavailable"
         message="We couldn't reach the server. Please try again in a moment."
         onRetry={handleRetry}
@@ -200,12 +201,14 @@ export default function EntryScreen() {
 // ─── Error Screen Component ───────────────────────────────────────────────────
 function ErrorScreen({
   emoji,
+  lottieSource,
   title,
   message,
   onRetry,
   isDark,
 }: {
-  emoji: string;
+  emoji?: string;
+  lottieSource?: any;
   title: string;
   message: string;
   onRetry: () => void;
@@ -217,7 +220,16 @@ function ErrorScreen({
 
   return (
     <View style={[styles.center, { backgroundColor: bg }]}>
-      <Text style={styles.errorEmoji}>{emoji}</Text>
+      {lottieSource ? (
+        <LottieView
+          source={lottieSource}
+          autoPlay
+          loop
+          style={styles.lottieAnimation}
+        />
+      ) : (
+        <Text style={styles.errorEmoji}>{emoji}</Text>
+      )}
       <Text style={[styles.errorTitle, { color: textPrimary }]}>{title}</Text>
       <Text style={[styles.errorMessage, { color: textSecondary }]}>{message}</Text>
       <TouchableOpacity style={styles.retryButton} onPress={onRetry} activeOpacity={0.8}>
@@ -259,6 +271,11 @@ const styles = StyleSheet.create({
   },
   errorEmoji: {
     fontSize: 52,
+    marginBottom: 20,
+  },
+  lottieAnimation: {
+    width: 250,
+    height: 250,
     marginBottom: 20,
   },
   errorTitle: {

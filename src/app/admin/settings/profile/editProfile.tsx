@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../../../contexts/ThemeContext';
-import { getAdminTheme } from '@/theme/adminTheme';
+import { getAdminTheme } from '../../../../theme/adminTheme';
 import {
   ArrowLeft,
   Save,
@@ -178,38 +178,84 @@ export default function EditProfileScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 160 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-        {loading ? (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#3b82f6" />
-            <Text style={{ marginTop: 12, color: subTextColor, fontSize: 13 }}>
-              Loading profile editor...
-            </Text>
-          </View>
-        ) : (
-          <View style={{ gap: 16 }}>
-            {/* Personal Info Card */}
-            <View
-              style={{
-                backgroundColor: cardBg,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: borderCol,
-                padding: 16,
-                gap: 12,
-              }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
-                Personal Details
+          {loading ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#3b82f6" />
+              <Text style={{ marginTop: 12, color: subTextColor, fontSize: 13 }}>
+                Loading profile editor...
               </Text>
+            </View>
+          ) : (
+            <View style={{ gap: 16 }}>
+              {/* Personal Info Card */}
+              <View
+                style={{
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                  padding: 16,
+                  gap: 12,
+                }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
+                  Personal Details
+                </Text>
 
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
+                      First Name
+                    </Text>
+                    <TextInput
+                      style={{
+                        height: 42,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: borderCol,
+                        paddingHorizontal: 12,
+                        color: textColor,
+                        backgroundColor: bgColor,
+                        fontSize: 13,
+                      }}
+                      placeholder="First Name"
+                      placeholderTextColor={subTextColor}
+                      value={form.firstName}
+                      onChangeText={(val) => setForm({ ...form, firstName: val })}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
+                      Last Name
+                    </Text>
+                    <TextInput
+                      style={{
+                        height: 42,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: borderCol,
+                        paddingHorizontal: 12,
+                        color: textColor,
+                        backgroundColor: bgColor,
+                        fontSize: 13,
+                      }}
+                      placeholder="Last Name"
+                      placeholderTextColor={subTextColor}
+                      value={form.lastName}
+                      onChangeText={(val) => setForm({ ...form, lastName: val })}
+                    />
+                  </View>
+                </View>
+
+                <View>
                   <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                    First Name
+                    Email Address *
                   </Text>
                   <TextInput
                     style={{
@@ -222,16 +268,17 @@ export default function EditProfileScreen() {
                       backgroundColor: bgColor,
                       fontSize: 13,
                     }}
-                    placeholder="First Name"
+                    keyboardType="email-address"
+                    placeholder="Email Address"
                     placeholderTextColor={subTextColor}
-                    value={form.firstName}
-                    onChangeText={(val) => setForm({ ...form, firstName: val })}
+                    value={form.email}
+                    onChangeText={(val) => setForm({ ...form, email: val })}
                   />
                 </View>
 
-                <View style={{ flex: 1 }}>
+                <View>
                   <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                    Last Name
+                    Phone Number
                   </Text>
                   <TextInput
                     style={{
@@ -244,193 +291,147 @@ export default function EditProfileScreen() {
                       backgroundColor: bgColor,
                       fontSize: 13,
                     }}
-                    placeholder="Last Name"
+                    keyboardType="phone-pad"
+                    placeholder="Phone Number"
                     placeholderTextColor={subTextColor}
-                    value={form.lastName}
-                    onChangeText={(val) => setForm({ ...form, lastName: val })}
+                    value={form.phoneNumber}
+                    onChangeText={(val) => setForm({ ...form, phoneNumber: val })}
                   />
                 </View>
               </View>
 
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                  Email Address *
+              {/* Address Details Card */}
+              <View
+                style={{
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                  padding: 16,
+                  gap: 12,
+                }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
+                  Address & Location
                 </Text>
-                <TextInput
-                  style={{
-                    height: 42,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: borderCol,
-                    paddingHorizontal: 12,
-                    color: textColor,
-                    backgroundColor: bgColor,
-                    fontSize: 13,
-                  }}
-                  keyboardType="email-address"
-                  placeholder="Email Address"
-                  placeholderTextColor={subTextColor}
-                  value={form.email}
-                  onChangeText={(val) => setForm({ ...form, email: val })}
-                />
-              </View>
 
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                  Phone Number
-                </Text>
-                <TextInput
-                  style={{
-                    height: 42,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: borderCol,
-                    paddingHorizontal: 12,
-                    color: textColor,
-                    backgroundColor: bgColor,
-                    fontSize: 13,
-                  }}
-                  keyboardType="phone-pad"
-                  placeholder="Phone Number"
-                  placeholderTextColor={subTextColor}
-                  value={form.phoneNumber}
-                  onChangeText={(val) => setForm({ ...form, phoneNumber: val })}
-                />
+                <View>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
+                    Address
+                  </Text>
+                  <TextInput
+                    style={{
+                      height: 42,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: borderCol,
+                      paddingHorizontal: 12,
+                      color: textColor,
+                      backgroundColor: bgColor,
+                      fontSize: 13,
+                    }}
+                    placeholder="Street / Road Address"
+                    placeholderTextColor={subTextColor}
+                    value={form.address}
+                    onChangeText={(val) => setForm({ ...form, address: val })}
+                  />
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
+                      City
+                    </Text>
+                    <TextInput
+                      style={{
+                        height: 42,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: borderCol,
+                        paddingHorizontal: 12,
+                        color: textColor,
+                        backgroundColor: bgColor,
+                        fontSize: 13,
+                      }}
+                      placeholder="City"
+                      placeholderTextColor={subTextColor}
+                      value={form.city}
+                      onChangeText={(val) => setForm({ ...form, city: val })}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
+                      State
+                    </Text>
+                    <TextInput
+                      style={{
+                        height: 42,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: borderCol,
+                        paddingHorizontal: 12,
+                        color: textColor,
+                        backgroundColor: bgColor,
+                        fontSize: 13,
+                      }}
+                      placeholder="State"
+                      placeholderTextColor={subTextColor}
+                      value={form.state}
+                      onChangeText={(val) => setForm({ ...form, state: val })}
+                    />
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
+                      Country
+                    </Text>
+                    <TextInput
+                      style={{
+                        height: 42,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: borderCol,
+                        paddingHorizontal: 12,
+                        color: textColor,
+                        backgroundColor: bgColor,
+                        fontSize: 13,
+                      }}
+                      placeholder="Country"
+                      placeholderTextColor={subTextColor}
+                      value={form.country}
+                      onChangeText={(val) => setForm({ ...form, country: val })}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
+                      Postal Code
+                    </Text>
+                    <TextInput
+                      style={{
+                        height: 42,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: borderCol,
+                        paddingHorizontal: 12,
+                        color: textColor,
+                        backgroundColor: bgColor,
+                        fontSize: 13,
+                      }}
+                      placeholder="Postal Code"
+                      placeholderTextColor={subTextColor}
+                      value={form.postalCode}
+                      onChangeText={(val) => setForm({ ...form, postalCode: val })}
+                    />
+                  </View>
+                </View>
               </View>
             </View>
-
-            {/* Address Details Card */}
-            <View
-              style={{
-                backgroundColor: cardBg,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: borderCol,
-                padding: 16,
-                gap: 12,
-              }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
-                Address & Location
-              </Text>
-
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                  Address
-                </Text>
-                <TextInput
-                  style={{
-                    height: 42,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: borderCol,
-                    paddingHorizontal: 12,
-                    color: textColor,
-                    backgroundColor: bgColor,
-                    fontSize: 13,
-                  }}
-                  placeholder="Street / Road Address"
-                  placeholderTextColor={subTextColor}
-                  value={form.address}
-                  onChangeText={(val) => setForm({ ...form, address: val })}
-                />
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                    City
-                  </Text>
-                  <TextInput
-                    style={{
-                      height: 42,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: borderCol,
-                      paddingHorizontal: 12,
-                      color: textColor,
-                      backgroundColor: bgColor,
-                      fontSize: 13,
-                    }}
-                    placeholder="City"
-                    placeholderTextColor={subTextColor}
-                    value={form.city}
-                    onChangeText={(val) => setForm({ ...form, city: val })}
-                  />
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                    State
-                  </Text>
-                  <TextInput
-                    style={{
-                      height: 42,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: borderCol,
-                      paddingHorizontal: 12,
-                      color: textColor,
-                      backgroundColor: bgColor,
-                      fontSize: 13,
-                    }}
-                    placeholder="State"
-                    placeholderTextColor={subTextColor}
-                    value={form.state}
-                    onChangeText={(val) => setForm({ ...form, state: val })}
-                  />
-                </View>
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                    Country
-                  </Text>
-                  <TextInput
-                    style={{
-                      height: 42,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: borderCol,
-                      paddingHorizontal: 12,
-                      color: textColor,
-                      backgroundColor: bgColor,
-                      fontSize: 13,
-                    }}
-                    placeholder="Country"
-                    placeholderTextColor={subTextColor}
-                    value={form.country}
-                    onChangeText={(val) => setForm({ ...form, country: val })}
-                  />
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 4 }}>
-                    Postal Code
-                  </Text>
-                  <TextInput
-                    style={{
-                      height: 42,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: borderCol,
-                      paddingHorizontal: 12,
-                      color: textColor,
-                      backgroundColor: bgColor,
-                      fontSize: 13,
-                    }}
-                    placeholder="Postal Code"
-                    placeholderTextColor={subTextColor}
-                    value={form.postalCode}
-                    onChangeText={(val) => setForm({ ...form, postalCode: val })}
-                  />
-                </View>
-              </View>
-            </View>
-          </View>
-        )}
-      </ScrollView>
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );

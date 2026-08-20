@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,16 +10,16 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  BackHandler,
 } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import Header from '@/superadmin/components/Header';
+import Header from '../../superadmin/components/Header';
 import SidebarDrawer from '../../auth/components/SidebarDrawer';
 import { apiClient } from '../../api/apiClient';
 import { useTheme } from '../../contexts/ThemeContext';
-import BottomNav from '@/superadmin/components/BottomNav';
 import { API_ENDPOINTS } from '../../api/endpoints';
 
 interface Inquiry {
@@ -83,9 +83,25 @@ export default function InquiriesScreen() {
   const queryClient = useQueryClient();
   const { isDark } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+
+  // Handle Android physical back button override to go to dashboard
+  useEffect(() => {
+    const backAction = () => {
+      router.replace('/superadmin/dashboard');
+      return true; // prevent default behavior
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [router]);
 
   // Theme colors
   const bgColor = isDark ? '#0f172a' : '#f3f4f6';
@@ -112,20 +128,33 @@ export default function InquiriesScreen() {
   // Status change handled by premium bottom actions sheet modal
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }} edges={['bottom', 'left', 'right']}>
+      <View style={{ flex: 1, backgroundColor: bgColor }}>
 
         <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View>
+          <View style={{ flex: 1, marginRight: 12 }}>
             <Text style={{ fontSize: 20, fontWeight: '700', color: textColor }}>Inquiries</Text>
             <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2, fontWeight: '500' }}>
-              {inquiries.length} total inquiries
+              Track and update prospective tenant sign-ups
+            </Text>
+          </View>
+          <View style={{
+            backgroundColor: isDark ? 'rgba(30,58,138,0.3)' : '#eff6ff',
+            borderColor: isDark ? 'rgba(29,78,216,0.3)' : '#bfdbfe',
+            borderWidth: 1,
+            borderRadius: 20,
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+          }}>
+            <Text style={{ color: isDark ? '#60a5fa' : '#2563eb', fontSize: 10, fontWeight: '700' }}>
+              {inquiries.length} Inquiries
             </Text>
           </View>
         </View>
 
         <ScrollView
           style={{ flex: 1, paddingHorizontal: 16 }}
-          contentContainerStyle={{ paddingBottom: 80, gap: 10 }}
+          contentContainerStyle={{ paddingBottom: 160, gap: 10 }}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={['#1e73be']} />
           }
@@ -145,163 +174,163 @@ export default function InquiriesScreen() {
               <Text style={{ color: textColor, fontWeight: '700', fontSize: 16, marginTop: 16 }}>No Inquiries Yet</Text>
             </View>
           ) : inquiries.map((inq) => {
-              const sc = getStatusColor(inq.status, isDark);
-              const initials = inq.companyName
-                ? inq.companyName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-                : 'I';
+            const sc = getStatusColor(inq.status, isDark);
+            const initials = inq.companyName
+              ? inq.companyName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+              : 'I';
 
-              return (
+            return (
+              <View
+                key={inq.inquiryId}
+                style={{
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                  padding: 16,
+                  marginBottom: 12,
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                }}
+              >
+                {/* Left: Avatar Initials */}
                 <View
-                  key={inq.inquiryId}
                   style={{
-                    backgroundColor: cardBg,
-                    borderRadius: 16,
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    backgroundColor: sc.avatarBg,
+                    borderColor: sc.border,
                     borderWidth: 1,
-                    borderColor: borderCol,
-                    padding: 16,
-                    marginBottom: 12,
-                    flexDirection: 'row',
-                    alignItems: 'flex-start',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
                   }}
                 >
-                  {/* Left: Avatar Initials */}
-                  <View
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 24,
-                      backgroundColor: sc.avatarBg,
-                      borderColor: sc.border,
-                      borderWidth: 1,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: 12,
-                    }}
-                  >
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: sc.text }}>
-                      {initials}
-                    </Text>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: sc.text }}>
+                    {initials}
+                  </Text>
+                </View>
+
+                {/* Right: Main Content Area */}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  {/* Header Row: Company Name & Status/Menu */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, marginRight: 8, flexWrap: 'wrap' }}>
+                      <Text style={{ color: textColor, fontWeight: '700', fontSize: 16 }} numberOfLines={1}>
+                        {inq.companyName}
+                      </Text>
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        backgroundColor: sc.bg,
+                        borderColor: sc.border,
+                        borderWidth: 0.5,
+                        borderRadius: 20,
+                        paddingHorizontal: 8,
+                        paddingVertical: 2
+                      }}>
+                        <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: sc.dot }} />
+                        <Text style={{ color: sc.text, fontSize: 9, fontWeight: '700' }}>
+                          {inq.status ?? 'New'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedInquiry(inq);
+                        setIsActionModalOpen(true);
+                      }}
+                      style={{
+                        width: 24,
+                        height: 24,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Ionicons name="ellipsis-vertical" size={16} color={textColor} />
+                    </TouchableOpacity>
                   </View>
 
-                  {/* Right: Main Content Area */}
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    {/* Header Row: Company Name & Status/Menu */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, marginRight: 8, flexWrap: 'wrap' }}>
-                        <Text style={{ color: textColor, fontWeight: '700', fontSize: 16 }} numberOfLines={1}>
-                          {inq.companyName}
-                        </Text>
-                        <View style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 4,
-                          backgroundColor: sc.bg,
-                          borderColor: sc.border,
-                          borderWidth: 0.5,
-                          borderRadius: 20,
-                          paddingHorizontal: 8,
-                          paddingVertical: 2
-                        }}>
-                          <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: sc.dot }} />
-                          <Text style={{ color: sc.text, fontSize: 9, fontWeight: '700' }}>
-                            {inq.status ?? 'New'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <TouchableOpacity
-                        onPress={() => {
-                          setSelectedInquiry(inq);
-                          setIsActionModalOpen(true);
-                        }}
-                        style={{
-                          width: 24,
-                          height: 24,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Ionicons name="ellipsis-vertical" size={16} color={textColor} />
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Contact details */}
-                    <View style={{ gap: 2, marginBottom: 8 }}>
-                      <Text style={{ color: textColor, fontSize: 13, fontWeight: '500', marginBottom: 2 }}>
-                        {inq.contactPerson}
+                  {/* Contact details */}
+                  <View style={{ gap: 2, marginBottom: 8 }}>
+                    <Text style={{ color: textColor, fontSize: 13, fontWeight: '500', marginBottom: 2 }}>
+                      {inq.contactPerson}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="mail-outline" size={12} color={subTextColor} />
+                      <Text style={{ color: subTextColor, fontSize: 12 }} numberOfLines={1}>
+                        {inq.email}
                       </Text>
+                    </View>
+                    {inq.phone && (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Ionicons name="mail-outline" size={12} color={subTextColor} />
-                        <Text style={{ color: subTextColor, fontSize: 12 }} numberOfLines={1}>
-                          {inq.email}
+                        <Ionicons name="call-outline" size={12} color={subTextColor} />
+                        <Text style={{ color: subTextColor, fontSize: 12 }}>
+                          {inq.phone}
                         </Text>
                       </View>
-                      {inq.phone && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Ionicons name="call-outline" size={12} color={subTextColor} />
-                          <Text style={{ color: subTextColor, fontSize: 12 }}>
-                            {inq.phone}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                    )}
+                  </View>
 
-                    {/* Inquiry Message bubble container */}
-                    {inq.message ? (
+                  {/* Inquiry Message bubble container */}
+                  {inq.message ? (
+                    <View style={{
+                      backgroundColor: msgBg,
+                      borderRadius: 8,
+                      borderWidth: 0.5,
+                      borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                      padding: 12,
+                      marginTop: 4
+                    }}>
+                      <Text style={{ color: isDark ? '#cbd5e1' : '#475569', fontSize: 12, lineHeight: 18 }}>
+                        {inq.message}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {/* Meta badges (Referral & Converted) */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                    {inq.referralCode ? (
                       <View style={{
-                        backgroundColor: msgBg,
-                        borderRadius: 8,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
                         borderWidth: 0.5,
-                        borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-                        padding: 12,
-                        marginTop: 4
+                        borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                        borderRadius: 4,
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
                       }}>
-                        <Text style={{ color: isDark ? '#cbd5e1' : '#475569', fontSize: 12, lineHeight: 18 }}>
-                          {inq.message}
-                        </Text>
+                        <Ionicons name="gift-outline" size={12} color={subTextColor} />
+                        <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '500' }}>Referral</Text>
                       </View>
                     ) : null}
 
-                    {/* Meta badges (Referral & Converted) */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                      {inq.referralCode ? (
-                        <View style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 6,
-                          backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
-                          borderWidth: 0.5,
-                          borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-                          borderRadius: 4,
-                          paddingHorizontal: 8,
-                          paddingVertical: 4,
-                        }}>
-                          <Ionicons name="gift-outline" size={12} color={subTextColor} />
-                          <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '500' }}>Referral</Text>
-                        </View>
-                      ) : null}
-
-                      {inq.convertedToTenantId ? (
-                        <View style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 6,
-                          backgroundColor: isDark ? 'rgba(16,185,129,0.1)' : '#f0fdf4',
-                          borderWidth: 0.5,
-                          borderColor: isDark ? 'rgba(16,185,129,0.2)' : '#bbf7d0',
-                          borderRadius: 4,
-                          paddingHorizontal: 8,
-                          paddingVertical: 4,
-                        }}>
-                          <Ionicons name="checkmark-circle-outline" size={12} color="#10b981" />
-                          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '500' }}>Converted</Text>
-                        </View>
-                      ) : null}
-                    </View>
+                    {inq.convertedToTenantId ? (
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        backgroundColor: isDark ? 'rgba(16,185,129,0.1)' : '#f0fdf4',
+                        borderWidth: 0.5,
+                        borderColor: isDark ? 'rgba(16,185,129,0.2)' : '#bbf7d0',
+                        borderRadius: 4,
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                      }}>
+                        <Ionicons name="checkmark-circle-outline" size={12} color="#10b981" />
+                        <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '500' }}>Converted</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
-              );
-            })}
+              </View>
+            );
+          })}
         </ScrollView>
 
         <Modal
@@ -438,6 +467,9 @@ export default function InquiriesScreen() {
             </View>
           </View>
         </Modal>
+
+
       </View>
+    </SafeAreaView>
   );
 }

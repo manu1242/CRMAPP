@@ -3,8 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Header from '@/superadmin/components/Header';
-import BottomNav from '@/superadmin/components/BottomNav';
+import Header from '../../superadmin/components/Header';
+import BottomNav from '../../superadmin/components/BottomNav';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface Transaction {
@@ -73,118 +73,118 @@ export default function TransactionsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
 
-        <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 20 }} contentContainerStyle={{ paddingBottom: 30 }}>
-          {/* Header section */}
-          <View style={{ marginBottom: 20, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ backgroundColor: cardBg, padding: 8, borderRadius: 12, borderWidth: 1, borderColor: borderCol }}>
-              <Ionicons name="arrow-back" size={20} color={textColor} />
+      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 20 }} contentContainerStyle={{ paddingBottom: 30 }}>
+        {/* Header section */}
+        <View style={{ marginBottom: 20, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity onPress={() => router.back()} style={{ backgroundColor: cardBg, padding: 8, borderRadius: 12, borderWidth: 1, borderColor: borderCol }}>
+            <Ionicons name="arrow-back" size={20} color={textColor} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: textColor }}>Transactions History</Text>
+            <Text style={{ fontSize: 12, color: subTextColor, marginTop: 2 }}>Monitor and verify all system billing transactions.</Text>
+          </View>
+        </View>
+
+        {/* Filter Pills */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+          {(['all', 'success', 'pending', 'failed'] as const).map((f) => (
+            <TouchableOpacity
+              key={f}
+              onPress={() => setFilter(f)}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 20,
+                backgroundColor: filter === f ? '#2563eb' : cardBg,
+                borderWidth: 1,
+                borderColor: filter === f ? '#2563eb' : borderCol,
+              }}
+            >
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '700',
+                textTransform: 'capitalize',
+                color: filter === f ? '#ffffff' : textColor,
+              }}>
+                {f}
+              </Text>
             </TouchableOpacity>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: textColor }}>Transactions History</Text>
-              <Text style={{ fontSize: 12, color: subTextColor, marginTop: 2 }}>Monitor and verify all system billing transactions.</Text>
+          ))}
+        </View>
+
+        {/* Transactions List */}
+        <View style={{ gap: 12 }}>
+          {filteredTransactions.length === 0 ? (
+            <View style={{ backgroundColor: cardBg, borderWidth: 1, borderColor: borderCol, borderRadius: 16, padding: 32, alignItems: 'center' }}>
+              <Ionicons name="receipt-outline" size={40} color={subTextColor} />
+              <Text style={{ color: textColor, fontWeight: '700', fontSize: 16, marginTop: 12 }}>No transactions found</Text>
+              <Text style={{ color: subTextColor, fontSize: 12, marginTop: 4 }}>No records match the selected filter.</Text>
             </View>
-          </View>
-
-          {/* Filter Pills */}
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-            {(['all', 'success', 'pending', 'failed'] as const).map((f) => (
-              <TouchableOpacity
-                key={f}
-                onPress={() => setFilter(f)}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: filter === f ? '#2563eb' : cardBg,
-                  borderWidth: 1,
-                  borderColor: filter === f ? '#2563eb' : borderCol,
-                }}
-              >
-                <Text style={{
-                  fontSize: 12,
-                  fontWeight: '700',
-                  textTransform: 'capitalize',
-                  color: filter === f ? '#ffffff' : textColor,
-                }}>
-                  {f}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Transactions List */}
-          <View style={{ gap: 12 }}>
-            {filteredTransactions.length === 0 ? (
-              <View style={{ backgroundColor: cardBg, borderWidth: 1, borderColor: borderCol, borderRadius: 16, padding: 32, alignItems: 'center' }}>
-                <Ionicons name="receipt-outline" size={40} color={subTextColor} />
-                <Text style={{ color: textColor, fontWeight: '700', fontSize: 16, marginTop: 12 }}>No transactions found</Text>
-                <Text style={{ color: subTextColor, fontSize: 12, marginTop: 4 }}>No records match the selected filter.</Text>
-              </View>
-            ) : (
-              filteredTransactions.map((item) => {
-                const statusStyle = getStatusStyle(item.status);
-                return (
-                  <View
-                    key={item.id}
-                    style={{
-                      backgroundColor: cardBg,
-                      borderWidth: 1,
-                      borderColor: borderCol,
-                      borderRadius: 16,
-                      padding: 16,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.02,
-                      shadowRadius: 3,
-                      elevation: 2,
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                      <View style={{ flex: 1, marginRight: 12 }}>
-                        <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }} numberOfLines={1}>
-                          {item.tenantName}
-                        </Text>
-                        <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
-                          {item.invoiceRef} • {item.method}
-                        </Text>
-                      </View>
-                      <View style={{
-                        backgroundColor: statusStyle.bg,
-                        borderWidth: 1,
-                        borderColor: statusStyle.border,
-                        borderRadius: 20,
-                        paddingHorizontal: 8,
-                        paddingVertical: 2,
-                      }}>
-                        <Text style={{ color: statusStyle.text, fontSize: 10, fontWeight: '700' }}>
-                          {statusStyle.label}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={{ height: 1, backgroundColor: borderCol, marginBottom: 12 }} />
-
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <View style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>{item.planName}</Text>
-                        </View>
-                        <Text style={{ fontSize: 11, color: subTextColor }}>Plan</Text>
-                      </View>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>
-                        {item.amount}
+          ) : (
+            filteredTransactions.map((item) => {
+              const statusStyle = getStatusStyle(item.status);
+              return (
+                <View
+                  key={item.id}
+                  style={{
+                    backgroundColor: cardBg,
+                    borderWidth: 1,
+                    borderColor: borderCol,
+                    borderRadius: 16,
+                    padding: 16,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.02,
+                    shadowRadius: 3,
+                    elevation: 2,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }} numberOfLines={1}>
+                        {item.tenantName}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                        {item.invoiceRef} • {item.method}
                       </Text>
                     </View>
+                    <View style={{
+                      backgroundColor: statusStyle.bg,
+                      borderWidth: 1,
+                      borderColor: statusStyle.border,
+                      borderRadius: 20,
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                    }}>
+                      <Text style={{ color: statusStyle.text, fontSize: 10, fontWeight: '700' }}>
+                        {statusStyle.label}
+                      </Text>
+                    </View>
+                  </View>
 
-                    <Text style={{ fontSize: 10, color: subTextColor, marginTop: 8, textAlign: 'right' }}>
-                      {item.date}
+                  <View style={{ height: 1, backgroundColor: borderCol, marginBottom: 12 }} />
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>{item.planName}</Text>
+                      </View>
+                      <Text style={{ fontSize: 11, color: subTextColor }}>Plan</Text>
+                    </View>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>
+                      {item.amount}
                     </Text>
                   </View>
-                );
-              })
-            )}
-          </View>
-        </ScrollView>
-      </View>
+
+                  <Text style={{ fontSize: 10, color: subTextColor, marginTop: 8, textAlign: 'right' }}>
+                    {item.date}
+                  </Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
+    </View>
   );
 }

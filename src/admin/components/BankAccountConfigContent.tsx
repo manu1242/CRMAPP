@@ -252,7 +252,7 @@ export default function BankAccountConfigContent() {
 
       {/* Main List */}
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 50 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 160 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchBankAccounts(true)} colors={[brandColor]} />
@@ -334,8 +334,8 @@ export default function BankAccountConfigContent() {
                             ? `${brandColor}40`
                             : `${brandColor}15`
                           : isDark
-                          ? '#27272a'
-                          : '#e2e8f0',
+                            ? '#27272a'
+                            : '#e2e8f0',
                         paddingHorizontal: 8,
                         paddingVertical: 3,
                         borderRadius: 6,

@@ -1,34 +1,51 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  ScrollView, 
-  TouchableOpacity, 
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
   ActivityIndicator,
   Alert,
   Modal,
-  TextInput
+  TextInput,
+  BackHandler
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { 
-  useTenantDetailQuery, 
+import {
+  useTenantDetailQuery,
   useDeleteTenantMutation,
   useActivateTenantMutation,
   useSuspendTenantMutation,
   useLockTenantMutation,
   useUnlockTenantMutation
-} from '@/superadmin/tenants/hooks/useTenants';
-import { useTheme } from '@/contexts/ThemeContext';
-import BottomNav from '@/superadmin/components/BottomNav';
+} from '../../../superadmin/tenants/hooks/useTenants';
+import { useTheme } from '../../../contexts/ThemeContext';
+import BottomNav from '../../../superadmin/components/BottomNav';
 
 export default function TenantDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const parsedId = typeof id === 'string' ? id : '';
   const { isDark } = useTheme();
+
+  // Handle Android physical back button override
+  useEffect(() => {
+    const backAction = () => {
+      router.replace('/superadmin/tenants-hub');
+      return true; // prevent default behavior
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [router]);
 
   // Theme colors
   const bgColor = isDark ? '#0f172a' : '#f3f4f6';
@@ -63,8 +80,8 @@ export default function TenantDetailScreen() {
       `Are you sure you want to delete ${tenant?.companyName}? This action will permanently remove all isolated tenant databases, subscriptions, and payment records.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
+        {
+          text: 'Delete',
           style: 'destructive',
           onPress: () => {
             deleteMutation.mutate(parsedId, {
@@ -132,7 +149,7 @@ export default function TenantDetailScreen() {
           <Text style={{ color: subTextColor, fontSize: 12, textAlign: 'center', marginTop: 8 }}>
             {(error as any)?.message || 'Tenant workspace not found or has been deleted.'}
           </Text>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 24, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: isDark ? '#334155' : '#e2e8f0', borderRadius: 12 }}>
+          <TouchableOpacity onPress={() => router.replace('/superadmin/tenants-hub')} style={{ marginTop: 24, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: isDark ? '#334155' : '#e2e8f0', borderRadius: 10 }}>
             <Text style={{ color: textColor, fontWeight: '700', fontSize: 14 }}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -169,51 +186,50 @@ export default function TenantDetailScreen() {
     };
   };
 
-  const isMutationPending = 
-    activateMutation.isPending || 
-    suspendMutation.isPending || 
-    lockMutation.isPending || 
-    unlockMutation.isPending || 
+  const isMutationPending =
+    activateMutation.isPending ||
+    suspendMutation.isPending ||
+    lockMutation.isPending ||
+    unlockMutation.isPending ||
     deleteMutation.isPending;
 
   const statusColors = getStatusColor();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor }} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }} edges={['bottom', 'left', 'right']}>
       <View style={{ flex: 1, backgroundColor: bgColor }}>
-        {/* Top Header */}
-        <View style={{
-          backgroundColor: isDark ? '#1e293b' : '#0f172a',
-          paddingHorizontal: 16,
-          paddingVertical: 16,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? '#334155' : '#1e293b',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 3,
-          elevation: 4,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ padding: 4, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)' }}>
-              <Ionicons name="arrow-back" size={20} color="#fff" />
-            </TouchableOpacity>
-            <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 16 }}>Workspace Details</Text>
+        {/* Title Block */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flex: 1, marginRight: 16 }}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: textColor }}>Workspace Details</Text>
+            {tenant && (
+              <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2, fontWeight: '500' }}>
+                Manage workspace for {tenant.companyName}
+              </Text>
+            )}
           </View>
-          <TouchableOpacity
-            onPress={() => router.push(`/superadmin/edit-tenant/${parsedId}` as any)}
-            style={{ padding: 6, borderRadius: 12, backgroundColor: isDark ? '#1e293b' : 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: isDark ? '#334155' : 'transparent' }}
-          >
-            <Ionicons name="create-outline" size={18} color="#fff" />
-          </TouchableOpacity>
+          {tenant && (
+            <TouchableOpacity
+              onPress={() => router.push(`/superadmin/edit-tenant/${parsedId}` as any)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                backgroundColor: '#1e73be',
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 10,
+              }}
+            >
+              <Ionicons name="create-outline" size={14} color="#fff" />
+              <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 12 }}>Edit</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Content */}
         <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} contentContainerStyle={{ paddingBottom: 40 }}>
-          
+
           {/* Main Card with status */}
           <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 20, marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>

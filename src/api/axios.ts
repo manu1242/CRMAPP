@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getApiUrl } from './remoteConfig';
+import { handleMockRequest, handleMockResponse } from './mockLeadsApi';
 
 /**
  * Axios instance with a dynamic baseURL resolved from the remote config.
@@ -21,8 +22,42 @@ export const axiosInstance = axios.create({
   timeout: 10000, // 10s default timeout
 });
 
+// Mock Interceptor: Dynamic client-side mocking for new endpoints
+axiosInstance.interceptors.request.use(
+  async (config) => {
+    try {
+      const mockRes = await handleMockRequest(config);
+      if (mockRes) {
+        // Short-circuit the request by rejecting with the mock response.
+        // It will be caught and resolved in the response interceptor.
+        return Promise.reject({ __isMockResponse__: true, response: mockRes });
+      }
+    } catch (err: any) {
+      if (err && err.response) {
+        return Promise.reject({ __isMockResponse__: true, response: err.response });
+      }
+      return Promise.reject(err);
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // Dynamically set baseURL on every request from the live remote-config value
 axiosInstance.interceptors.request.use((config) => {
   config.baseURL = getApiUrl();
   return config;
 });
+
+// Lead mock state merger for detail responses
+axiosInstance.interceptors.response.use(
+  async (response) => {
+    return await handleMockResponse(response);
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+

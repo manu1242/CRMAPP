@@ -22,6 +22,31 @@ export interface LeadItem {
   rating?: string;
 }
 
+export interface AddLeadPayload {
+  fullName: string;
+  email: string;
+  phone: string;
+
+  stage: string;
+  status: string;
+  source: string;
+
+  followUpDate?: string;
+  rating?: string;
+
+  preferredLocation?: string;
+  locationDistance?: string;
+  sqft?: string;
+  facing?: string;
+  type?: string;
+  propertyType?: string;
+  bhk?: string;
+  requirement?: string;
+
+  executiveId?: number;
+  comments?: string;
+}
+
 export interface LeadQueryParams {
   search?: string;
   page?: number;
@@ -62,6 +87,8 @@ export interface LeadContactInformation {
   assignedToAgentName?: string | null;
   followUpDate?: string | null;
   createdDate?: string | null;
+  executiveId?: number | null;
+  locationDistance?: string | null;
 }
 
 export interface LeadPropertyRequirements {
@@ -73,6 +100,7 @@ export interface LeadPropertyRequirements {
   propertyType?: string | null;
   bhk?: string | null;
   requirement?: string | null;
+  locationDistance?: string | null;
 }
 
 export interface LeadActivity {

@@ -8,8 +8,8 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ChevronRight, Users, Shield } from 'lucide-react-native';
-import { getAdminTheme } from '@/theme/adminTheme';
-import AppFooter from '../../auth/components/AppFooter';
+import { getAdminTheme } from '../../theme/adminTheme';
+// import AppFooter from '../../auth/components/AppFooter';
 
 export default function AdminUsers() {
   const { isDark } = useTheme();
@@ -33,7 +33,7 @@ export default function AdminUsers() {
   ];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: bgColor }} contentContainerStyle={{ padding: 16, paddingBottom: 24, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ flex: 1, backgroundColor: bgColor }} contentContainerStyle={{ padding: 16, paddingBottom: 70, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
       {menuSections.map((sec, idx) => (
         <View key={idx} style={{ marginBottom: 24 }}>
           <Text style={{ fontSize: 11, fontWeight: '600', color: subTextColor, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, marginLeft: 4 }}>
@@ -75,7 +75,7 @@ export default function AdminUsers() {
         </View>
       ))}
       {/* Footer */}
-      <AppFooter />
+      {/* <AppFooter /> */}
     </ScrollView>
   );
 }

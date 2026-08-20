@@ -8,14 +8,14 @@ import {
   Switch,
   ActivityIndicator,
   StatusBar,
+  BackHandler,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCreatePlanMutation, useUpdatePlanMutation, usePlanDetailQuery } from '@/superadmin/plans/hooks/usePlans';
-import { PlanCreateRequest } from '@/superadmin/plans/models/Plan';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCreatePlanMutation, useUpdatePlanMutation, usePlanDetailQuery } from '../../superadmin/plans/hooks/usePlans';
+import { PlanCreateRequest } from '../../superadmin/plans/models/Plan';
 import { useTheme } from '../../contexts/ThemeContext';
-import BottomNav from '@/superadmin/components/BottomNav';
 
 // ─── Reusable form field components ───────────────────────────────────────────
 function FieldLabel({ label, required }: { label: string; required?: boolean }) {
@@ -59,7 +59,7 @@ function TextField({
           borderWidth: 1,
           borderColor: error ? '#ef4444' : borderCol,
           backgroundColor: error ? (isDark ? '#7f1d1d20' : '#fef2f2') : inputBg,
-          borderRadius: 12,
+          borderRadius: 10,
           paddingHorizontal: 12,
           color: textColor,
           fontSize: 14,
@@ -140,6 +140,7 @@ export default function CreateEditPlanScreen() {
   const bgColor = isDark ? '#0f172a' : '#f3f4f6';
   const cardBg = isDark ? '#1e293b' : '#ffffff';
   const textColor = isDark ? '#f1f5f9' : '#1e293b';
+  const subTextColor = isDark ? '#94a3b8' : '#64748b';
   const borderCol = isDark ? '#334155' : '#f1f5f9';
   const headerBg = isDark ? '#1e293b' : '#0f172a';
 
@@ -178,6 +179,21 @@ export default function CreateEditPlanScreen() {
     }
   }, [existingPlan, isEdit]);
 
+  // Handle Android physical back button override to go to plans list
+  useEffect(() => {
+    const backAction = () => {
+      router.replace('/superadmin/plans');
+      return true; // prevent default behavior
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [router]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const createMutation = useCreatePlanMutation();
@@ -202,53 +218,34 @@ export default function CreateEditPlanScreen() {
     if (isEdit && editId) {
       updateMutation.mutate(
         { id: editId, data: form },
-        { onSuccess: () => router.back() }
+        { onSuccess: () => router.replace('/superadmin/plans') }
       );
     } else {
-      createMutation.mutate(form, { onSuccess: () => router.back() });
+      createMutation.mutate(form, { onSuccess: () => router.replace('/superadmin/plans') });
     }
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
-      <StatusBar barStyle="light-content" backgroundColor={headerBg} />
-      {/* Header */}
-      <View style={{
-        backgroundColor: headerBg,
-        paddingHorizontal: 16,
-        paddingTop: Math.max(insets.top, 12) + 6,
-        paddingBottom: 14,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: isDark ? '#334155' : '#1e293b',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 4,
-      }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)' }}>
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 16 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }} edges={['bottom', 'left', 'right']}>
+      <View style={{ flex: 1, backgroundColor: bgColor }}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={bgColor} />
+        {/* Title Block */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: textColor }}>
             {isEdit ? 'Edit Plan' : 'Create New Plan'}
           </Text>
-          <Text style={{ color: '#94a3b8', fontSize: 10, marginTop: 2 }}>
+          <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2, fontWeight: '500' }}>
             {isEdit ? 'Update the subscription plan details' : 'Define a new SaaS subscription tier'}
           </Text>
         </View>
-      </View>
 
-      <ScrollView
-        style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }}
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 20, 32), gap: 12 }}
-        showsVerticalScrollIndicator={false}
-      >
+        <ScrollView
+          style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 20, 32), gap: 12 }}
+          showsVerticalScrollIndicator={false}
+        >
           {/* ── Basic Details ── */}
-          <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
+          <View style={{ backgroundColor: cardBg, borderRadius: 10, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
             <SectionHeader title="Basic Details" />
 
             <TextField
@@ -277,7 +274,7 @@ export default function CreateEditPlanScreen() {
                     style={{
                       flex: 1,
                       paddingVertical: 10,
-                      borderRadius: 12,
+                      borderRadius: 10,
                       borderWidth: 1,
                       borderColor: form.planType === t ? '#1e73be' : borderCol,
                       backgroundColor: form.planType === t ? '#1e73be' : (isDark ? '#0f172a' : '#ffffff'),
@@ -319,7 +316,7 @@ export default function CreateEditPlanScreen() {
           </View>
 
           {/* ── Pricing ── */}
-          <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
+          <View style={{ backgroundColor: cardBg, borderRadius: 10, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
             <SectionHeader title="Pricing (₹)" />
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ flex: 1 }}>
@@ -359,7 +356,7 @@ export default function CreateEditPlanScreen() {
           </View>
 
           {/* ── Usage Limits ── */}
-          <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
+          <View style={{ backgroundColor: cardBg, borderRadius: 10, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
             <SectionHeader title="Usage Limits (-1 = Unlimited)" />
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ flex: 1 }}>
@@ -381,7 +378,7 @@ export default function CreateEditPlanScreen() {
           </View>
 
           {/* ── Features ── */}
-          <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
+          <View style={{ backgroundColor: cardBg, borderRadius: 10, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
             <SectionHeader title="Feature Flags" />
             <ToggleRow label="WhatsApp Integration" value={form.hasWhatsAppIntegration} onValueChange={(v) => setField('hasWhatsAppIntegration', v)} />
             <ToggleRow label="Facebook Integration" value={form.hasFacebookIntegration} onValueChange={(v) => setField('hasFacebookIntegration', v)} />
@@ -394,7 +391,7 @@ export default function CreateEditPlanScreen() {
           </View>
 
           {/* ── Visibility ── */}
-          <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
+          <View style={{ backgroundColor: cardBg, borderRadius: 10, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
             <SectionHeader title="Visibility" />
             <ToggleRow label="Active" value={form.isActive} onValueChange={(v) => setField('isActive', v)} />
             <ToggleRow label="Show on Landing Page" value={form.showOnLandingPage} onValueChange={(v) => setField('showOnLandingPage', v)} />
@@ -403,13 +400,13 @@ export default function CreateEditPlanScreen() {
           {/* ── Actions ── */}
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => router.replace('/superadmin/plans')}
               style={{
                 flex: 1,
                 borderWidth: 1,
                 borderColor: isDark ? '#334155' : '#e2e8f0',
                 paddingVertical: 12,
-                borderRadius: 12,
+                borderRadius: 10,
                 alignItems: 'center',
                 backgroundColor: isDark ? '#1e293b' : '#ffffff',
               }}
@@ -423,7 +420,7 @@ export default function CreateEditPlanScreen() {
                 flex: 2,
                 backgroundColor: '#1e73be',
                 paddingVertical: 12,
-                borderRadius: 12,
+                borderRadius: 10,
                 alignItems: 'center',
               }}
             >
@@ -437,8 +434,7 @@ export default function CreateEditPlanScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-
-        {/* <BottomNav active="subscriptions" /> */}
       </View>
+    </SafeAreaView>
   );
 }

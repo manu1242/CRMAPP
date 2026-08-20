@@ -1,22 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-// import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useCreateTenantMutation } from '@/superadmin/tenants/hooks/useTenants';
-import { TenantFormFields } from '@/superadmin/tenants/components/TenantFormFields';
+import { useCreateTenantMutation } from '../../superadmin/tenants/hooks/useTenants';
+import { TenantFormFields } from '../../superadmin/tenants/components/TenantFormFields';
 import { useTheme } from '../../contexts/ThemeContext';
-import BottomNav from '@/superadmin/components/BottomNav';
+import BottomNav from '../../superadmin/components/BottomNav';
 
 export default function CreateTenantScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     companyName?: string;
     subdomain?: string;
@@ -77,6 +79,21 @@ export default function CreateTenantScreen() {
     return Object.keys(errors).length === 0;
   };
 
+  // Handle Android physical back button override
+  useEffect(() => {
+    const backAction = () => {
+      router.replace('/superadmin/tenants-hub');
+      return true; // prevent default behavior
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [router]);
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
@@ -93,38 +110,21 @@ export default function CreateTenantScreen() {
       },
       {
         onSuccess: () => {
-          router.back();
+          router.replace('/superadmin/tenants-hub');
         },
       }
     );
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }}>
       <View style={{ flex: 1, backgroundColor: bgColor }}>
-        {/* Top Navbar */}
-        <View style={{
-          backgroundColor: isDark ? '#1e293b' : '#0f172a',
-          paddingHorizontal: 16,
-          paddingVertical: 16,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? '#334155' : '#1e293b',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 3,
-          elevation: 4,
-        }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ padding: 4, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)' }}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 16 }}>New Tenant Workspace</Text>
-            <Text style={{ color: '#94a3b8', fontSize: 10, marginTop: 2 }}>Fill in the details below to provision a new tenant</Text>
-          </View>
+        {/* Title Block */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: textColor }}>New Tenant Workspace</Text>
+          <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2, fontWeight: '500' }}>
+            Fill in the details below to provision a new tenant
+          </Text>
         </View>
 
         {/* Form Container */}
@@ -145,7 +145,7 @@ export default function CreateTenantScreen() {
             {/* Submit & Cancel Buttons */}
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 24, borderTopWidth: 1, borderTopColor: borderCol, paddingTop: 16 }}>
               <TouchableOpacity
-                onPress={() => router.back()}
+                onPress={() => router.replace('/superadmin/tenants-hub')}
                 style={{
                   flex: 1,
                   borderWidth: 1,
@@ -182,6 +182,6 @@ export default function CreateTenantScreen() {
 
         {/* <BottomNav active="tenants" /> */}
       </View>
-    </View> 
+    </View>
   );
 }

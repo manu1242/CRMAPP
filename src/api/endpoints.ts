@@ -28,7 +28,7 @@ export const API_ENDPOINTS = {
     GET_INQUIRY_BY_ID: (id: string | number) => `/api/v1/superadmin/inquiries/${id}`,
     UPDATE_INQUIRY_STATUS: (id: string | number) => `/api/v1/superadmin/inquiries/${id}/status`,
   },
-  NOTIFICATION:{
+  NOTIFICATION: {
     GET_NOTIFICATIONS: '/notification/getnotifications',
     MARK_ALL_READ: '/Notification/MarkAllAsRead',
   },
@@ -49,7 +49,7 @@ export const API_ENDPOINTS = {
     BY_ID: (id: number) => `/api/v1/superadmin/subscriptions/${id}`,
     ASSIGN: '/api/v1/superadmin/subscriptions/assign',
   },
-  SETTINGS:{
+  SETTINGS: {
     BASE: '/api/v1/superadmin/settings',
     GET_SETTINGS: '/api/v1/superadmin/settings',
     SAVE_SETTINGS: '/api/v1/superadmin/settings',
@@ -60,10 +60,13 @@ export const API_ENDPOINTS = {
   },
   LEADS: {
     BASE: '/api/v1/LeadsApi',
+    ADD_LEAD: (id: number | string) => `/api/v1/leadsapi/`,
+    ADD_OPTIONS: (id: number | string) => `/api/v1/leadsapi/form-options`,
     BY_ID: (id: number | string) => `/api/v1/LeadsApi/${id}`,
     DETAILS: (id: number | string) => `/api/v1/LeadsApi/${id}/details`,
     ADD_NOTE: (id: number | string) => `/api/v1/LeadsApi/${id}/notes`,
-    ADD_FOLLOW_UP: (id: number | string) => `/api/v1/LeadsApi/${id}/follow-ups`,
+    ADD_FOLLOW_UP: (id: number | string) => `/api/leads/${id}/follow-ups`,
+    EDIT_FOLLOW_UP: (id: number | string, followUpId: number | string) => `/api/leads/${id}/follow-ups/${followUpId}`,
     UPLOAD_DOC: (id: number | string) => `/api/v1/LeadsApi/${id}/upload`,
   },
   SALES_PIPELINE: {
@@ -103,8 +106,8 @@ export const API_ENDPOINTS = {
     DELETE_DOCUMENT: '/Properties/DeleteDocument',
     DOWNLOAD_DOCUMENT: (documentId: string | number) => `/Properties/DownloadDocument?documentId=${documentId}`,
   },
-  QUOTATIONS:{
-    GET_QUOATATIONS:'/api/v1/quotations'
+  QUOTATIONS: {
+    GET_QUOATATIONS: '/api/v1/quotations'
   },
   BOOKINGS: {
     BASE: '/api/v1/bookings',
@@ -114,10 +117,14 @@ export const API_ENDPOINTS = {
   FILES: {
     UPLOAD: '/api/v1/files/upload',
   },
-  INVOICES:{
-    GET_INVOICE:'/api/v1/invoices',
+  INVOICES: {
+    GET_INVOICE: '/api/v1/invoices',
     BY_ID: (id: number | string) => `/api/v1/invoices/${id}`,
-    GENERATE:'/api/v1/invoices/generate'
+    GENERATE: '/api/v1/invoices/generate',
+    DELETE: (id: number | string) => `/api/v1/invoices/${id}`,
+    DOWNLOAD_PDF: (id: number | string) => `/api/v1/invoices/${id}/download`,
+    SEND: (id: number | string, sendWhatsApp: boolean = true, sendEmail: boolean = false) => `/api/v1/invoices/${id}/send?sendWhatsApp=${sendWhatsApp}&sendEmail=${sendEmail}`,
+    RECORD_PAYMENT: (id: number | string) => `/api/v1/invoices/${id}/record-payment`,
   },
   PAYMENTS: {
     BASE: '/api/v1/payments',

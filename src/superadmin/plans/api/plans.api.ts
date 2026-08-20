@@ -1,5 +1,5 @@
-import { apiClient } from '@/api/apiClient';
-import { API_ENDPOINTS } from '@/api/endpoints';
+import { apiClient } from '../../../api/apiClient';
+import { API_ENDPOINTS } from '../../../api/endpoints';
 import { Plan, PlanCreateRequest, PlanUpdateRequest } from '../models/Plan';
 
 export interface ApiResponse<T> {

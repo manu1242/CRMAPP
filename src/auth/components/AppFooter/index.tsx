@@ -33,17 +33,17 @@ export default function AppFooter() {
       <Text 
         style={{ 
           fontSize: 10.5,
-          color: adminTheme.textSecondary,
+          color: adminTheme.FooterText,
           textAlign: 'center',
           paddingHorizontal: 16,
           fontWeight: '500',
           lineHeight: 16
         }}
       >
-        © 2015-2026 <Text style={{ fontWeight: '600', color: adminTheme.textPrimary }}>UPropTech Solutions</Text>. All Rights Reserved.{"\n"}
-        Powered by <Text style={{ color: adminTheme.textPrimary, fontWeight: '600', textDecorationLine: 'underline' }}>Ultrakey IT Solutions Pvt Ltd.</Text>
+        © 2015-2026 UPropTech Solutions. All Rights Reserved.{"\n"}
+        Powered by Ultrakey IT Solutions Pvt Ltd.
       </Text>
-      {shouldShowImage && (
+      {/* {shouldShowImage && (
         <Image
           source={isDark ? expoBadgeWhite : expoBadge}
           style={{
@@ -53,7 +53,7 @@ export default function AppFooter() {
           }}
           resizeMode="contain"
         />
-      )}
+      )} */}
     </View>
   );
 }

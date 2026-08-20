@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Menu, Moon, Sun, Bell } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import NotificationModal from '@/app/components/NotififcationModal';
-import { NotificationService } from '@/Services/NotificationService';
-import { useTheme } from '@/contexts/ThemeContext';
+import NotificationModal from '../../app/components/NotififcationModal';
+import { NotificationService } from '../../Services/NotificationService';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface HeaderProps {
   onMenuPress?: () => void;
