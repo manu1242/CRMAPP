@@ -200,7 +200,7 @@ export default function InvoiceDetailScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: theme.primaryBg }}>
             {/* Header */}
-            <View style={[styles.header, { borderBottomColor: theme.border, paddingTop: insets.top + 12 }]}>
+            <View style={[styles.header, { borderBottomColor: theme.border, paddingTop: 12 }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                     <ChevronLeft size={22} color={theme.textPrimary} />
                 </TouchableOpacity>

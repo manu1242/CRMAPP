@@ -126,6 +126,43 @@ export default function LeadsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
+      {/* Top Header Bar */}
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: borderCol,
+        backgroundColor: cardBg,
+      }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+          }}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={20} color={textColor} />
+          <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>
+            Leads
+          </Text>
+        </TouchableOpacity>
+
+        <View style={{
+          backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.08)',
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: 8,
+        }}>
+          <Text style={{ color: brandCol, fontSize: 12, fontWeight: '600' }}>
+            {totalCount} Total
+          </Text>
+        </View>
+      </View>
 
 
       <ScrollView
@@ -442,9 +479,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
     alignSelf: "center",
-     borderWidth: 1,
+    borderWidth: 1,
     // borderColor:'#c9c8c87a'
-    
+
   },
   countBadgeText: {
     fontSize: 12,

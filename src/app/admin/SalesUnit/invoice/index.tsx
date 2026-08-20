@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
+  Animated,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
@@ -29,6 +31,8 @@ import { getAdminTheme } from '../../../../theme/adminTheme';
 import { useInvoices } from '../../../../admin/hooks/useInvoices';
 
 const STATUS_OPTIONS = ['All', 'Generated', 'Sent', 'Paid', 'Partial', 'Overdue', 'Cancelled'];
+const STATUS_PILLS_HEIGHT = 46;
+const METRICS_HEIGHT = 128;
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return 'N/A';
@@ -90,12 +94,23 @@ export default function InvoicesPage() {
   const totalPages = invoicesResponse?.data?.totalPages ?? 1;
   const summary = invoicesResponse?.data?.summary;
 
+  const scrollY = useRef(new Animated.Value(0)).current;
+
   // Auto-scroll to bottom when new invoice appears
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<any>(null);
   const prevCountRef = useRef(invoices.length);
   useEffect(() => {
     if (invoices.length > prevCountRef.current) {
-      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 300);
+      setTimeout(() => {
+        const node = scrollViewRef.current;
+        if (node) {
+          if (typeof node.scrollToEnd === 'function') {
+            node.scrollToEnd({ animated: true });
+          } else if (node.getNode && typeof node.getNode().scrollToEnd === 'function') {
+            node.getNode().scrollToEnd({ animated: true });
+          }
+        }
+      }, 300);
     }
     prevCountRef.current = invoices.length;
   }, [invoices.length]);
@@ -113,37 +128,50 @@ export default function InvoicesPage() {
     { title: 'Outstanding', value: formatCurrency(summary?.outstanding ?? 0), icon: DollarSign, color: '#f59e0b', bg: '#f59e0b15' },
   ];
 
+  const headerHeight = summary ? (STATUS_PILLS_HEIGHT + METRICS_HEIGHT) : STATUS_PILLS_HEIGHT;
+  const searchBarHeight = 112;
+
+  const activeScrollY = useMemo(() => {
+    return scrollY.interpolate({
+      inputRange: [0, 1000000],
+      outputRange: [0, 1000000],
+      extrapolate: 'clamp',
+    });
+  }, [scrollY]);
+
+  const clampedScroll = useMemo(() => {
+    return Animated.diffClamp(activeScrollY, 0, headerHeight);
+  }, [activeScrollY, headerHeight]);
+
+  const translateY = useMemo(() => {
+    return clampedScroll.interpolate({
+      inputRange: [0, headerHeight],
+      outputRange: [0, -headerHeight],
+      extrapolate: 'clamp',
+    });
+  }, [clampedScroll, headerHeight]);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.primaryBg }]}>
+      {/* Sticky Top Header & Search Container */}
+      <View style={{
+        backgroundColor: theme.primaryBg,
+        zIndex: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.border,
+        paddingTop: 12,
+        paddingBottom: 8,
+      }}>
+        {/* Top Header Row with title and back button */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 12, gap: 8 }}>
+          <TouchableOpacity onPress={() => router.back()} style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}>
+            <ChevronLeft size={22} color={theme.textPrimary} />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 17, fontWeight: '600', color: theme.textPrimary }}>Invoices</Text>
+        </View>
 
-      {/* Summary Metric Strip */}
-      {summary ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0, flexShrink: 0 }}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, gap: 12 }}
-        >
-          {summaryCards.map((card, i) => {
-            const Icon = card.icon;
-            return (
-              <View key={i} style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-                <View style={[styles.metricIconBox, { backgroundColor: card.bg }]}>
-                  <Icon size={20} color={card.color} />
-                </View>
-                <View style={{ marginTop: 8 }}>
-                  <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>{card.title}</Text>
-                  <Text style={[styles.metricVal, { color: theme.textPrimary }]}>{card.value}</Text>
-                </View>
-              </View>
-            );
-          })}
-        </ScrollView>
-      ) : null}
-
-      {/* Search & Create Row */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 4, gap: 12, flexShrink: 0 }}>
-        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+        {/* Search & Create Row */}
+        <View style={{ paddingHorizontal: 20, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
           <View style={[styles.searchBox, { flex: 1, backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
             <Search size={16} color={theme.textSecondary} />
             <TextInput
@@ -167,31 +195,80 @@ export default function InvoicesPage() {
             <Plus size={16} color="#ffffff" />
           </TouchableOpacity>
         </View>
-
-        {/* Status Pills */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-          {STATUS_OPTIONS.map((s) => {
-            const isSelected = statusFilter === s;
-            return (
-              <TouchableOpacity
-                key={s}
-                onPress={() => { setStatusFilter(s); setPage(1); }}
-                style={[styles.pill, { backgroundColor: isSelected ? theme.brand : theme.secondaryBg, borderColor: isSelected ? theme.brand : theme.border }]}
-              >
-                <Text style={[styles.pillText, { color: isSelected ? '#ffffff' : theme.textSecondary }]}>{s}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
       </View>
 
+      {/* Animating Header (Status Pills + Metrics) */}
+      <Animated.View style={{
+        position: 'absolute',
+        top: searchBarHeight,
+        left: 0,
+        right: 0,
+        zIndex: 9,
+        backgroundColor: theme.primaryBg,
+        transform: [{ translateY }],
+        height: headerHeight,
+        overflow: 'hidden',
+      }}>
+        {/* Status Pills */}
+        <View style={{ height: STATUS_PILLS_HEIGHT, paddingHorizontal: 16, justifyContent: 'center' }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+            {STATUS_OPTIONS.map((s) => {
+              const isSelected = statusFilter === s;
+              return (
+                <TouchableOpacity
+                  key={s}
+                  onPress={() => { setStatusFilter(s); setPage(1); }}
+                  style={[styles.pill, { backgroundColor: isSelected ? theme.brand : theme.secondaryBg, borderColor: isSelected ? theme.brand : theme.border }]}
+                >
+                  <Text style={[styles.pillText, { color: isSelected ? '#ffffff' : theme.textSecondary }]}>{s}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Summary Metric Strip */}
+        {summary ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0, flexShrink: 0, height: METRICS_HEIGHT }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, gap: 12 }}
+          >
+            {summaryCards.map((card, i) => {
+              const Icon = card.icon;
+              return (
+                <View key={i} style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+                  <View style={[styles.metricIconBox, { backgroundColor: card.bg }]}>
+                    <Icon size={20} color={card.color} />
+                  </View>
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>{card.title}</Text>
+                    <Text style={[styles.metricVal, { color: theme.textPrimary }]}>{card.value}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+      </Animated.View>
+
       {/* List */}
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollViewRef}
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16, paddingTop: 16 }}
+        contentContainerStyle={{
+          paddingTop: headerHeight + 16,
+          paddingBottom: 110,
+          paddingHorizontal: 16,
+        }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isListLoading && isListRefetching} onRefresh={refetchList} />}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
       >
         {isListLoading && !isListRefetching ? (
           <View style={{ paddingVertical: 60, alignItems: 'center' }}>
@@ -292,7 +369,7 @@ export default function InvoicesPage() {
             </TouchableOpacity>
           </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }

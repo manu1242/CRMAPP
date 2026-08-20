@@ -154,6 +154,7 @@ import SuperAdminBottomNav from '../superadmin/components/BottomNav';
 import AdminHeader from '../admin/components/Header';
 import AdminBottomNav from '../admin/components/BottomNav';
 import { BottomMenuSheet } from '../admin/components/BottomMenuSheet';
+import { checkHeaderVisibility } from '../config/headerVisibility';
 import { View, StatusBar, Text, TouchableOpacity, Alert, Modal, ActivityIndicator, Platform } from 'react-native';
 import { BlurTargetView } from 'expo-blur';
 import * as SystemUI from 'expo-system-ui';
@@ -378,12 +379,9 @@ function InnerLayout() {
 
   const themeClass = isSuperAdminFlow ? 'superadmin-theme' : isAdminFlow ? 'admin-theme' : '';
 
-  // Pages that have their own custom/sticky headers and don't need the global header
-  const hideHeader =
-    path === 'profile' ||
-    path.endsWith('/profile') ||
-    path.includes('SalesUnit/invoice/') && path !== 'admin/SalesUnit/invoice/index';
-    
+  // Determine header visibility using centralized configuration
+  const isHeaderVisible = checkHeaderVisibility(path);
+  const hideHeader = !isHeaderVisible;
 
   let headerComponent = null;
   let bottomNavComponent = null;
@@ -468,7 +466,7 @@ function InnerLayout() {
       <SafeAreaView
         className={`flex-1 bg-primary-bg ${themeClass}`}
         style={{ backgroundColor: isAdminFlow ? adminTheme.primaryBg : undefined }}
-        edges={['bottom', 'left', 'right']}
+        edges={['top', 'bottom', 'left', 'right']}
       >
         <BlurTargetView ref={mainContainerRef} style={{ flex: 1 }}>
           {headerComponent}

@@ -46,14 +46,14 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
       alignItems: 'center' as const,
       justifyContent: 'space-between' as const,
       paddingHorizontal: 16,
-      paddingTop: 12 + insets.top,
+      paddingTop: 12,
       paddingBottom: 12,
       backgroundColor: bgColor,
       borderBottomWidth: 1,
       borderBottomColor: borderColor,
       zIndex: 50,
     }),
-    [insets.top, bgColor, borderColor]
+    [bgColor, borderColor]
   );
 
   return (

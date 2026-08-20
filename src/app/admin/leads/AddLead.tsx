@@ -450,24 +450,39 @@ export default function AddLead() {
 
     return (
         <View style={[styles.container, { backgroundColor: bgColor }]}>
+            {/* Top Header Bar */}
+            <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderBottomColor: borderCol,
+                backgroundColor: cardBg,
+            }}>
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                    }}
+                    activeOpacity={0.7}
+                >
+                    <ChevronLeft size={20} color={textColor} />
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>
+                        {isEditMode ? 'Edit Lead Details' : 'Add New Lead'}
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
                 <View style={[styles.mainCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-                    {/* Header Bar */}
-                    <View style={[styles.headerBar, { backgroundColor: '#1b6ca8' }]}>
-                        <View style={styles.headerTitleLeft}>
-                            <UserPlus size={20} color="#ffffff" />
-                            <Text style={styles.headerTitleText}>
-                                {isEditMode ? 'Edit Lead Details' : 'Add New Lead'}
-                            </Text>
-                        </View>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
-                            <X size={18} color="#ffffff" />
-                        </TouchableOpacity>
-                    </View>
 
                     {/* Form Content */}
                     <View style={styles.formBody}>

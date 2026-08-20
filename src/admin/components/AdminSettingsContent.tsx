@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuthStore } from '../../auth/store/authStore';
+// No safe area context imports needed here since it's handled globally in layout
 import {
   ChevronRight,
   Settings,
@@ -46,7 +47,6 @@ export default function AdminSettingsContent() {
   const textColor = adminTheme.textPrimary;
   const subTextColor = adminTheme.textSecondary;
   const borderCol = adminTheme.border;
-
 
 
   const handleStopImpersonation = useCallback(async () => {
@@ -109,7 +109,7 @@ export default function AdminSettingsContent() {
 
       {menuSections.map((sec, idx) => (
         <View key={idx} style={{ marginBottom: 24 }}>
-          <Text style={{ fontSize: 11, fontWeight: '600', color: subTextColor, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, marginLeft: 4 }}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: textColor, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12, textAlign: 'center' }}>
             {sec.title}
           </Text>
           <View style={{ backgroundColor: cardBg, borderRadius: 12, borderWidth: 1, borderColor: borderCol, overflow: 'hidden' }}>

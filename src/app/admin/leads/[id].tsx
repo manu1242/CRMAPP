@@ -609,6 +609,34 @@ export default function LeadDetailsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
+      {/* Top Header Bar */}
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: borderCol,
+        backgroundColor: cardBg,
+      }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+          }}
+          activeOpacity={0.7}
+        >
+          <ArrowLeft size={20} color={textColor} />
+          <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>
+            Lead Details
+          </Text>
+        </TouchableOpacity>
+
+
+      </View>
       {statusDropdownOpen && (
         <Pressable
           style={[StyleSheet.absoluteFill, { zIndex: 90 }]}

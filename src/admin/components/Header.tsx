@@ -28,14 +28,14 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
       alignItems: 'center' as const,
       justifyContent: 'space-between' as const,
       paddingHorizontal: 16,
-      paddingTop: 12 + insets.top,
+      paddingTop: 12,
       paddingBottom: 12,
       backgroundColor: adminTheme.secondaryBg,
       borderBottomWidth: 1,
       borderBottomColor: adminTheme.border,
       zIndex: 50,
     }),
-    [insets.top, adminTheme.secondaryBg, adminTheme.border]
+    [adminTheme.secondaryBg, adminTheme.border]
   );
 
   const avatarStyle = useMemo(
@@ -64,10 +64,10 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
       </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-       
+
 
         {/* Referral Wallet Icon */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleOpenRewards}
           style={{ padding: 4 }}
           activeOpacity={0.7}
@@ -75,11 +75,11 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
           <Coins size={20} color={adminTheme.textSecondary} />
         </TouchableOpacity>
 
-       
 
-        <ReferralWalletSidebar 
-          isOpen={isRewardsOpen} 
-          onClose={handleCloseRewards} 
+
+        <ReferralWalletSidebar
+          isOpen={isRewardsOpen}
+          onClose={handleCloseRewards}
         />
 
         {/* User Avatar */}
