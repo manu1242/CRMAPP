@@ -13,10 +13,11 @@ import {
   Image,
   RefreshControl,
   Linking,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  ArrowLeft,
   Building,
   MapPin,
   Maximize2,
@@ -35,6 +36,11 @@ import {
   Check,
   Tag,
   Clock,
+  BedDouble,
+  Bath,
+  Car,
+  Edit2,
+  Search,
 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
@@ -44,8 +50,17 @@ import { getAdminTheme } from '../../../theme/adminTheme';
 import { PropertyService } from '../../../admin/services/PropertyService';
 import { FlatItem, PropertyDetails, PropertyImageItem } from '../../../admin/models/PropertyTypes';
 import { TokenStorage } from '../../../auth/storage/TokenStorage';
+import { AuthImage } from '../../../components/AuthImage';
+import FlatsTab from './components/FlatsTab';
+import PhotosTab from './components/PhotosTab';
+import DocumentsTab from './components/DocumentsTab';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DOCUMENT_TYPES = ['Title Deed', 'NOC', 'Building Plan', 'RERA Certificate', 'Other'];
+
+// Stable constant outside component — no recreation on every render
+const TAB_INDICES: Record<string, number> = { overview: 0, flats: 1, photos: 2, documents: 3 };
 
 export default function PropertyDetailsScreen() {
   const router = useRouter();
@@ -63,47 +78,39 @@ export default function PropertyDetailsScreen() {
   const inputBg = adminTheme.inputBg;
   const brandCol = adminTheme.brand;
 
-  // Active Tab
+  // Active Tab — single source of truth, no displayTab needed
   const [activeTab, setActiveTab] = useState<'overview' | 'flats' | 'photos' | 'documents'>('overview');
 
-  // Loading & Refreshing States
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  // Tracks which tab content is currently visible (only changes AFTER fade-out finishes)
+  const displayTabRef = React.useRef<'overview' | 'flats' | 'photos' | 'documents'>('overview');
+  const [displayTab, setDisplayTab] = useState<'overview' | 'flats' | 'photos' | 'documents'>('overview');
 
-  // Data States
-  const [property, setProperty] = useState<PropertyDetails | null>(null);
-  const [flats, setFlats] = useState<FlatItem[]>([]);
-  const [images, setImages] = useState<PropertyImageItem[]>([]);
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [executives, setExecutives] = useState<any[]>([]);
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  // Tab refs for transitions (stable — never recreated)
+  const prevIndexRef = React.useRef(0);
+  const tabProgress = React.useRef(new Animated.Value(0)).current;
+  const tabOpacity = React.useRef(new Animated.Value(1)).current;
+  const tabTranslateX = React.useRef(new Animated.Value(0)).current;
+  const transitionInProgress = React.useRef(false);
 
-  // Flat Form Modal State
-  const [isFlatModalOpen, setFlatModalOpen] = useState(false);
-  const [editingFlatId, setEditingFlatId] = useState<number | null>(null);
-  const [savingFlat, setSavingFlat] = useState(false);
-  const [isFlatStatusFormSelectOpen, setFlatStatusFormSelectOpen] = useState(false);
-  const [flatForm, setFlatForm] = useState({
-    blockName: '',
-    floorName: '',
-    flatName: '',
-    bhk: '2 BHK',
-    propertyType: 'Apartment',
-    propertyGroup: 'Residential',
-    areaSqft: '',
-    location: '',
-    bedroomCount: '2',
-    bathroomCount: '2',
-    parkingAvailable: 'true',
-    flatStatus: 'Available',
-    price: '',
+  // Tab container layout measurements for sliding pill animation
+  const screenWidth = Dimensions.get('window').width;
+  const [containerWidth, setContainerWidth] = useState(screenWidth - 40);
+  const tabWidth = (containerWidth - 8) / 4;
+
+  const indicatorTranslateX = tabProgress.interpolate({
+    inputRange: [0, 1, 2, 3],
+    outputRange: [0, tabWidth, tabWidth * 2, tabWidth * 3],
   });
+  const queryClient = useQueryClient();
+
+  // Loading & Refreshing States
+  const [refreshing, setRefreshing] = useState(false);
 
   // Flat BHK filter state
   const [searchBhk, setSearchBhk] = useState('');
 
   // Image Modal state (Full Preview)
-  const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
+  const [selectedPreviewImageId, setSelectedPreviewImageId] = useState<number | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   // Document Upload Modal state
@@ -112,180 +119,137 @@ export default function PropertyDetailsScreen() {
   const [isDocTypeDropdownOpen, setDocTypeDropdownOpen] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
 
-  useEffect(() => {
-    const loadToken = async () => {
-      const token = await TokenStorage.getAccessToken();
-      setAuthToken(token);
-    };
-    loadToken();
-    if (propertyId) {
-      fetchInitialData();
-    }
-  }, [propertyId]);
+  // TanStack Queries
+  const { data: property, isLoading: propertyLoading, refetch: refetchProperty } = useQuery({
+    queryKey: ['property', propertyId],
+    queryFn: async () => {
+      const res = await PropertyService.getPropertyById(propertyId);
+      if (!res.success) throw new Error(res.message || 'Failed to fetch property details');
+      return res as PropertyDetails;
+    },
+    enabled: !!propertyId,
+  });
 
-  const fetchInitialData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        fetchPropertyDetails(),
-        fetchFlats(),
-        fetchImages(),
-        fetchDocuments(),
-        fetchExecutives(),
-      ]);
-    } catch (err) {
-      console.error('[PropertyDetails] Error loading page data', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: flats = [], isLoading: flatsLoading, refetch: refetchFlats } = useQuery({
+    queryKey: ['flats', propertyId, searchBhk],
+    queryFn: async () => {
+      const res = await PropertyService.getFlats(propertyId, searchBhk);
+      if (!res.success) throw new Error('Failed to fetch flats');
+      return res.flats || [];
+    },
+    enabled: !!propertyId && activeTab === 'flats',
+  });
+
+  const { data: images = [], isLoading: imagesLoading, refetch: refetchImages } = useQuery({
+    queryKey: ['property_images', propertyId],
+    queryFn: async () => {
+      const res = await PropertyService.getImages(propertyId);
+      if (!res.success) throw new Error('Failed to fetch images');
+      return res.uploads || [];
+    },
+    enabled: !!propertyId && activeTab === 'photos',
+  });
+
+  const { data: documents = [], isLoading: documentsLoading, refetch: refetchDocuments } = useQuery({
+    queryKey: ['property_documents', propertyId],
+    queryFn: async () => {
+      const res = await PropertyService.getDocuments(propertyId);
+      if (!res.success) throw new Error('Failed to fetch documents');
+      return res.documents || [];
+    },
+    enabled: !!propertyId && activeTab === 'documents',
+  });
+
+  const { data: executives = [], isLoading: executivesLoading } = useQuery({
+    queryKey: ['executives'],
+    queryFn: async () => {
+      const res = await PropertyService.getExecutives();
+      if (!res.success) throw new Error('Failed to fetch executives');
+      return res.executives || [];
+    },
+  });
+
+  const loading = propertyLoading || executivesLoading;
+
+  // Tab transition animation logic — no intermediate state causes flicker
+  useEffect(() => {
+    const currentIndex = TAB_INDICES[activeTab];
+    const prevIndex = prevIndexRef.current;
+
+    // Always animate the sliding pill indicator
+    Animated.spring(tabProgress, {
+      toValue: currentIndex,
+      useNativeDriver: true,
+      tension: 40,
+      friction: 7.5,
+    }).start();
+
+    if (currentIndex === prevIndex) return;
+    if (transitionInProgress.current) return;
+
+    transitionInProgress.current = true;
+    const direction = currentIndex > prevIndex ? 1 : -1;
+
+    // Step 1: Fade + slide OUT current content
+    Animated.parallel([
+      Animated.timing(tabOpacity, {
+        toValue: 0,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(tabTranslateX, {
+        toValue: -15 * direction,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Step 2: Synchronously update which content is visible while opacity is 0
+      // This prevents any visible flash — the swap happens while invisible
+      displayTabRef.current = activeTab;
+      setDisplayTab(activeTab);
+
+      // Reposition for incoming slide direction, still invisible
+      tabTranslateX.setValue(15 * direction);
+
+      // Step 3: Use requestAnimationFrame to defer fade-in until after the
+      // React render triggered by setDisplayTab has been painted
+      requestAnimationFrame(() => {
+        Animated.parallel([
+          Animated.timing(tabOpacity, {
+            toValue: 1,
+            duration: 130,
+            useNativeDriver: true,
+          }),
+          Animated.timing(tabTranslateX, {
+            toValue: 0,
+            duration: 130,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          prevIndexRef.current = currentIndex;
+          transitionInProgress.current = false;
+        });
+      });
+    });
+  }, [activeTab]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
+      // Clear cover image local cache to force reload on pull-to-refresh
+      await AsyncStorage.removeItem(`auth_image_cover_${propertyId}`);
+      queryClient.invalidateQueries({ queryKey: ['auth_image', `cover_${propertyId}`] });
+
       await Promise.all([
-        fetchPropertyDetails(),
-        fetchFlats(),
-        fetchImages(),
-        fetchDocuments(),
+        refetchProperty(),
+        refetchDocuments(),
+        refetchFlats(),
+        refetchImages(),
       ]);
     } catch (err) {
       console.error('[PropertyDetails] Refresh error', err);
     } finally {
       setRefreshing(false);
-    }
-  };
-
-  const fetchPropertyDetails = async () => {
-    const res = await PropertyService.getPropertyById(propertyId);
-    if (res.success) {
-      setProperty(res as PropertyDetails);
-    } else {
-      Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Failed to fetch property details' });
-    }
-  };
-
-  const fetchFlats = async () => {
-    const res = await PropertyService.getFlats(propertyId, searchBhk);
-    if (res.success) {
-      setFlats(res.flats);
-    }
-  };
-
-  const fetchImages = async () => {
-    const res = await PropertyService.getImages(propertyId);
-    if (res.success) {
-      setImages(res.uploads);
-    }
-  };
-
-  const fetchDocuments = async () => {
-    const res = await PropertyService.getDocuments(propertyId);
-    if (res.success) {
-      setDocuments(res.documents);
-    }
-  };
-
-  const fetchExecutives = async () => {
-    const res = await PropertyService.getExecutives();
-    if (res.success) {
-      setExecutives(res.executives);
-    }
-  };
-
-  // --- FLAT INVENTORY OPERATIONS ---
-
-  const handleOpenAddFlat = () => {
-    setEditingFlatId(null);
-    setFlatForm({
-      blockName: '',
-      floorName: '',
-      flatName: '',
-      bhk: '2 BHK',
-      propertyType: 'Apartment',
-      propertyGroup: 'Residential',
-      areaSqft: '',
-      location: property?.location || '',
-      bedroomCount: '2',
-      bathroomCount: '2',
-      parkingAvailable: 'true',
-      flatStatus: 'Available',
-      price: '',
-    });
-    setFlatModalOpen(true);
-  };
-
-  const handleOpenEditFlat = (flat: FlatItem) => {
-    setEditingFlatId(flat.flatId);
-    setFlatForm({
-      blockName: flat.blockName,
-      floorName: flat.floorName,
-      flatName: flat.flatName,
-      bhk: flat.bhk,
-      propertyType: flat.propertyType,
-      propertyGroup: flat.propertyGroup,
-      areaSqft: flat.areaSqft ? flat.areaSqft.toString() : '',
-      location: flat.location,
-      bedroomCount: flat.bedroomCount ? flat.bedroomCount.toString() : '2',
-      bathroomCount: flat.bathroomCount ? flat.bathroomCount.toString() : '2',
-      parkingAvailable: flat.parkingAvailable ? 'true' : 'false',
-      flatStatus: flat.flatStatus,
-      price: flat.price ? flat.price.toString() : '',
-    });
-    setFlatModalOpen(true);
-  };
-
-  const handleSaveFlat = async () => {
-    if (!flatForm.flatName) {
-      Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Flat Name is required' });
-      return;
-    }
-
-    setSavingFlat(true);
-    const formData = new FormData();
-    formData.append('flatId', editingFlatId ? editingFlatId.toString() : '0');
-    formData.append('propertyId', propertyId);
-    formData.append('flatName', flatForm.flatName);
-    formData.append('blockName', flatForm.blockName);
-    formData.append('floorName', flatForm.floorName);
-    formData.append('bhk', flatForm.bhk);
-    formData.append('propertyType', flatForm.propertyType);
-    formData.append('propertyGroup', flatForm.propertyGroup);
-    formData.append('areaSqft', flatForm.areaSqft);
-    formData.append('location', flatForm.location);
-    formData.append('bedroomCount', flatForm.bedroomCount);
-    formData.append('bathroomCount', flatForm.bathroomCount);
-    formData.append('parkingAvailable', flatForm.parkingAvailable);
-    formData.append('flatStatus', flatForm.flatStatus);
-    formData.append('price', flatForm.price);
-
-    try {
-      const res = await PropertyService.saveFlat(formData);
-      if (res.success) {
-        Toast.show({ type: 'success', text1: 'Success', text2: res.message });
-        setFlatModalOpen(false);
-        fetchFlats();
-      } else {
-        Toast.show({ type: 'error', text1: 'Error', text2: res.message });
-      }
-    } catch (err: any) {
-      Toast.show({ type: 'error', text1: 'Server Error', text2: err.message || 'Something went wrong' });
-    } finally {
-      setSavingFlat(false);
-    }
-  };
-
-  const handleDeleteFlat = async (flatId: number) => {
-    try {
-      const res = await PropertyService.deleteFlat(flatId);
-      if (res.success) {
-        Toast.show({ type: 'success', text1: 'Success', text2: 'Flat deleted successfully' });
-        fetchFlats();
-      } else {
-        Toast.show({ type: 'error', text1: 'Error', text2: res.message });
-      }
-    } catch (err: any) {
-      Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Failed to delete flat' });
     }
   };
 
@@ -320,7 +284,7 @@ export default function PropertyDetailsScreen() {
       const res = await PropertyService.uploadImage(formData);
       if (res.success) {
         Toast.show({ type: 'success', text1: 'Success', text2: 'Image uploaded successfully!' });
-        fetchImages();
+        queryClient.invalidateQueries({ queryKey: ['property_images', propertyId] });
       } else {
         Toast.show({ type: 'error', text1: 'Upload Failed', text2: res.message });
       }
@@ -336,12 +300,31 @@ export default function PropertyDetailsScreen() {
       const res = await PropertyService.deleteImage(uploadId);
       if (res.success) {
         Toast.show({ type: 'success', text1: 'Deleted', text2: 'Photo deleted successfully!' });
-        fetchImages();
+        // Clear local cache for this specific image upload
+        await AsyncStorage.removeItem(`auth_image_upload_${uploadId}`);
+        queryClient.invalidateQueries({ queryKey: ['auth_image', `upload_${uploadId}`] });
+        queryClient.invalidateQueries({ queryKey: ['property_images', propertyId] });
       } else {
         Toast.show({ type: 'error', text1: 'Delete Failed', text2: res.message });
       }
     } catch (err: any) {
       Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Failed to delete photo' });
+    }
+  };
+
+  // --- FLAT INVENTORY OPERATIONS ---
+
+  const handleDeleteFlat = async (flatId: number) => {
+    try {
+      const res = await PropertyService.deleteFlat(flatId);
+      if (res.success) {
+        Toast.show({ type: 'success', text1: 'Success', text2: 'Flat deleted successfully' });
+        queryClient.invalidateQueries({ queryKey: ['flats', propertyId] });
+      } else {
+        Toast.show({ type: 'error', text1: 'Error', text2: res.message });
+      }
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Failed to delete flat' });
     }
   };
 
@@ -367,7 +350,7 @@ export default function PropertyDetailsScreen() {
           if (res.success) {
             Toast.show({ type: 'success', text1: 'Uploaded', text2: 'Document uploaded successfully!' });
             setDocUploadModalOpen(false);
-            fetchDocuments();
+            queryClient.invalidateQueries({ queryKey: ['property_documents', propertyId] });
           } else {
             Toast.show({ type: 'error', text1: 'Upload Failed', text2: res.message });
           }
@@ -403,7 +386,7 @@ export default function PropertyDetailsScreen() {
         if (res.success) {
           Toast.show({ type: 'success', text1: 'Uploaded', text2: 'Document uploaded successfully!' });
           setDocUploadModalOpen(false);
-          fetchDocuments();
+          queryClient.invalidateQueries({ queryKey: ['property_documents', propertyId] });
         } else {
           Toast.show({ type: 'error', text1: 'Upload Failed', text2: res.message });
         }
@@ -428,7 +411,7 @@ export default function PropertyDetailsScreen() {
       const res = await PropertyService.deleteDocument(documentId);
       if (res.success) {
         Toast.show({ type: 'success', text1: 'Deleted', text2: 'Document deleted successfully!' });
-        fetchDocuments();
+        queryClient.invalidateQueries({ queryKey: ['property_documents', propertyId] });
       } else {
         Toast.show({ type: 'error', text1: 'Delete Failed', text2: res.message });
       }
@@ -448,65 +431,76 @@ export default function PropertyDetailsScreen() {
 
   const executiveName = executives.find((e) => e.userId === property?.assignedTo)?.fullName || 'Unassigned';
 
-  const imageBaseUrl = getApiUrl();
+  const imageBaseUrl = getApiUrl().replace(/\/+$/, '');
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Top Navbar */}
-      <View style={[styles.navbar, { backgroundColor: cardBg, borderBottomColor: borderCol }]}>
-        <TouchableOpacity style={[styles.backBtn, { backgroundColor: inputBg }]} onPress={() => router.back()}>
-          <ArrowLeft size={20} color={textColor} />
-        </TouchableOpacity>
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={[styles.navbarTitle, { color: textColor }]} numberOfLines={1}>
-            {property?.propertyName || 'Estate Profile'}
-          </Text>
-          <Text style={{ fontSize: 12, color: subTextColor }}>{property?.builderName}</Text>
-        </View>
-        <View style={[styles.badge, { backgroundColor: brandCol }]}>
-          <Text style={styles.badgeText}>{property?.purchaseType}</Text>
-        </View>
-      </View>
-
-      {/* Tabs Selector */}
-      <View style={[styles.tabsContainer, { backgroundColor: cardBg, borderBottomColor: borderCol }]}>
-        {(['overview', 'flats', 'photos', 'documents'] as const).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tabButton, activeTab === tab && { borderBottomColor: brandCol }]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                { color: activeTab === tab ? brandCol : subTextColor },
-                activeTab === tab && { fontWeight: '700' },
-              ]}
+      {/* Tabs Selector (Pill design with sliding background) */}
+      <View
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        style={[styles.tabsContainer, { backgroundColor: inputBg, borderColor: borderCol, position: 'relative' }]}
+      >
+        <Animated.View
+          style={[
+            styles.tabIndicator,
+            {
+              backgroundColor: brandCol,
+              width: tabWidth,
+              transform: [{ translateX: indicatorTranslateX }],
+            },
+          ]}
+        />
+        {(['overview', 'flats', 'photos', 'documents'] as const).map((tab) => {
+          const isSelected = activeTab === tab;
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={styles.tabButton}
+              onPress={() => setActiveTab(tab as any)}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: isSelected ? '#fff' : subTextColor },
+                  isSelected && { fontWeight: '700' },
+                ]}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View style={{ padding: 20 }}>
+        <Animated.View
+          style={{
+            padding: 20,
+            opacity: tabOpacity,
+            transform: [{ translateX: tabTranslateX }],
+          }}
+        >
           {/* --- OVERVIEW TAB --- */}
-          {activeTab === 'overview' && property && (
+          {displayTab === 'overview' && property && (
             <View style={styles.overviewContainer}>
-              {/* Image Banner */}
-              <View style={[styles.imageBanner, { backgroundColor: inputBg, borderColor: borderCol }]}>
+              {/* Image Banner with Title and Purchase Type Badge */}
+              <View style={[styles.imageBanner, { backgroundColor: inputBg, borderColor: borderCol, position: 'relative' }]}>
                 {property.propertyImage && property.propertyImage.length > 0 ? (
-                  <Image
-                    source={{
-                      uri: `${imageBaseUrl}/Properties/GetPropertyImage?propertyId=${property.propertyId}`,
-                      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined
-                    }}
+                  <AuthImage
+                    cacheKey={`cover_${property.propertyId}`}
+                    fetchFn={() => PropertyService.getPropertyImageBase64(property.propertyId)}
                     style={StyleSheet.absoluteFill}
                     resizeMode="cover"
+                    spinnerColor={brandCol}
+                    placeholder={
+                      <View style={styles.bannerPlaceholder}>
+                        <Building size={48} color={subTextColor} />
+                        <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
+                      </View>
+                    }
                   />
                 ) : (
                   <View style={styles.bannerPlaceholder}>
@@ -514,6 +508,23 @@ export default function PropertyDetailsScreen() {
                     <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
                   </View>
                 )}
+
+                {/* Text Overlay for Name & Builder */}
+                <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                  <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }} numberOfLines={1}>
+                    {property?.propertyName || 'Estate Profile'}
+                  </Text>
+                  {property?.builderName ? (
+                    <Text style={{ color: '#eee', fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+                      by {property.builderName}
+                    </Text>
+                  ) : null}
+                </View>
+
+                {/* Type badge overlay */}
+                <View style={[styles.badge, { position: 'absolute', top: 12, right: 12, backgroundColor: brandCol }]}>
+                  <Text style={[styles.badgeText, { color: '#fff' }]}>{property?.purchaseType}</Text>
+                </View>
               </View>
 
               {/* General Info Card */}
@@ -612,367 +623,41 @@ export default function PropertyDetailsScreen() {
           )}
 
           {/* --- FLATS TAB --- */}
-          {activeTab === 'flats' && (
-            <View style={styles.flatsContainer}>
-              <View style={styles.sectionHeader}>
-                <View style={[styles.searchBox, { backgroundColor: cardBg, borderColor: borderCol, flex: 1, height: 38, marginBottom: 0 }]}>
-                  <TextInput
-                    style={[styles.searchInput, { color: textColor, fontSize: 12 }]}
-                    placeholder="Filter by BHK (e.g. 3 BHK)"
-                    placeholderTextColor={subTextColor}
-                    value={searchBhk}
-                    onChangeText={(text) => {
-                      setSearchBhk(text);
-                      fetchFlats();
-                    }}
-                  />
-                </View>
-                <TouchableOpacity
-                  style={[styles.addButton, { backgroundColor: brandCol, height: 38 }]}
-                  onPress={handleOpenAddFlat}
-                >
-                  <Plus size={14} color="#fff" />
-                  <Text style={[styles.addButtonText, { fontSize: 12 }]}>Add Flat</Text>
-                </TouchableOpacity>
-              </View>
-
-              {flats.length > 0 ? (
-                flats.map((flat) => (
-                  <View key={flat.flatId} style={[styles.flatCard, { backgroundColor: cardBg, borderColor: borderCol, marginBottom: 12 }]}>
-                    <View style={styles.flatCardHeader}>
-                      <Text style={[styles.flatName, { color: textColor }]}>
-                        {flat.blockName} - {flat.flatName} ({flat.floorName})
-                      </Text>
-                      <View
-                        style={[
-                          styles.flatStatusBadge,
-                          {
-                            backgroundColor:
-                              flat.flatStatus === 'Available'
-                                ? '#22c55e15'
-                                : flat.flatStatus === 'Sold'
-                                ? '#ef444415'
-                                : '#f59e0b15',
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 10,
-                            fontWeight: '700',
-                            color:
-                              flat.flatStatus === 'Available'
-                                ? '#22c55e'
-                                : flat.flatStatus === 'Sold'
-                                ? '#ef4444'
-                                : '#f59e0b',
-                          }}
-                        >
-                          {flat.flatStatus}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.flatSpecs}>
-                      <Text style={{ color: subTextColor, fontSize: 12 }}>
-                        {flat.bhk} • {flat.propertyType} • {flat.areaSqft} Sqft
-                      </Text>
-                      <Text style={{ color: brandCol, fontSize: 12, fontWeight: '700', marginTop: 4 }}>
-                        {flat.price ? `₹${flat.price.toLocaleString('en-IN')}` : 'Price on Request'}
-                      </Text>
-                    </View>
-
-                    <View style={[styles.cardSeparator, { backgroundColor: borderCol }]} />
-
-                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
-                      <TouchableOpacity
-                        style={[styles.cardActionBtn, { backgroundColor: inputBg, height: 26 }]}
-                        onPress={() => handleOpenEditFlat(flat)}
-                      >
-                        <Text style={{ color: textColor, fontSize: 11 }}>Edit</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.cardActionBtn, { backgroundColor: '#ef444412', height: 26 }]}
-                        onPress={() => handleDeleteFlat(flat.flatId)}
-                      >
-                        <Text style={{ color: '#ef4444', fontSize: 11 }}>Delete</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))
-              ) : (
-                <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                  <Building size={36} color={subTextColor} />
-                  <Text style={{ color: subTextColor, marginTop: 8, fontSize: 12 }}>No flats matched BHK parameter.</Text>
-                </View>
-              )}
-            </View>
+          {displayTab === 'flats' && (
+            <FlatsTab
+              flats={flats}
+              searchBhk={searchBhk}
+              setSearchBhk={setSearchBhk}
+              propertyId={propertyId}
+              propertyName={property?.propertyName || ''}
+              onDeleteFlat={handleDeleteFlat}
+            />
           )}
 
           {/* --- PHOTOS TAB --- */}
-          {activeTab === 'photos' && (
-            <View style={styles.photosContainer}>
-              <TouchableOpacity
-                style={[styles.uploadBox, { borderColor: borderCol, backgroundColor: cardBg }]}
-                onPress={handlePickAndUploadImage}
-                disabled={uploadingImage}
-              >
-                {uploadingImage ? (
-                  <ActivityIndicator size="small" color={brandCol} />
-                ) : (
-                  <>
-                    <Upload size={20} color={brandCol} />
-                    <Text style={{ color: brandCol, fontWeight: '700', fontSize: 12, marginTop: 6 }}>Upload Photo</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <View style={styles.imageGrid}>
-                {images.length > 0 ? (
-                  images.map((img) => (
-                    <View key={img.uploadId} style={[styles.photoCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-                      <TouchableOpacity
-                        onPress={() => setSelectedPreviewImage(`${imageBaseUrl}/Properties/DownloadImage?uploadId=${img.uploadId}`)}
-                      >
-                        <Image
-                          source={{
-                            uri: `${imageBaseUrl}/Properties/DownloadImage?uploadId=${img.uploadId}`,
-                            headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined
-                          }}
-                          style={styles.gridImage}
-                          resizeMode="cover"
-                        />
-                      </TouchableOpacity>
-                      <View style={styles.photoInfo}>
-                        <Text style={[styles.photoName, { color: textColor }]} numberOfLines={1}>
-                          {img.fileName}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: subTextColor }}>by {img.uploadedBy || 'admin'}</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.deletePhotoBtn}
-                        onPress={() => handleDeleteImage(img.uploadId)}
-                      >
-                        <Trash2 size={13} color="#ef4444" />
-                      </TouchableOpacity>
-                    </View>
-                  ))
-                ) : (
-                  <View style={{ flex: 1, width: '100%', alignItems: 'center', paddingVertical: 40 }}>
-                    <ImageIcon size={36} color={subTextColor} />
-                    <Text style={{ color: subTextColor, marginTop: 8, fontSize: 12 }}>No gallery photos uploaded.</Text>
-                  </View>
-                )}
-              </View>
-            </View>
+          {displayTab === 'photos' && (
+            <PhotosTab
+              images={images}
+              uploadingImage={uploadingImage}
+              handlePickAndUploadImage={handlePickAndUploadImage}
+              handleDeleteImage={handleDeleteImage}
+              setSelectedPreviewImageId={setSelectedPreviewImageId}
+            />
           )}
 
           {/* --- DOCUMENTS TAB --- */}
-          {activeTab === 'documents' && (
-            <View style={styles.documentsContainer}>
-              <TouchableOpacity
-                style={[styles.addButton, { backgroundColor: brandCol, alignSelf: 'flex-start', marginBottom: 16 }]}
-                onPress={() => setDocUploadModalOpen(true)}
-              >
-                <Upload size={16} color="#fff" />
-                <Text style={styles.addButtonText}>Upload Document</Text>
-              </TouchableOpacity>
-
-              {documents.length > 0 ? (
-                documents.map((doc) => (
-                  <View key={doc.documentId} style={[styles.docCard, { backgroundColor: cardBg, borderColor: borderCol, marginBottom: 10 }]}>
-                    <View style={styles.docIconWrapper}>
-                      <FileText size={24} color={brandCol} />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={[styles.docType, { color: textColor }]}>{doc.documentType}</Text>
-                      <Text style={[styles.docName, { color: subTextColor }]} numberOfLines={1}>
-                        {doc.fileName}
-                      </Text>
-                      <Text style={{ fontSize: 10, color: subTextColor, marginTop: 2 }}>
-                        Uploaded: {doc.uploadedOn ? doc.uploadedOn.split('T')[0] : ''} • By {doc.uploadedBy || 'admin'}
-                      </Text>
-                    </View>
-
-                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-                      <TouchableOpacity
-                        style={[styles.circleBtn, { backgroundColor: inputBg }]}
-                        onPress={() => handleDownloadDocument(doc)}
-                      >
-                        <Download size={14} color={textColor} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.circleBtn, { backgroundColor: '#ef444412' }]}
-                        onPress={() => handleDeleteDocument(doc.documentId)}
-                      >
-                        <Trash2 size={14} color="#ef4444" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))
-              ) : (
-                <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                  <FileText size={36} color={subTextColor} />
-                  <Text style={{ color: subTextColor, marginTop: 8, fontSize: 12 }}>No title or RERA documents uploaded.</Text>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* --- ADD / EDIT FLAT FORM MODAL --- */}
-      <Modal visible={isFlatModalOpen} animationType="slide" transparent>
-        <View style={styles.modalScrollOverlay}>
-          <View style={[styles.formContainer, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <View style={[styles.formHeader, { borderBottomColor: borderCol }]}>
-              <Text style={[styles.formTitle, { color: textColor }]}>
-                {editingFlatId ? 'Edit Flat Details' : 'Add New Flat'}
-              </Text>
-              <TouchableOpacity onPress={() => setFlatModalOpen(false)}>
-                <X size={20} color={textColor} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={{ padding: 20 }}>
-              <Text style={[styles.label, { color: textColor }]}>Block Name</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
-                value={flatForm.blockName}
-                onChangeText={(text) => setFlatForm({ ...flatForm, blockName: text })}
-                placeholder="e.g. Block A"
-                placeholderTextColor={subTextColor}
-              />
-
-              <Text style={[styles.label, { color: textColor }]}>Floor Name</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
-                value={flatForm.floorName}
-                onChangeText={(text) => setFlatForm({ ...flatForm, floorName: text })}
-                placeholder="e.g. 4th Floor"
-                placeholderTextColor={subTextColor}
-              />
-
-              <Text style={[styles.label, { color: textColor }]}>Flat/Door Name *</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
-                value={flatForm.flatName}
-                onChangeText={(text) => setFlatForm({ ...flatForm, flatName: text })}
-                placeholder="e.g. A-402"
-                placeholderTextColor={subTextColor}
-              />
-
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.label, { color: textColor }]}>BHK</Text>
-                  <TextInput
-                    style={[styles.textInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
-                    value={flatForm.bhk}
-                    onChangeText={(text) => setFlatForm({ ...flatForm, bhk: text })}
-                    placeholder="e.g. 3 BHK"
-                    placeholderTextColor={subTextColor}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.label, { color: textColor }]}>Area (Sqft)</Text>
-                  <TextInput
-                    style={[styles.textInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
-                    value={flatForm.areaSqft}
-                    onChangeText={(text) => setFlatForm({ ...flatForm, areaSqft: text })}
-                    placeholder="e.g. 1450"
-                    placeholderTextColor={subTextColor}
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-
-              <Text style={[styles.label, { color: textColor }]}>Flat Status</Text>
-              <TouchableOpacity
-                style={[styles.pickerWrapper, { backgroundColor: inputBg, borderColor: borderCol, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }]}
-                onPress={() => setFlatStatusFormSelectOpen(true)}
-              >
-                <Text style={{ color: textColor, fontSize: 13 }}>{flatForm.flatStatus}</Text>
-                <ChevronDown size={14} color={subTextColor} />
-              </TouchableOpacity>
-
-              <Text style={[styles.label, { color: textColor }]}>Price (₹)</Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
-                value={flatForm.price}
-                onChangeText={(text) => setFlatForm({ ...flatForm, price: text })}
-                placeholder="e.g. 9500000"
-                placeholderTextColor={subTextColor}
-                keyboardType="numeric"
-              />
-            </ScrollView>
-
-            <View style={[styles.formFooter, { borderTopColor: borderCol }]}>
-              <TouchableOpacity
-                style={[styles.formActionBtn, { backgroundColor: inputBg }]}
-                onPress={() => setFlatModalOpen(false)}
-                disabled={savingFlat}
-              >
-                <Text style={{ color: textColor }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.formActionBtn, { backgroundColor: brandCol }]}
-                onPress={handleSaveFlat}
-                disabled={savingFlat}
-              >
-                {savingFlat ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={{ color: '#fff', fontWeight: '600' }}>Save flat</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Flat Status Select Form Dropdown Modal */}
-      <Modal visible={isFlatStatusFormSelectOpen} transparent animationType="fade">
-        <TouchableOpacity activeOpacity={1} onPress={() => setFlatStatusFormSelectOpen(false)} style={styles.modalOverlay}>
-          <View style={[styles.dropdownMenu, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <Text style={[styles.dropdownTitle, { color: subTextColor }]}>Select Flat Status</Text>
-            {['Available', 'Sold', 'Blocked'].map((status) => (
-              <TouchableOpacity
-                key={status}
-                onPress={() => {
-                  setFlatForm({ ...flatForm, flatStatus: status });
-                  setFlatStatusFormSelectOpen(false);
-                }}
-                style={[
-                  styles.dropdownOption,
-                  { backgroundColor: flatForm.flatStatus === status ? borderCol : 'transparent' },
-                ]}
-              >
-                <Text style={{ color: textColor }}>{status}</Text>
-                {flatForm.flatStatus === status && <Check size={14} color={brandCol} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* --- PHOTO GALLERY PREVIEW MODAL --- */}
-      <Modal visible={selectedPreviewImage !== null} transparent animationType="fade">
-        <View style={styles.imagePreviewModalOverlay}>
-          <TouchableOpacity style={styles.closePreviewBtn} onPress={() => setSelectedPreviewImage(null)}>
-            <X size={24} color="#fff" />
-          </TouchableOpacity>
-          {selectedPreviewImage && (
-            <Image
-              source={{
-                uri: selectedPreviewImage,
-                headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined
-              }}
-              style={styles.fullPreviewImage}
-              resizeMode="contain"
+          {displayTab === 'documents' && (
+            <DocumentsTab
+              documents={documents}
+              setDocUploadModalOpen={setDocUploadModalOpen}
+              handleDownloadDocument={handleDownloadDocument}
+              handleDeleteDocument={handleDeleteDocument}
             />
           )}
-        </View>
-      </Modal>
+        </Animated.View>
+      </ScrollView>
+
+
 
       {/* --- DOCUMENT UPLOAD OPTIONS MODAL --- */}
       <Modal visible={isDocUploadModalOpen} transparent animationType="slide">
@@ -1034,6 +719,24 @@ export default function PropertyDetailsScreen() {
         </TouchableOpacity>
       </Modal>
 
+      {/* --- PHOTO GALLERY PREVIEW MODAL --- */}
+      <Modal visible={selectedPreviewImageId !== null} transparent animationType="fade">
+        <View style={styles.imagePreviewModalOverlay}>
+          <TouchableOpacity style={styles.closePreviewBtn} onPress={() => setSelectedPreviewImageId(null)}>
+            <X size={24} color="#fff" />
+          </TouchableOpacity>
+          {selectedPreviewImageId !== null && (
+            <AuthImage
+              cacheKey={`upload_${selectedPreviewImageId}`}
+              fetchFn={() => PropertyService.getUploadImageBase64(selectedPreviewImageId)}
+              style={styles.fullPreviewImage}
+              resizeMode="contain"
+              spinnerColor="#fff"
+            />
+          )}
+        </View>
+      </Modal>
+
       <Toast />
     </View>
   );
@@ -1048,48 +751,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navbar: {
-    height: 60,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navbarTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
+
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   badgeText: {
-    color: '#fff',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   tabsContainer: {
     flexDirection: 'row',
-    height: 44,
-    borderBottomWidth: 1,
+    height: 48,
+    borderRadius: 24,
+    padding: 4,
+    marginHorizontal: 20,
+    marginVertical: 14,
+    borderWidth: 1,
+  },
+  tabIndicator: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 4,
+    borderRadius: 20,
   },
   tabButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderRadius: 20,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   overviewContainer: {
@@ -1169,86 +864,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: '600',
-  },
-  flatCard: {
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  flatCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  flatName: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  flatStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  flatSpecs: {
-    marginTop: 6,
-  },
-  cardSeparator: {
-    height: 1,
-    marginVertical: 10,
-  },
-  cardActionBtn: {
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-  },
-  photosContainer: {
-    gap: 16,
-  },
-  uploadBox: {
-    height: 100,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  imageGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  photoCard: {
-    width: Platform.OS === 'web' ? '23%' : '47%',
-    borderRadius: 8,
-    borderWidth: 1,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  gridImage: {
-    height: 100,
-    width: '100%',
-  },
-  photoInfo: {
-    padding: 8,
-  },
-  photoName: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  deletePhotoBtn: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: '#fff',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   documentsContainer: {
     gap: 12,

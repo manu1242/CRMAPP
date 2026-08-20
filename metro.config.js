@@ -8,15 +8,18 @@ if (!config.resolver.assetExts.includes("webp")) {
   config.resolver.assetExts.push("webp");
 }
 
+const path = require('path');
+const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // Exclude build outputs, cache, and metadata directories from Metro's file watcher to prevent EMFILE issues
 const defaultBlockList = config.resolver.blockList;
 const customBlockList = [
-  /dist\/.*/,
-  /dist_test\/.*/,
-  /\.git\/.*/,
-  /\.expo\/.*/,
-  /\.agents\/.*/,
-  /\.claude\/.*/
+  new RegExp('^' + escapeRegExp(path.resolve(__dirname, 'dist')) + '.*'),
+  new RegExp('^' + escapeRegExp(path.resolve(__dirname, 'dist_test')) + '.*'),
+  new RegExp('^' + escapeRegExp(path.resolve(__dirname, '.git')) + '.*'),
+  new RegExp('^' + escapeRegExp(path.resolve(__dirname, '.expo')) + '.*'),
+  new RegExp('^' + escapeRegExp(path.resolve(__dirname, '.agents')) + '.*'),
+  new RegExp('^' + escapeRegExp(path.resolve(__dirname, '.claude')) + '.*')
 ];
 
 if (Array.isArray(defaultBlockList)) {

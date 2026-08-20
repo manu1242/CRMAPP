@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getAdminTheme } from '../../theme/adminTheme';
 import Toast from 'react-native-toast-message';
 import {
   Calendar,
@@ -78,13 +79,16 @@ function formatFollowUpTime(dateStr?: string): string {
 export default function TasksContent() {
   const { isDark } = useTheme();
   const router = useRouter();
+  const adminTheme = getAdminTheme(isDark);
 
   // Color tokens
-  const bgColor = isDark ? '#0f172a' : '#f8fafc';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
+  const bgColor = adminTheme.primaryBg;
+  const cardBg = adminTheme.cardBg;
+  const textColor = adminTheme.textPrimary;
+  const subTextColor = adminTheme.textSecondary;
+  const borderCol = adminTheme.border;
+  const inputBg = adminTheme.inputBg;
+  const brandCol = adminTheme.brand;
 
   // ─── TanStack Query hooks (replace manual fetch/state) ──────────────────────
   //
@@ -266,67 +270,9 @@ export default function TasksContent() {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      <View
-        style={{
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: 12,
-          backgroundColor: cardBg,
-          borderBottomWidth: 1,
-          borderBottomColor: borderCol,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Calendar size={18} color="#10b981" />
-            <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>
-              Tasks & Follow-ups
-            </Text>
-          </View>
-          <Text style={{ fontSize: 12, color: subTextColor, marginTop: 2 }}>
-            {tasksData?.weekStart ? `${tasksData.weekStart} to ${tasksData.weekEnd}` : 'Weekly Schedule'}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          onPress={() => setShowNotifModal(true)}
-          style={{
-            position: 'relative',
-            backgroundColor: isDark ? '#334155' : '#f1f5f9',
-            padding: 10,
-            borderRadius: 12,
-          }}
-        >
-          <Bell size={20} color={textColor} />
-          {notificationCount > 0 && (
-            <View
-              style={{
-                position: 'absolute',
-                top: -4,
-                right: -4,
-                backgroundColor: '#ef4444',
-                borderRadius: 10,
-                minWidth: 18,
-                height: 18,
-                justifyContent: 'center',
-                alignItems: 'center',
-                paddingHorizontal: 4,
-              }}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '700' }}>
-                {notificationCount}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#10b981']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[brandCol]} />}
       >
         <View
           style={{
@@ -340,46 +286,90 @@ export default function TasksContent() {
             borderBottomColor: borderCol,
           }}
         >
-          <TouchableOpacity
-            onPress={handlePrevWeek}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              padding: 6,
-              borderRadius: 8,
-              backgroundColor: isDark ? '#334155' : '#f1f5f9',
-            }}
-          >
-            <ChevronLeft size={18} color={textColor} />
-          </TouchableOpacity>
+          {/* Week Navigation controls */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity
+              onPress={handlePrevWeek}
+              style={{
+                padding: 8,
+                borderRadius: 10,
+                backgroundColor: inputBg,
+              }}
+            >
+              <ChevronLeft size={16} color={textColor} />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={handleTodayClick}
-            style={{
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 20,
-              backgroundColor: '#10b98115',
-              borderWidth: 1,
-              borderColor: '#10b98140',
-            }}
-          >
-            <Text style={{ fontSize: 12, fontWeight: '600', color: '#10b981' }}>
-              Current Week ({totalTasksThisWeek} tasks)
+            <TouchableOpacity
+              onPress={handleTodayClick}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 10,
+                backgroundColor: adminTheme.badgeBg,
+                borderWidth: 1,
+                borderColor: brandCol + '30',
+              }}
+            >
+              <Text style={{ fontSize: 11, fontWeight: '700', color: adminTheme.badgeText }}>
+                Today
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleNextWeek}
+              style={{
+                padding: 8,
+                borderRadius: 10,
+                backgroundColor: inputBg,
+              }}
+            >
+              <ChevronRight size={16} color={textColor} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Date range display */}
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }} numberOfLines={1}>
+              {tasksData?.weekStart ? `${tasksData.weekStart} to ${tasksData.weekEnd}` : 'Weekly Tasks'}
             </Text>
-          </TouchableOpacity>
+            <Text style={{ fontSize: 11, color: subTextColor, marginTop: 1 }}>
+              {totalTasksThisWeek} tasks this week
+            </Text>
+          </View>
 
+          {/* Today's Follow-up Alerts button */}
           <TouchableOpacity
-            onPress={handleNextWeek}
+            onPress={() => setShowNotifModal(true)}
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              padding: 6,
-              borderRadius: 8,
-              backgroundColor: isDark ? '#334155' : '#f1f5f9',
+              position: 'relative',
+              backgroundColor: inputBg,
+              padding: 10,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: borderCol,
             }}
           >
-            <ChevronRight size={18} color={textColor} />
+            <Bell size={18} color={textColor} />
+            {notificationCount > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: -4,
+                  right: -4,
+                  backgroundColor: '#ef4444',
+                  borderRadius: 10,
+                  minWidth: 18,
+                  height: 18,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  paddingHorizontal: 4,
+                }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '700' }}>
+                  {notificationCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -400,7 +390,7 @@ export default function TasksContent() {
           >
             <View style={{ alignItems: 'center' }}>
               <Text style={{ fontSize: 9, color: subTextColor, textTransform: 'uppercase', fontWeight: '600' }}>Role</Text>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#10b981', marginTop: 2 }}>{tasksData.debug.userRole || 'Sales'}</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: brandCol, marginTop: 2 }}>{tasksData.debug.userRole || 'Sales'}</Text>
             </View>
             <View style={{ width: 1, height: 24, backgroundColor: borderCol }} />
             <View style={{ alignItems: 'center' }}>
@@ -433,13 +423,11 @@ export default function TasksContent() {
                   paddingHorizontal: 14,
                   borderRadius: 14,
                   borderWidth: 1,
-                  borderColor: isSelected ? '#10b981' : borderCol,
+                  borderColor: isSelected ? brandCol : borderCol,
                   backgroundColor: isSelected
-                    ? '#10b981'
+                    ? brandCol
                     : dayItem.isToday
-                    ? isDark
-                      ? '#064e3b30'
-                      : '#ecfdf5'
+                    ? adminTheme.badgeBg
                     : cardBg,
                   minWidth: 70,
                 }}
@@ -448,7 +436,7 @@ export default function TasksContent() {
                   style={{
                     fontSize: 11,
                     fontWeight: '600',
-                    color: isSelected ? '#ffffff' : dayItem.isToday ? '#10b981' : subTextColor,
+                    color: isSelected ? '#ffffff' : dayItem.isToday ? adminTheme.badgeText : subTextColor,
                     textTransform: 'uppercase',
                   }}
                 >
@@ -472,7 +460,7 @@ export default function TasksContent() {
                         width: 6,
                         height: 6,
                         borderRadius: 3,
-                        backgroundColor: '#10b981',
+                        backgroundColor: brandCol,
                       }}
                     />
                   )}
@@ -481,9 +469,7 @@ export default function TasksContent() {
                       style={{
                         backgroundColor: isSelected
                           ? '#ffffff30'
-                          : isDark
-                          ? '#334155'
-                          : '#e2e8f0',
+                          : inputBg,
                         paddingHorizontal: 6,
                         paddingVertical: 1,
                         borderRadius: 8,
@@ -522,13 +508,13 @@ export default function TasksContent() {
             {activeDayData?.isToday && (
               <View
                 style={{
-                  backgroundColor: '#10b98120',
+                  backgroundColor: adminTheme.badgeBg,
                   paddingHorizontal: 8,
                   paddingVertical: 2,
                   borderRadius: 10,
                 }}
               >
-                <Text style={{ color: '#10b981', fontSize: 10, fontWeight: '700' }}>TODAY</Text>
+                <Text style={{ color: adminTheme.badgeText, fontSize: 10, fontWeight: '700' }}>TODAY</Text>
               </View>
             )}
             <Text style={{ fontSize: 12, color: subTextColor }}>
@@ -547,9 +533,7 @@ export default function TasksContent() {
                   borderRadius: 12,
                   backgroundColor:
                     statusFilter === filter
-                      ? isDark
-                        ? '#334155'
-                        : '#e2e8f0'
+                      ? inputBg
                       : 'transparent',
                 }}
               >
@@ -576,7 +560,7 @@ export default function TasksContent() {
         >
           {loading ? (
             <View style={{ padding: 40, alignItems: 'center' }}>
-              <ActivityIndicator size="large" color="#10b981" />
+              <ActivityIndicator size="large" color={brandCol} />
               <Text style={{ color: subTextColor, marginTop: 12, fontSize: 13 }}>Loading tasks...</Text>
             </View>
           ) : filteredTasks.length === 0 ? (
@@ -610,7 +594,7 @@ export default function TasksContent() {
                     backgroundColor: cardBg,
                     borderRadius: 16,
                     borderWidth: 1,
-                    borderColor: task.isCompleted ? borderCol : '#10b98140',
+                    borderColor: task.isCompleted ? borderCol : brandCol + '40',
                     padding: 16,
                     opacity: task.isCompleted ? 0.75 : 1,
                   }}
@@ -619,7 +603,7 @@ export default function TasksContent() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
                       <TouchableOpacity onPress={() => handleToggleComplete(task.leadId, task.isCompleted)}>
                         {task.isCompleted ? (
-                          <CheckCircle2 size={24} color="#10b981" />
+                          <CheckCircle2 size={24} color={brandCol} />
                         ) : (
                           <Circle size={24} color={subTextColor} />
                         )}
@@ -666,11 +650,11 @@ export default function TasksContent() {
                     <View
                       style={{
                         marginTop: 12,
-                        backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+                        backgroundColor: bgColor,
                         padding: 10,
                         borderRadius: 10,
                         borderLeftWidth: 3,
-                        borderLeftColor: '#10b981',
+                        borderLeftColor: brandCol,
                       }}
                     >
                       <Text style={{ fontSize: 12, color: textColor, fontStyle: 'italic' }}>
@@ -701,12 +685,12 @@ export default function TasksContent() {
                       <TouchableOpacity
                         onPress={() => Linking.openURL(`tel:${task.contact}`)}
                         style={{
-                          backgroundColor: '#10b98115',
+                          backgroundColor: adminTheme.badgeBg,
                           padding: 8,
                           borderRadius: 8,
                         }}
                       >
-                        <Phone size={14} color="#10b981" />
+                        <Phone size={14} color={brandCol} />
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -730,7 +714,7 @@ export default function TasksContent() {
                           flexDirection: 'row',
                           alignItems: 'center',
                           gap: 4,
-                          backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                          backgroundColor: inputBg,
                           paddingHorizontal: 10,
                           paddingVertical: 6,
                           borderRadius: 8,
@@ -793,7 +777,7 @@ export default function TasksContent() {
                   key={p.label}
                   onPress={() => setNewDateInput(formatDateISO(addDays(new Date(), p.days)))}
                   style={{
-                    backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                    backgroundColor: inputBg,
                     paddingHorizontal: 12,
                     paddingVertical: 6,
                     borderRadius: 8,
@@ -820,7 +804,7 @@ export default function TasksContent() {
                   padding: 12,
                   color: textColor,
                   fontSize: 14,
-                  backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+                  backgroundColor: bgColor,
                 }}
               />
             </View>
@@ -847,7 +831,7 @@ export default function TasksContent() {
                   flex: 1,
                   paddingVertical: 12,
                   borderRadius: 10,
-                  backgroundColor: '#10b981',
+                  backgroundColor: brandCol,
                   alignItems: 'center',
                 }}
               >
@@ -900,7 +884,7 @@ export default function TasksContent() {
                     style={{
                       padding: 12,
                       borderRadius: 10,
-                      backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+                      backgroundColor: bgColor,
                       borderWidth: 1,
                       borderColor: borderCol,
                     }}
@@ -920,7 +904,7 @@ export default function TasksContent() {
             <TouchableOpacity
               onPress={handleMarkNotificationsRead}
               style={{
-                backgroundColor: '#10b981',
+                backgroundColor: brandCol,
                 paddingVertical: 12,
                 borderRadius: 10,
                 alignItems: 'center',

@@ -155,6 +155,7 @@ import AdminHeader from '@/admin/components/Header';
 import AdminBottomNav from '@/admin/components/BottomNav';
 import { BottomMenuSheet } from '@/admin/components/BottomMenuSheet';
 import { View, StatusBar, Text, TouchableOpacity, Alert, Modal, ActivityIndicator, Platform } from 'react-native';
+import { BlurTargetView } from 'expo-blur';
 import * as SystemUI from 'expo-system-ui';
 import { NavigationBar } from 'expo-navigation-bar';
 import { LogOut } from 'lucide-react-native';
@@ -168,9 +169,14 @@ interface OTAUpdateModalProps {
   adminTheme: any;
 }
 
-function OTAUpdateModal({ visible, onClose, isDark, adminTheme }: OTAUpdateModalProps) {
+function OTAUpdateModal({ visible, isDark, adminTheme }: Omit<OTAUpdateModalProps, 'onClose'>) {
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal 
+      visible={visible} 
+      transparent 
+      animationType="fade"
+      onRequestClose={() => {}}
+    >
       <View
         style={{
           flex: 1,
@@ -199,22 +205,6 @@ function OTAUpdateModal({ visible, onClose, isDark, adminTheme }: OTAUpdateModal
             elevation: 5,
           }}
         >
-          {/* Close Button (Cross Mark) */}
-          <TouchableOpacity
-            onPress={onClose}
-            style={{
-              position: 'absolute',
-              top: 16,
-              right: 16,
-              padding: 4,
-              borderRadius: 12,
-              backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
-              zIndex: 10,
-            }}
-          >
-            <X size={18} color={adminTheme.textSecondary || (isDark ? '#94a3b8' : '#64748b')} />
-          </TouchableOpacity>
-
           <View
             style={{
               width: 56,
@@ -297,6 +287,7 @@ function InnerLayout() {
   const [isStopConfirmOpen, setIsStopConfirmOpen] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
   const [isUpdateModalVisible, setIsUpdateModalVisible] = React.useState(false);
+  const mainContainerRef = useRef<View>(null);
 
   useEffect(() => {
     async function checkOTAUpdates() {
@@ -437,6 +428,7 @@ function InnerLayout() {
       <Stack.Screen name="superadmin/payment-config" />
       <Stack.Screen name="superadmin/settings" />
       <Stack.Screen name="superadmin/profile" />
+      <Stack.Screen name="admin/SalesUnit/quotation/[id]" />
     </Stack>
   );
 
@@ -448,7 +440,6 @@ function InnerLayout() {
         </View>
         <OTAUpdateModal 
           visible={isUpdateModalVisible} 
-          onClose={() => setIsUpdateModalVisible(false)} 
           isDark={isDark} 
           adminTheme={adminTheme} 
         />
@@ -467,7 +458,7 @@ function InnerLayout() {
         style={{ backgroundColor: isAdminFlow ? adminTheme.primaryBg : undefined }}
         edges={['bottom', 'left', 'right']}
       >
-        <View style={{ flex: 1 }}>
+        <BlurTargetView ref={mainContainerRef} style={{ flex: 1 }}>
           {headerComponent}
           {!isConnected && (
             <View style={{
@@ -621,7 +612,6 @@ function InnerLayout() {
           </Modal>
           <OTAUpdateModal 
             visible={isUpdateModalVisible} 
-            onClose={() => setIsUpdateModalVisible(false)} 
             isDark={isDark} 
             adminTheme={adminTheme} 
           />
@@ -629,10 +619,10 @@ function InnerLayout() {
             {stackComponent}
           </View>
           {bottomNavComponent}
-        </View>
+        </BlurTargetView>
       </SafeAreaView>
       {isAdminFlow && (
-        <BottomMenuSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+        <BottomMenuSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} blurTargetRef={mainContainerRef} />
       )}
       <AuthGuardLayout />
       <Toast />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,13 @@ import {
   Pressable,
   Dimensions,
   StyleSheet,
-  SafeAreaView,
+  Animated,
+  PanResponder,
+  Platform,
+  Easing,
+  BackHandler,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import {
   FolderOpen,
@@ -29,8 +34,6 @@ import {
   X,
   ChevronRight,
   ArrowLeft,
-  HelpCircle,
-  LogOut,
   Sparkles,
   Info,
   User,
@@ -45,11 +48,10 @@ import {
   DollarSign,
 } from 'lucide-react-native';
 
-
 import { useTheme } from '../../contexts/ThemeContext';
-import { useAuthStore } from '../../auth/store/authStore';
 import { getAdminTheme } from '../../theme/adminTheme';
 
+const windowHeight = Dimensions.get('window').height;
 
 export interface SubLinkItem {
   label: string;
@@ -208,7 +210,6 @@ export const MODULES: ModuleItem[] = [
       { label: 'Manage Testimonials', route: '/admin/testimonial' },
     ],
   },
-
   {
     id: 'chatbot-dashboard',
     title: 'Chatbot',
@@ -225,24 +226,242 @@ export const MODULES: ModuleItem[] = [
 interface BottomMenuSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogout?: () => void;
+  blurTargetRef?: React.RefObject<any>;
 }
 
-export function BottomMenuSheet({ isOpen, onClose, onLogout }: BottomMenuSheetProps) {
+export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSheetProps) {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
-  const logout = useAuthStore((state) => state.logout);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [focusedModuleId, setFocusedModuleId] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [modalVisible, setModalVisible] = useState(isOpen);
 
+  // Handle hardware back button on Android when sheet is visible
+  useEffect(() => {
+    if (modalVisible) {
+      const backAction = () => {
+        onClose();
+        return true;
+      };
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        backAction
+      );
+      return () => backHandler.remove();
+    }
+  }, [modalVisible]);
+
+  // Dynamic height configuration
+  const [contentHeight, setContentHeight] = useState(320); // Fallback content height
+  const contentHeightRef = useRef(320);
+
+  const getMinHeight = () => Math.min(contentHeightRef.current, windowHeight * 0.40);
+  const getMaxHeight = () => Math.min(contentHeightRef.current, windowHeight * 0.92);
+
+  const sheetHeight = useRef(new Animated.Value(320)).current;
+  const translateY = useRef(new Animated.Value(windowHeight)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+
+  // Staggered animated values for each module card
+  const itemAnims = useRef(MODULES.map(() => new Animated.Value(0))).current;
+
+  // Sub-links sliding spring animation
+  const subLinkAnim = useRef(new Animated.Value(0)).current;
+
+  const committedHeightRef = useRef(320); // last settled snap value
+  const startHeightRef = useRef(320);     // height when gesture starts
+  const currentHeightRef = useRef(320);   // live value during drag
+  const scrollYRef = useRef(0);            // ScrollView scroll position
+  const isExpandedRef = useRef(false);     // mirrors isExpanded for PanResponder
+
+  // Keep onClose fresh inside the memoised PanResponder
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  // Track animated value live
+  useEffect(() => {
+    const id = sheetHeight.addListener(({ value }) => {
+      currentHeightRef.current = value;
+    });
+    return () => sheetHeight.removeListener(id);
+  }, [sheetHeight]);
+
+  // Open / Close Animation Orchestration
   useEffect(() => {
     if (isOpen) {
+      setModalVisible(true);
       setSearchQuery('');
       setFocusedModuleId(null);
+      setIsExpanded(false);
+      isExpandedRef.current = false;
+      
+      const initialHeight = getMinHeight();
+      committedHeightRef.current = initialHeight;
+      scrollYRef.current = 0;
+      sheetHeight.setValue(initialHeight);
+      translateY.setValue(windowHeight);
+
+      // Start entering transition
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 24,
+          mass: 1.0,
+          stiffness: 90,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 350,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentOpacity, {
+          toValue: 1,
+          duration: 300,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Reset and trigger staggered grid items animation
+      itemAnims.forEach((anim) => anim.setValue(0));
+      const staggerAnimations = itemAnims.map((anim, index) =>
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 250,
+          delay: 150 + index * 30, // 30ms stagger delay
+          useNativeDriver: true,
+        })
+      );
+      Animated.parallel(staggerAnimations).start();
+    } else {
+      // Start exit animations
+      Animated.parallel([
+        Animated.timing(sheetHeight, {
+          toValue: 0,
+          duration: 300,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: false,
+        }),
+        Animated.timing(translateY, {
+          toValue: windowHeight,
+          duration: 300,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 250,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentOpacity, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setModalVisible(false);
+      });
     }
   }, [isOpen]);
+
+  // Focus module sublinks transition
+  useEffect(() => {
+    if (focusedModuleId) {
+      subLinkAnim.setValue(0);
+      Animated.spring(subLinkAnim, {
+        toValue: 1,
+        tension: 80,
+        friction: 12,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [focusedModuleId]);
+
+  // Helper: animate to a snap point
+  const snapTo = (target: number, onDone?: () => void) => {
+    committedHeightRef.current = target;
+    const maxH = getMaxHeight();
+    const minH = getMinHeight();
+    const expanding = target >= maxH - 10 && maxH > minH;
+    setIsExpanded(expanding);
+    isExpandedRef.current = expanding;
+    Animated.spring(sheetHeight, {
+      toValue: target,
+      useNativeDriver: false,
+      tension: 65,
+      friction: 11,
+    }).start(onDone);
+  };
+
+  // Helper: dismiss (slide to 0 then call onClose)
+  const dismiss = () => {
+    onCloseRef.current();
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      // Always claim the gesture start on the drag handle zone
+      onStartShouldSetPanResponder: () => false,
+
+      onMoveShouldSetPanResponder: (_evt, gs) => {
+        const isVertical = Math.abs(gs.dy) > Math.abs(gs.dx);
+        if (!isVertical) return false;
+
+        // When collapsed — grab ALL upward and downward gestures
+        if (!isExpandedRef.current) return Math.abs(gs.dy) > 6;
+
+        // When expanded — only grab downward gesture when content is scrolled to top
+        if (gs.dy > 6 && scrollYRef.current <= 0) return true;
+
+        return false;
+      },
+
+      onPanResponderGrant: () => {
+        startHeightRef.current = committedHeightRef.current;
+      },
+
+      onPanResponderMove: (_evt, gs) => {
+        let newH = startHeightRef.current - gs.dy;
+        const maxH = getMaxHeight();
+        newH = Math.max(0, Math.min(maxH, newH));
+        sheetHeight.setValue(newH);
+      },
+
+      onPanResponderRelease: (_evt, gs) => {
+        const minH = getMinHeight();
+        const maxH = getMaxHeight();
+        const mid = minH + (maxH - minH) * 0.35;
+
+        // ── UPWARD DRAG (expanding) ─────────────────────────────────────
+        if (gs.dy <= 0) {
+          if (gs.vy < -0.5 || currentHeightRef.current > mid) {
+            snapTo(maxH);
+          } else {
+            snapTo(minH);
+          }
+          return;
+        }
+
+        // ── DOWNWARD DRAG (collapsing / dismissing) ─────────────────────
+        const draggedDown = startHeightRef.current - currentHeightRef.current;
+        if (gs.vy > 0.6 || draggedDown > minH * 0.35) {
+          dismiss();
+          return;
+        }
+
+        // Otherwise snap by position
+        snapTo(currentHeightRef.current > mid ? maxH : minH);
+      },
+    })
+  ).current;
 
   const handleNavigate = (route: string) => {
     onClose();
@@ -257,14 +476,33 @@ export function BottomMenuSheet({ isOpen, onClose, onLogout }: BottomMenuSheetPr
     }
   };
 
-  const handleLogout = () => {
-    onClose();
-    if (onLogout) {
-      onLogout();
-    } else {
-      logout();
-      router.replace('/main-login');
+  const handleContentHeightChange = (height: number) => {
+    const roundedHeight = Math.round(height);
+    if (Math.abs(roundedHeight - contentHeightRef.current) > 2) {
+      contentHeightRef.current = roundedHeight;
+      setContentHeight(roundedHeight);
+      
+      if (isOpen) {
+        const targetHeight = isExpandedRef.current || focusedModuleId 
+          ? getMaxHeight() 
+          : getMinHeight();
+
+        committedHeightRef.current = targetHeight;
+        Animated.spring(sheetHeight, {
+          toValue: targetHeight,
+          useNativeDriver: false,
+          tension: 80,
+          friction: 12,
+        }).start();
+      }
     }
+  };
+
+  const handleInnerContentLayout = (height: number) => {
+    const roundedHeight = Math.round(height);
+    // Add header, search wrapper, margins, and padding heights
+    const nonContentHeight = focusedModuleId ? 140 : 196;
+    handleContentHeightChange(roundedHeight + nonContentHeight);
   };
 
   const filteredModules = MODULES.filter(
@@ -283,148 +521,225 @@ export function BottomMenuSheet({ isOpen, onClose, onLogout }: BottomMenuSheetPr
   const borderColor = adminTheme.border;
   const inputBg = adminTheme.inputBg;
 
-  return (
-    <Modal visible={isOpen} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        {/* Backdrop Pressable */}
-        <Pressable style={styles.backdrop} onPress={onClose} />
+  if (!modalVisible) return null;
 
-        {/* Bottom Sheet Container */}
-        <View style={[styles.sheetContainer, { backgroundColor: sheetBg }]}>
-          {/* Drag Handle Capsule */}
-          <View style={styles.dragHandleContainer}>
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}>
+      <View style={styles.overlay}>
+        {/* Backdrop container with Gaussian Blur */}
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}>
+          <BlurView
+            intensity={4}
+            tint={isDark ? 'dark' : 'light'}
+            blurMethod="dimezisBlurView"
+            blurTarget={blurTargetRef}
+            blurReductionFactor={1}
+            style={StyleSheet.absoluteFill}
+          />
+          <Pressable
+            style={[
+              styles.backdrop,
+              { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.1)' }
+            ]}
+            onPress={onClose}
+          />
+        </Animated.View>
+
+        {/* Bottom Sheet Outer Container — TranslateY for slide in (uses native driver) */}
+        <Animated.View
+          style={{
+            width: '100%',
+            transform: [{ translateY }],
+          }}
+        >
+          {/* Bottom Sheet Inner Container — Height driven by Animated.Value (uses non-native driver) */}
+          <Animated.View
+            style={[
+              styles.sheetContainer,
+              {
+                backgroundColor: sheetBg,
+                height: sheetHeight,
+              },
+            ]}
+          >
+          {/* Drag Handle — always interactive */}
+          <View style={styles.dragHandleContainer} {...panResponder.panHandlers}>
             <View style={styles.dragHandle} />
           </View>
 
-          {/* Header Row */}
-          <View style={[styles.headerRow, { borderBottomColor: borderColor }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.headerTitle, { color: textColor }]}>
-                {focusedModule ? focusedModule.title : 'Role:Admin'}
-              </Text>
-              <Text style={[styles.headerSubtitle, { color: subTextColor }]}>
-                {focusedModule ? focusedModule.category : 'Quick Actions & Modules'}
-              </Text>
-            </View>
+          {/* Animating overall content opacity */}
+          <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
+            {/* Header Row */}
+            <View style={[styles.headerRow, { borderBottomColor: borderColor }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.headerTitle, { color: textColor }]}>
+                  {focusedModule ? focusedModule.title : 'Role:Admin'}
+                </Text>
+                <Text style={[styles.headerSubtitle, { color: subTextColor }]}>
+                  {focusedModule ? focusedModule.category : 'Quick Actions & Modules'}
+                </Text>
+              </View>
 
-            {focusedModule ? (
-              <TouchableOpacity
-                onPress={() => setFocusedModuleId(null)}
-                style={[styles.backButton, { backgroundColor: inputBg }]}
-              >
-                <ArrowLeft size={16} color={textColor} />
-                <Text style={[styles.backButtonText, { color: textColor }]}>Back</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: inputBg }]}>
-                <X size={18} color={textColor} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Search Input (When not focused) */}
-          {!focusedModuleId && (
-            <View style={[styles.searchWrapper, { backgroundColor: inputBg, borderColor }]}>
-              <Search size={16} color={subTextColor} />
-              <TextInput
-                placeholder="Search modules..."
-                placeholderTextColor={subTextColor}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                style={[styles.searchInput, { color: textColor }]}
-              />
-              {searchQuery !== '' && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <X size={16} color={subTextColor} />
+              {focusedModule ? (
+                <TouchableOpacity
+                  onPress={() => setFocusedModuleId(null)}
+                  style={[styles.backButton, { backgroundColor: inputBg }]}
+                >
+                  <ArrowLeft size={16} color={textColor} />
+                  <Text style={[styles.backButtonText, { color: textColor }]}>Back</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: inputBg }]}>
+                  <X size={18} color={textColor} />
                 </TouchableOpacity>
               )}
             </View>
-          )}
 
-          {/* Content Area */}
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {focusedModule ? (
-              /* Focused Module Sub-Links View */
-              <View style={styles.focusedContainer}>
-                <View style={[styles.focusedBadgeCard, { backgroundColor: focusedModule.bgColor }]}>
-                  <focusedModule.icon size={28} color={focusedModule.color} />
-                  <Text style={[styles.focusedBadgeTitle, { color: textColor }]}>
-                    {focusedModule.title}
-                  </Text>
-                  <Text style={[styles.focusedBadgeCategory, { color: subTextColor }]}>
-                    {focusedModule.category}
-                  </Text>
-                </View>
-
-                <Text style={[styles.subLinksHeading, { color: subTextColor }]}>SELECT ACTION ITEM</Text>
-
-                {focusedModule.subLinks.map((item, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    onPress={() => handleNavigate(item.route)}
-                    style={[styles.subLinkCard, { backgroundColor: cardBg, borderColor }]}
-                  >
-                    <View style={styles.subLinkRow}>
-                      <View style={[styles.subLinkIconBadge, { backgroundColor: inputBg }]}>
-                        <ChevronRight size={16} color={focusedModule.color} />
-                      </View>
-                      <Text style={[styles.subLinkLabel, { color: textColor }]}>{item.label}</Text>
-                    </View>
-                    <ChevronRight size={16} color={subTextColor} />
+            {/* Search Input (When not focused) */}
+            {!focusedModuleId && (
+              <View style={[styles.searchWrapper, { backgroundColor: inputBg, borderColor }]}>
+                <Search size={16} color={subTextColor} />
+                <TextInput
+                  placeholder="Search modules..."
+                  placeholderTextColor={subTextColor}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  style={[styles.searchInput, { color: textColor }]}
+                />
+                {searchQuery !== '' && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <X size={16} color={subTextColor} />
                   </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              /* 3-Column Modules Grid */
-              <View style={styles.gridContainer}>
-                {filteredModules.length > 0 ? (
-                  filteredModules.map((module) => {
-                    const IconComp = module.icon;
-                    return (
-                      <TouchableOpacity
-                        key={module.id}
-                        onPress={() => handleModulePress(module)}
-                        style={[styles.moduleCard, { backgroundColor: cardBg, borderColor }]}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[styles.iconBadge, { backgroundColor: module.bgColor }]}>
-                          <IconComp size={22} color={module.color} />
-                        </View>
-                        <Text style={[styles.moduleTitle, { color: textColor }]} numberOfLines={1}>
-                          {module.title}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })
-                ) : (
-                  <View style={styles.emptyState}>
-                    <Info size={24} color={subTextColor} />
-                    <Text style={[styles.emptyText, { color: subTextColor }]}>No modules match "{searchQuery}"</Text>
-                  </View>
                 )}
               </View>
             )}
-          </ScrollView>
 
-          {/* Footer Actions */}
-          <View style={[styles.footer, { borderTopColor: borderColor }]}>
-            <TouchableOpacity onPress={() => handleNavigate('/profile')} style={styles.footerHelp}>
-              <HelpCircle size={16} color={subTextColor} />
-              <Text style={[styles.footerHelpText, { color: subTextColor }]}>Account & Profile</Text>
-            </TouchableOpacity>
+            {/* Content Area — wrap with panHandlers so swipe-up anywhere expands */}
+            <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+              <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                scrollEnabled={isExpanded}
+                onScroll={(e) => {
+                  scrollYRef.current = e.nativeEvent.contentOffset.y;
+                }}
+                scrollEventThrottle={16}
+              >
+                {focusedModule ? (
+                  /* Focused Module Sub-Links View */
+                  <Animated.View
+                    onLayout={(e) => handleInnerContentLayout(e.nativeEvent.layout.height)}
+                    style={[
+                      styles.focusedContainer,
+                      {
+                        opacity: subLinkAnim,
+                        transform: [
+                          {
+                            translateY: subLinkAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [15, 0],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    <View style={[styles.focusedBadgeCard, { backgroundColor: focusedModule.bgColor }]}>
+                      <focusedModule.icon size={28} color={focusedModule.color} />
+                      <Text style={[styles.focusedBadgeTitle, { color: textColor }]}>
+                        {focusedModule.title}
+                      </Text>
+                      <Text style={[styles.focusedBadgeCategory, { color: subTextColor }]}>
+                        {focusedModule.category}
+                      </Text>
+                    </View>
 
-            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-              <LogOut size={16} color="#ef4444" />
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+                    <Text style={[styles.subLinksHeading, { color: subTextColor }]}>SELECT ACTION ITEM</Text>
+
+                    {focusedModule.subLinks.map((item, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        onPress={() => handleNavigate(item.route)}
+                        style={[styles.subLinkCard, { backgroundColor: cardBg, borderColor }]}
+                      >
+                        <View style={styles.subLinkRow}>
+                          <View style={[styles.subLinkIconBadge, { backgroundColor: inputBg }]}>
+                            <ChevronRight size={16} color={focusedModule.color} />
+                          </View>
+                          <Text style={[styles.subLinkLabel, { color: textColor }]}>{item.label}</Text>
+                        </View>
+                        <ChevronRight size={16} color={subTextColor} />
+                      </TouchableOpacity>
+                    ))}
+                  </Animated.View>
+                ) : (
+                  /* 3-Column Modules Grid with Staggered Entrance */
+                  <View 
+                    onLayout={(e) => handleInnerContentLayout(e.nativeEvent.layout.height)}
+                    style={styles.gridContainer}
+                  >
+                    {filteredModules.length > 0 ? (
+                      filteredModules.map((module, index) => {
+                        const IconComp = module.icon;
+                        const anim = itemAnims[index] || new Animated.Value(1);
+
+                        return (
+                          <Animated.View
+                            key={module.id}
+                            style={[
+                              styles.moduleCardWrapper,
+                              {
+                                opacity: anim,
+                                transform: [
+                                  {
+                                    translateY: anim.interpolate({
+                                      inputRange: [0, 1],
+                                      outputRange: [20, 0],
+                                    }),
+                                  },
+                                  {
+                                    scale: anim.interpolate({
+                                      inputRange: [0, 1],
+                                      outputRange: [0.93, 1],
+                                    }),
+                                  },
+                                ],
+                              },
+                            ]}
+                          >
+                            <TouchableOpacity
+                              onPress={() => handleModulePress(module)}
+                              style={[styles.moduleCard, { backgroundColor: cardBg, borderColor }]}
+                              activeOpacity={0.7}
+                            >
+                              <View style={[styles.iconBadge, { backgroundColor: module.bgColor }]}>
+                                <IconComp size={22} color={module.color} />
+                              </View>
+                              <Text style={[styles.moduleTitle, { color: textColor }]} numberOfLines={1}>
+                                {module.title}
+                              </Text>
+                            </TouchableOpacity>
+                          </Animated.View>
+                        );
+                      })
+                    ) : (
+                      <View style={styles.emptyState}>
+                        <Info size={24} color={subTextColor} />
+                        <Text style={[styles.emptyText, { color: subTextColor }]}>No modules match "{searchQuery}"</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+
+          </Animated.View>
+        </Animated.View>
+      </Animated.View>
       </View>
-    </Modal>
+    </View>
   );
 }
-
-const windowHeight = Dimensions.get('window').height;
 
 const styles = StyleSheet.create({
   overlay: {
@@ -433,15 +748,14 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   sheetContainer: {
-    maxHeight: windowHeight * 0.58,
-    minHeight: windowHeight * 0.35,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 16,
     paddingBottom: 24,
+    overflow: 'hidden',
     elevation: 20,
     shadowColor: '#000',
     shadowOpacity: 0.25,
@@ -515,9 +829,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
-  moduleCard: {
+  moduleCardWrapper: {
     width: '31%',
     aspectRatio: 1.05,
+  },
+  moduleCard: {
+    width: '100%',
+    height: '100%',
     borderRadius: 18,
     borderWidth: 1,
     alignItems: 'center',
@@ -597,38 +915,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    marginTop: 4,
-  },
-  footerHelp: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-  },
-  footerHelpText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#ef444415',
-  },
-  logoutText: {
-    color: '#ef4444',
-    fontSize: 12,
-    fontWeight: '700',
-  },
+
 });
 
 export default BottomMenuSheet;
+

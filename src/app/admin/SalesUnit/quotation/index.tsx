@@ -11,7 +11,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   Search,
   ChevronLeft,
@@ -24,11 +24,7 @@ import {
   Plus,
   Trash2,
   Edit,
-  Send,
-  History,
-  Info,
   X,
-  Mail,
   Building,
   User,
   DollarSign
@@ -42,7 +38,6 @@ import {
   QuotationCreateData,
   QuotationUpdateData,
   QuotationTemplate,
-  QuotationVersion,
   PropertyFloor,
   PropertyFlat
 } from '../../../../admin/models/QuoatationTypes';
@@ -51,13 +46,9 @@ import {
   useQuotationDetail,
   useCreateQuotation,
   useUpdateQuotation,
-  useDeleteQuotation,
-  useUpdateQuotationStatus,
   usePropertyFloors,
   usePropertyFlats,
-  useQuotationTemplates,
-  useQuotationVersions,
-  useSendQuotationApproval
+  useQuotationTemplates
 } from '../../../../admin/hooks/useQuotations';
 import { LeadService } from '../../../../admin/services/LeadService';
 import { PropertyService } from '../../../../admin/services/PropertyService';
@@ -177,6 +168,7 @@ function SearchableSelectModal<T>({
 
 export default function QuotationsPage() {
   const router = useRouter();
+  const { editId } = useLocalSearchParams<{ editId?: string }>();
   const { isDark } = useTheme();
   const theme = getAdminTheme(isDark);
 
@@ -199,16 +191,16 @@ export default function QuotationsPage() {
   const totalCount = listResponse?.data?.totalCount ?? 0;
   const totalPages = listResponse?.data?.totalPages ?? 1;
 
-  // Selected Quotation state
+  // Selected Quotation id — only needed for form (edit) prefill
   const [selectedQuotationId, setSelectedQuotationId] = useState<number | null>(null);
-  const { data: detailResponse, isLoading: isDetailLoading } = useQuotationDetail(selectedQuotationId ?? 0);
+  const [hasPrefilledId, setHasPrefilledId] = useState<number | null>(null);
+
+  // Fetch selected quotation detail for edit pre-filling
+  const { data: detailResponse } = useQuotationDetail(selectedQuotationId ?? 0);
   const selectedQuotation = detailResponse?.data;
 
   // Modals state
-  const [isDetailModalOpen, setDetailModalOpen] = useState(false);
   const [isFormModalOpen, setFormModalOpen] = useState(false);
-  const [isApprovalModalOpen, setApprovalModalOpen] = useState(false);
-  const [isHistoryModalOpen, setHistoryModalOpen] = useState(false);
 
   // Form input state
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
@@ -242,10 +234,6 @@ export default function QuotationsPage() {
   const { data: templatesResponse } = useQuotationTemplates();
   const templates = templatesResponse?.data ?? [];
 
-  // Version history query hook
-  const { data: versionsResponse, isLoading: isVersionsLoading } = useQuotationVersions(selectedQuotationId ?? 0);
-  const versions = versionsResponse?.data ?? [];
-
   // Search modals visibility state
   const [isLeadSelectOpen, setLeadSelectOpen] = useState(false);
   const [isPropertySelectOpen, setPropertySelectOpen] = useState(false);
@@ -256,14 +244,6 @@ export default function QuotationsPage() {
   // Mutation hooks
   const createQuotationMutation = useCreateQuotation();
   const updateQuotationMutation = useUpdateQuotation();
-  const updateStatusMutation = useUpdateQuotationStatus();
-  const deleteQuotationMutation = useDeleteQuotation();
-  const sendApprovalMutation = useSendQuotationApproval();
-
-  // Approval request form state
-  const [approvalEmail, setApprovalEmail] = useState('');
-  const [approvalValidity, setApprovalValidity] = useState('7');
-  const [approvalResult, setApprovalResult] = useState<{ clientPortalUrl: string; token: string } | null>(null);
 
   // Load selection lists
   const loadFormDropdowns = async () => {
@@ -343,13 +323,16 @@ export default function QuotationsPage() {
     setChangeReason('');
     setDiscountAmount('0');
     setLineItems([]);
+    setSelectedQuotationId(null);
+    setHasPrefilledId(null);
+    setFormMode('create');
+    router.setParams({ editId: undefined });
   };
 
   // Edit action
   const handleOpenEdit = () => {
     if (!selectedQuotation) return;
     setFormMode('edit');
-    setDetailModalOpen(false);
 
     // Pre-fill fields
     setSelectedLead({ leadId: selectedQuotation.leadId, fullName: selectedQuotation.leadName } as any);
@@ -376,6 +359,25 @@ export default function QuotationsPage() {
 
     setFormModalOpen(true);
   };
+
+  // Trigger edit mode when editId is passed via router params
+  useEffect(() => {
+    if (editId) {
+      const parsedId = parseInt(editId, 10);
+      if (!isNaN(parsedId)) {
+        setSelectedQuotationId(parsedId);
+        setFormMode('edit');
+      }
+    }
+  }, [editId]);
+
+  // Pre-fill form when selectedQuotation detail is fetched
+  useEffect(() => {
+    if (selectedQuotation && formMode === 'edit' && hasPrefilledId !== selectedQuotationId) {
+      handleOpenEdit();
+      setHasPrefilledId(selectedQuotationId);
+    }
+  }, [selectedQuotation, formMode, selectedQuotationId, hasPrefilledId]);
 
   // Save creation/update action
   const handleSaveQuotation = () => {
@@ -440,51 +442,6 @@ export default function QuotationsPage() {
     }
   };
 
-  // Update Status action
-  const handleUpdateStatus = (newStatus: string) => {
-    if (!selectedQuotationId) return;
-    updateStatusMutation.mutate(
-      { id: selectedQuotationId, status: newStatus },
-      {
-        onSuccess: () => {
-          Alert.alert('Success', `Status updated to '${newStatus}' successfully.`);
-          refetchList();
-        },
-        onError: (err: any) => {
-          Alert.alert('Error', err.message || 'Failed to update status.');
-        },
-      }
-    );
-  };
-
-  // Delete Action
-  const handleDeleteQuotation = () => {
-    if (!selectedQuotationId) return;
-    Alert.alert(
-      'Confirm Delete',
-      'Are you sure you want to delete this quotation? This action is irreversible.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            deleteQuotationMutation.mutate(selectedQuotationId, {
-              onSuccess: () => {
-                Alert.alert('Deleted', 'Quotation deleted successfully.');
-                setDetailModalOpen(false);
-                refetchList();
-              },
-              onError: (err: any) => {
-                Alert.alert('Delete Failed', err.response?.data?.message || err.message || 'Could not delete quotation.');
-              },
-            });
-          },
-        },
-      ]
-    );
-  };
-
   // Template select callback
   const handleSelectTemplate = (template: QuotationTemplate) => {
     setSelectedTemplate(template);
@@ -531,34 +488,6 @@ export default function QuotationsPage() {
   const removeLineItem = (index: number) => {
     const updated = lineItems.filter((_, i) => i !== index);
     setLineItems(updated);
-  };
-
-  // Submit Approval action
-  const handleSendApproval = () => {
-    if (!selectedQuotationId || !approvalEmail) {
-      Alert.alert('Validation Error', 'Please enter a valid client email.');
-      return;
-    }
-
-    sendApprovalMutation.mutate(
-      {
-        id: selectedQuotationId,
-        clientEmail: approvalEmail,
-        validityDays: parseInt(approvalValidity) || 7,
-      },
-      {
-        onSuccess: (res) => {
-          setApprovalResult({
-            clientPortalUrl: res.data.clientPortalUrl,
-            token: res.data.token,
-          });
-          refetchList();
-        },
-        onError: (err: any) => {
-          Alert.alert('Send Failed', err.response?.data?.message || err.message || 'Failed to send approval.');
-        },
-      }
-    );
   };
 
   return (
@@ -655,8 +584,7 @@ export default function QuotationsPage() {
                   key={q.quotationId}
                   activeOpacity={0.7}
                   onPress={() => {
-                    setSelectedQuotationId(q.quotationId);
-                    setDetailModalOpen(true);
+                    router.push(`/admin/SalesUnit/quotation/${q.quotationId}` as any);
                   }}
                   style={[styles.quoteCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
                 >
@@ -745,197 +673,15 @@ export default function QuotationsPage() {
         )}
       </ScrollView>
 
-      {/* DETAIL MODAL */}
-      <Modal visible={isDetailModalOpen} transparent animationType="fade" onRequestClose={() => setDetailModalOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-            <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                  {selectedQuotation?.quotationNumber || 'Loading Details...'}
-                </Text>
-                {selectedQuotation?.status ? (
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedQuotation.status).bg }]}>
-                    <Text style={[styles.statusText, { color: getStatusColor(selectedQuotation.status).text }]}>
-                      {selectedQuotation.status}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-              <TouchableOpacity onPress={() => setDetailModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
-                <X size={18} color={theme.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            {isDetailLoading ? (
-              <View style={{ padding: 40, alignItems: 'center' }}>
-                <ActivityIndicator size="large" color={theme.brand} />
-              </View>
-            ) : selectedQuotation ? (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Meta details */}
-                <View style={[styles.detailCard, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
-                  <Text style={[styles.detailSectionTitle, { color: theme.textPrimary }]}>Client & Property info</Text>
-                  <Text style={{ color: theme.textSecondary, marginTop: 4 }}>
-                    <Text style={{ fontWeight: '600', color: theme.textPrimary }}>Lead: </Text>
-                    {selectedQuotation.leadName}
-                  </Text>
-                  <Text style={{ color: theme.textSecondary, marginTop: 4 }}>
-                    <Text style={{ fontWeight: '600', color: theme.textPrimary }}>Property: </Text>
-                    {selectedQuotation.propertyName}
-                  </Text>
-                  <Text style={{ color: theme.textSecondary, marginTop: 4 }}>
-                    <Text style={{ fontWeight: '600', color: theme.textPrimary }}>Flat/Unit: </Text>
-                    {selectedQuotation.flatNumber || 'N/A'} (Floor {selectedQuotation.floorId || 'N/A'})
-                  </Text>
-                  <Text style={{ color: theme.textSecondary, marginTop: 4 }}>
-                    <Text style={{ fontWeight: '600', color: theme.textPrimary }}>Quotation Date: </Text>
-                    {formatDate(selectedQuotation.quotationDate)}
-                  </Text>
-                  <Text style={{ color: theme.textSecondary, marginTop: 4 }}>
-                    <Text style={{ fontWeight: '600', color: theme.textPrimary }}>Valid Until: </Text>
-                    {formatDate(selectedQuotation.validUntil)}
-                  </Text>
-                </View>
-
-                {/* Items List */}
-                <View style={{ marginTop: 16 }}>
-                  <Text style={[styles.sectionHeading, { color: theme.textPrimary }]}>Quotation Items</Text>
-                  {selectedQuotation.items && selectedQuotation.items.length > 0 ? (
-                    <View style={[styles.itemsTable, { borderColor: theme.border }]}>
-                      <View style={[styles.tableHeader, { backgroundColor: theme.inputBg, borderBottomColor: theme.border }]}>
-                        <Text style={[styles.thText, { flex: 2, color: theme.textSecondary }]}>Description</Text>
-                        <Text style={[styles.thText, { flex: 1, color: theme.textSecondary, textAlign: 'center' }]}>Qty</Text>
-                        <Text style={[styles.thText, { flex: 1.5, color: theme.textSecondary, textAlign: 'right' }]}>Total</Text>
-                      </View>
-                      {selectedQuotation.items.map((item, idx) => (
-                        <View key={item.itemId || idx} style={[styles.tableRow, { borderBottomColor: theme.border }]}>
-                          <View style={{ flex: 2 }}>
-                            <Text style={{ color: theme.textPrimary, fontSize: 13, fontWeight: '500' }}>{item.description}</Text>
-                            <Text style={{ color: theme.textMuted, fontSize: 11 }}>{item.itemType}</Text>
-                          </View>
-                          <Text style={{ flex: 1, color: theme.textPrimary, fontSize: 13, textAlign: 'center' }}>{item.quantity}</Text>
-                          <Text style={{ flex: 1.5, color: theme.textPrimary, fontSize: 13, fontWeight: '500', textAlign: 'right' }}>
-                            {formatCurrency(item.total)}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={{ color: theme.textSecondary, fontStyle: 'italic' }}>No items attached.</Text>
-                  )}
-                </View>
-
-                {/* Pricing Summary */}
-                <View style={[styles.pricingSummary, { borderColor: theme.border }]}>
-                  <View style={styles.summaryRow}>
-                    <Text style={{ color: theme.textSecondary }}>Subtotal</Text>
-                    <Text style={{ color: theme.textPrimary, fontWeight: '500' }}>{formatCurrency(selectedQuotation.basePrice)}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={{ color: theme.textSecondary }}>Discount</Text>
-                    <Text style={{ color: '#dc2626', fontWeight: '500' }}>-{formatCurrency(selectedQuotation.discountAmount)}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={{ color: theme.textSecondary }}>GST Tax (5%)</Text>
-                    <Text style={{ color: theme.textPrimary, fontWeight: '500' }}>{formatCurrency(selectedQuotation.taxAmount)}</Text>
-                  </View>
-                  <View style={[styles.divider, { backgroundColor: theme.border, marginVertical: 8 }]} />
-                  <View style={styles.summaryRow}>
-                    <Text style={{ color: theme.textPrimary, fontWeight: '700', fontSize: 15 }}>Grand Total</Text>
-                    <Text style={{ color: theme.brand, fontWeight: '700', fontSize: 16 }}>{formatCurrency(selectedQuotation.grandTotal)}</Text>
-                  </View>
-                </View>
-
-                {/* Notes */}
-                {selectedQuotation.notes ? (
-                  <View style={{ marginTop: 16 }}>
-                    <Text style={[styles.sectionHeading, { color: theme.textPrimary }]}>Notes & Terms</Text>
-                    <View style={[styles.notesContainer, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
-                      <Text style={{ color: theme.textSecondary, fontSize: 13 }}>{selectedQuotation.notes}</Text>
-                    </View>
-                  </View>
-                ) : null}
-
-                {/* Status transitions options */}
-                <View style={{ marginTop: 20, gap: 8 }}>
-                  <Text style={[styles.sectionHeading, { color: theme.textPrimary }]}>Update Quotation Status</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                    {['Draft', 'Sent', 'Accepted', 'Rejected'].map((st) => (
-                      <TouchableOpacity
-                        key={st}
-                        disabled={selectedQuotation.status === st}
-                        onPress={() => handleUpdateStatus(st)}
-                        style={[
-                          styles.statusActionBtn,
-                          {
-                            backgroundColor: selectedQuotation.status === st ? theme.border : theme.inputBg,
-                            borderColor: theme.border,
-                          },
-                        ]}
-                      >
-                        <Text style={{ color: selectedQuotation.status === st ? theme.textMuted : theme.textPrimary, fontSize: 12, fontWeight: '600' }}>
-                          Set {st}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Action Row */}
-                <View style={styles.actionFooter}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setApprovalResult(null);
-                      setApprovalEmail('');
-                      setApprovalValidity('7');
-                      setApprovalModalOpen(true);
-                    }}
-                    style={[styles.actionBtn, { backgroundColor: theme.brand }]}
-                  >
-                    <Send size={15} color="#ffffff" />
-                    <Text style={styles.actionBtnText}>Send Approval</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => setHistoryModalOpen(true)}
-                    style={[styles.actionBtn, { backgroundColor: theme.inputBg, borderWidth: 1, borderColor: theme.border }]}
-                  >
-                    <History size={15} color={theme.textPrimary} />
-                    <Text style={[styles.actionBtnText, { color: theme.textPrimary }]}>History</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={handleOpenEdit}
-                    style={[styles.actionBtn, { backgroundColor: theme.inputBg, borderWidth: 1, borderColor: theme.border }]}
-                  >
-                    <Edit size={15} color={theme.textPrimary} />
-                    <Text style={[styles.actionBtnText, { color: theme.textPrimary }]}>Edit</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={handleDeleteQuotation}
-                    style={[styles.actionBtn, { backgroundColor: '#fee2e2' }]}
-                  >
-                    <Trash2 size={15} color="#dc2626" />
-                    <Text style={[styles.actionBtnText, { color: '#dc2626' }]}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
-
       {/* FORM MODAL (CREATE / EDIT) */}
-      <Modal visible={isFormModalOpen} transparent animationType="slide" onRequestClose={() => setFormModalOpen(false)}>
+      <Modal visible={isFormModalOpen} transparent animationType="slide" onRequestClose={() => { setFormModalOpen(false); resetForm(); }}>
         <View style={styles.modalOverlay}>
           <View style={[styles.formModalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
                 {formMode === 'create' ? 'Create Quotation' : 'Edit Quotation'}
               </Text>
-              <TouchableOpacity onPress={() => setFormModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
+              <TouchableOpacity onPress={() => { setFormModalOpen(false); resetForm(); }} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
                 <X size={18} color={theme.textPrimary} />
               </TouchableOpacity>
             </View>
@@ -1207,139 +953,6 @@ export default function QuotationsPage() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* APPROVAL MODAL */}
-      <Modal visible={isApprovalModalOpen} transparent animationType="fade" onRequestClose={() => setApprovalModalOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.dropdownMenu, { backgroundColor: theme.secondaryBg, borderColor: theme.border, width: '90%', maxWidth: 400 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Send Approval Request</Text>
-              <TouchableOpacity onPress={() => setApprovalModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
-                <X size={18} color={theme.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={{ gap: 14, paddingTop: 10 }}>
-              <View>
-                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Client Email</Text>
-                <View style={[styles.formInputContainer, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
-                  <TextInput
-                    style={[styles.formTextInput, { color: theme.textPrimary }]}
-                    placeholder="client@example.com"
-                    keyboardType="email-address"
-                    placeholderTextColor={theme.textMuted}
-                    value={approvalEmail}
-                    onChangeText={setApprovalEmail}
-                  />
-                  <Mail size={16} color={theme.textSecondary} />
-                </View>
-              </View>
-
-              <View>
-                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Link Validity (Days)</Text>
-                <View style={[styles.formInputContainer, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
-                  <TextInput
-                    style={[styles.formTextInput, { color: theme.textPrimary }]}
-                    placeholder="7"
-                    keyboardType="numeric"
-                    placeholderTextColor={theme.textMuted}
-                    value={approvalValidity}
-                    onChangeText={setApprovalValidity}
-                  />
-                </View>
-              </View>
-
-              {sendApprovalMutation.isPending ? (
-                <ActivityIndicator size="small" color={theme.brand} style={{ marginVertical: 10 }} />
-              ) : (
-                <TouchableOpacity
-                  onPress={handleSendApproval}
-                  style={[styles.submitBtn, { backgroundColor: theme.brand }]}
-                >
-                  <Text style={{ color: '#ffffff', fontWeight: '700' }}>Generate & Send</Text>
-                </TouchableOpacity>
-              )}
-
-              {approvalResult ? (
-                <View style={[styles.detailCard, { backgroundColor: theme.inputBg, borderColor: theme.border, marginTop: 10 }]}>
-                  <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 13 }}>Request generated successfully!</Text>
-                  <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 6 }}>
-                    <Text style={{ fontWeight: '600', color: theme.textPrimary }}>Token: </Text>
-                    {approvalResult.token}
-                  </Text>
-                  <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 4 }}>
-                    <Text style={{ fontWeight: '600', color: theme.textPrimary }}>Portal URL: </Text>
-                    {approvalResult.clientPortalUrl}
-                  </Text>
-                </View>
-              ) : null}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* VERSION HISTORY MODAL */}
-      <Modal visible={isHistoryModalOpen} transparent animationType="slide" onRequestClose={() => setHistoryModalOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Version History</Text>
-              <TouchableOpacity onPress={() => setHistoryModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
-                <X size={18} color={theme.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            {isVersionsLoading ? (
-              <View style={{ padding: 40, alignItems: 'center' }}>
-                <ActivityIndicator size="large" color={theme.brand} />
-              </View>
-            ) : versions.length > 0 ? (
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-                <View style={{ gap: 14 }}>
-                  {versions.map((v) => (
-                    <View key={v.versionId} style={[styles.versionCard, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ color: theme.brand, fontWeight: '700', fontSize: 14 }}>Version {v.versionNumber}</Text>
-                        <Text style={{ color: theme.textMuted, fontSize: 11 }}>{formatDate(v.createdOn)}</Text>
-                      </View>
-                      <Text style={{ color: theme.textPrimary, fontSize: 13, fontWeight: '600', marginTop: 6 }}>
-                        Total: {formatCurrency(v.totalAmount)}
-                      </Text>
-                      <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 4 }}>
-                        <Text style={{ fontWeight: '600' }}>Change Reason: </Text>
-                        {v.changeReason || 'No details provided.'}
-                      </Text>
-
-                      {/* Display items JSON */}
-                      {v.itemsJson ? (
-                        <View style={{ marginTop: 8 }}>
-                          <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 2 }}>Items Snapshot:</Text>
-                          {(() => {
-                            try {
-                              const parsed = JSON.parse(v.itemsJson);
-                              return parsed.map((item: any, idx: number) => (
-                                <Text key={idx} style={{ fontSize: 11, color: theme.textMuted }}>
-                                  · {item.ItemType || item.itemType}: {item.Description || item.description} ({formatCurrency(item.Total || item.total)})
-                                </Text>
-                              ));
-                            } catch {
-                              return <Text style={{ fontSize: 11, color: theme.textMuted }}>Could not parse items.</Text>;
-                            }
-                          })()}
-                        </View>
-                      ) : null}
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
-            ) : (
-              <View style={{ padding: 40, alignItems: 'center' }}>
-                <Text style={{ color: theme.textSecondary }}>No versions found.</Text>
-              </View>
-            )}
           </View>
         </View>
       </Modal>

@@ -1,4 +1,5 @@
 import { apiClient } from '../../api/apiClient';
+import { axiosInstance } from '../../api/axios';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import {
   PropertyListResponse,
@@ -9,6 +10,21 @@ import {
   FlatItem,
   PropertyImageItem,
 } from '../models/PropertyTypes';
+
+// Helper: fetch an image via authenticated axios and return base64 data URI
+async function fetchImageAsBase64(url: string): Promise<string | null> {
+  try {
+    const response = await axiosInstance.get(url, { responseType: 'arraybuffer' });
+    const bytes = new Uint8Array(response.data as ArrayBuffer);
+    let binary = '';
+    bytes.forEach((b) => { binary += String.fromCharCode(b); });
+    const base64 = btoa(binary);
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    return `data:${contentType};base64,${base64}`;
+  } catch {
+    return null;
+  }
+}
 
 export const PropertyService = {
   getPropertiesList: async (): Promise<PropertyListResponse> => {
@@ -80,4 +96,12 @@ export const PropertyService = {
     formData.append('documentId', documentId.toString());
     return apiClient.postForm<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_DOCUMENT, formData);
   },
+
+  // Fetch property cover image as authenticated base64 data URI
+  getPropertyImageBase64: (propertyId: number | string) =>
+    fetchImageAsBase64(`/Properties/GetPropertyImage?propertyId=${propertyId}`),
+
+  // Fetch uploaded gallery image as authenticated base64 data URI
+  getUploadImageBase64: (uploadId: number | string) =>
+    fetchImageAsBase64(`/Properties/DownloadImage?uploadId=${uploadId}`),
 };

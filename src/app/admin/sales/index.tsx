@@ -136,16 +136,8 @@ export default function SalesPipelineScreen() {
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
       {/* Top Header */}
-      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: borderCol }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Sales Pipeline</Text>
-        </View>
-        <View style={[styles.countBadge, { backgroundColor: inputBg }]}>
-          <Text style={[styles.countBadgeText, { color: subTextColor }]}>
-            {totalPipelineLeads} Leads
-          </Text>
-        </View>
-      </View>
+
+
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -194,6 +186,7 @@ export default function SalesPipelineScreen() {
             })}
           </ScrollView>
         </View>
+
 
         {/* Loading Indicator */}
         {isLoading && !refreshing ? (

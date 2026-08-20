@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { getAdminTheme } from '../../../theme/adminTheme';
 import Toast from 'react-native-toast-message';
 import {
   UserX,
@@ -44,13 +45,16 @@ const AGENT_OPTIONS = [
 export default function UnassignedLeadsScreen() {
   const { isDark } = useTheme();
   const router = useRouter();
+  const adminTheme = getAdminTheme(isDark);
 
   // Color tokens
-  const bgColor = isDark ? '#0f172a' : '#f8fafc';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
+  const bgColor = adminTheme.primaryBg;
+  const cardBg = adminTheme.cardBg;
+  const textColor = adminTheme.textPrimary;
+  const subTextColor = adminTheme.textSecondary;
+  const borderCol = adminTheme.border;
+  const inputBg = adminTheme.inputBg;
+  const brandCol = adminTheme.brand;
 
   // State
   const [leads, setLeads] = useState<UnassignedLeadItem[]>([]);
@@ -198,70 +202,26 @@ export default function UnassignedLeadsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      {/* Screen Header */}
-      <View
-        style={{
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: 12,
-          backgroundColor: cardBg,
-          borderBottomWidth: 1,
-          borderBottomColor: borderCol,
-        }}
-      >
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <UserX size={20} color="#f59e0b" />
-            <View>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>
-                Unassigned Leads
-              </Text>
-              <Text style={{ fontSize: 12, color: subTextColor, marginTop: 1 }}>
-                {totalCount} leads pending assignment
-              </Text>
-            </View>
-          </View>
-
-          {/* Bulk Assign Trigger */}
-          {selectedLeadIds.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setShowAssignModal(true)}
-              style={{
-                backgroundColor: '#10b981',
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 10,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <UserPlus size={14} color="#ffffff" />
-              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>
-                Assign ({selectedLeadIds.length})
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Search Input Bar */}
+      {/* Search and Action Bar */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', gap: 10 }}>
+        {/* Search Input Box */}
         <View
           style={{
-            marginTop: 12,
+            flex: 1,
             height: 42,
-            borderRadius: 21,
+            borderRadius: 14,
             borderWidth: 1,
             borderColor: borderCol,
             paddingHorizontal: 14,
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+            backgroundColor: cardBg,
           }}
         >
           <Search size={16} color={subTextColor} style={{ marginRight: 8 }} />
           <TextInput
             style={{ flex: 1, color: textColor, fontSize: 13 }}
-            placeholder="Search unassigned leads by name, phone, location..."
+            placeholder="Search unassigned leads..."
             placeholderTextColor={subTextColor}
             value={search}
             onChangeText={handleSearchChange}
@@ -272,6 +232,45 @@ export default function UnassignedLeadsScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Dynamic Action Button / Count Badge */}
+        {selectedLeadIds.length > 0 ? (
+          <TouchableOpacity
+            onPress={() => setShowAssignModal(true)}
+            style={{
+              backgroundColor: brandCol,
+              paddingHorizontal: 16,
+              height: 42,
+              borderRadius: 14,
+              justifyContent: 'center',
+              alignItems: 'center',
+              flexDirection: 'row',
+              gap: 6,
+            }}
+          >
+            <UserPlus size={14} color="#ffffff" />
+            <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>
+              Assign ({selectedLeadIds.length})
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View
+            style={{
+              paddingHorizontal: 14,
+              height: 42,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: borderCol,
+              backgroundColor: inputBg,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor }}>
+              {totalCount} Unassigned
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Selection Header Bar */}
@@ -283,7 +282,7 @@ export default function UnassignedLeadsScreen() {
             alignItems: 'center',
             paddingHorizontal: 16,
             paddingVertical: 10,
-            backgroundColor: isDark ? '#1e293b' : '#ffffff',
+            backgroundColor: cardBg,
             borderBottomWidth: 1,
             borderBottomColor: borderCol,
           }}
@@ -293,7 +292,7 @@ export default function UnassignedLeadsScreen() {
             style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
           >
             {selectedLeadIds.length === leads.length ? (
-              <CheckSquare size={18} color="#10b981" />
+              <CheckSquare size={18} color={brandCol} />
             ) : (
               <Square size={18} color={subTextColor} />
             )}
@@ -311,11 +310,11 @@ export default function UnassignedLeadsScreen() {
       {/* Main Content Area */}
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#10b981']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[brandCol]} />}
       >
         {loading ? (
           <View style={{ padding: 40, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#10b981" />
+            <ActivityIndicator size="large" color={brandCol} />
             <Text style={{ color: subTextColor, marginTop: 12, fontSize: 13 }}>
               Loading unassigned leads...
             </Text>
@@ -349,7 +348,7 @@ export default function UnassignedLeadsScreen() {
                   backgroundColor: cardBg,
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: isSelected ? '#10b981' : borderCol,
+                  borderColor: isSelected ? brandCol : borderCol,
                   padding: 16,
                 }}
               >
@@ -358,7 +357,7 @@ export default function UnassignedLeadsScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                     <TouchableOpacity onPress={() => toggleSelectLead(lead.leadId)}>
                       {isSelected ? (
-                        <CheckSquare size={20} color="#10b981" />
+                        <CheckSquare size={20} color={brandCol} />
                       ) : (
                         <Square size={20} color={subTextColor} />
                       )}
@@ -411,7 +410,7 @@ export default function UnassignedLeadsScreen() {
                     onPress={() => Linking.openURL(`tel:${lead.phone}`)}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                   >
-                    <Phone size={12} color="#10b981" />
+                    <Phone size={12} color={brandCol} />
                     <Text style={{ fontSize: 12, color: textColor, textDecorationLine: 'underline' }}>
                       {lead.phone}
                     </Text>
@@ -432,7 +431,7 @@ export default function UnassignedLeadsScreen() {
                   {lead.propertyType && (
                     <View
                       style={{
-                        backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                        backgroundColor: inputBg,
                         paddingHorizontal: 8,
                         paddingVertical: 3,
                         borderRadius: 6,
@@ -451,7 +450,7 @@ export default function UnassignedLeadsScreen() {
                   {lead.bhk && (
                     <View
                       style={{
-                        backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                        backgroundColor: inputBg,
                         paddingHorizontal: 8,
                         paddingVertical: 3,
                         borderRadius: 6,
@@ -466,7 +465,7 @@ export default function UnassignedLeadsScreen() {
                   {lead.preferredLocation && (
                     <View
                       style={{
-                        backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                        backgroundColor: inputBg,
                         paddingHorizontal: 8,
                         paddingVertical: 3,
                         borderRadius: 6,
@@ -516,14 +515,14 @@ export default function UnassignedLeadsScreen() {
                       flexDirection: 'row',
                       alignItems: 'center',
                       gap: 4,
-                      backgroundColor: '#10b98115',
+                      backgroundColor: adminTheme.badgeBg,
                       paddingHorizontal: 10,
                       paddingVertical: 6,
                       borderRadius: 8,
                     }}
                   >
-                    <UserPlus size={12} color="#10b981" />
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#10b981' }}>
+                    <UserPlus size={12} color={brandCol} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: adminTheme.badgeText }}>
                       Assign Agent
                     </Text>
                   </TouchableOpacity>
@@ -618,8 +617,8 @@ export default function UnassignedLeadsScreen() {
                       padding: 12,
                       borderRadius: 12,
                       borderWidth: 1,
-                      borderColor: isSelected ? '#10b981' : borderCol,
-                      backgroundColor: isSelected ? '#10b98115' : isDark ? '#0f172a' : '#f8fafc',
+                      borderColor: isSelected ? brandCol : borderCol,
+                      backgroundColor: isSelected ? adminTheme.badgeBg : bgColor,
                       flexDirection: 'row',
                       justifyContent: 'space-between',
                       alignItems: 'center',
@@ -639,7 +638,7 @@ export default function UnassignedLeadsScreen() {
                           width: 8,
                           height: 8,
                           borderRadius: 4,
-                          backgroundColor: '#10b981',
+                          backgroundColor: brandCol,
                         }}
                       />
                     )}
@@ -654,7 +653,7 @@ export default function UnassignedLeadsScreen() {
               disabled={assignLoading}
               style={{
                 height: 48,
-                backgroundColor: '#10b981',
+                backgroundColor: brandCol,
                 borderRadius: 14,
                 justifyContent: 'center',
                 alignItems: 'center',

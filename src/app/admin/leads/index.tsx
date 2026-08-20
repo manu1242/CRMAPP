@@ -125,17 +125,7 @@ export default function LeadsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Top Header */}
-      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: borderCol }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Leads Directory</Text>
-        </View>
-        <View style={[styles.countBadge, { backgroundColor: inputBg }]}>
-          <Text style={[styles.countBadgeText, { color: subTextColor }]}>
-            {totalCount} Total Leads
-          </Text>
-        </View>
-      </View>
+
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -182,6 +172,11 @@ export default function LeadsScreen() {
                 <Text style={{ color: subTextColor, fontSize: 13, fontWeight: '600' }}>Clear</Text>
               </TouchableOpacity>
             )}
+          </View>
+          <View style={[styles.countBadge, { backgroundColor: inputBg }]}>
+            <Text style={[styles.countBadgeText, { color: subTextColor }]}>
+              {totalCount}Leads
+            </Text>
           </View>
         </View>
 
@@ -417,9 +412,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop:10,
+    paddingTop: 10,
     paddingBottom: 10,
-   
+
     gap: 12,
   },
   iconBtn: {
@@ -437,8 +432,12 @@ const styles = StyleSheet.create({
   },
   countBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignSelf: "center",
+     borderWidth: 1,
+    // borderColor:'#c9c8c87a'
+    
   },
   countBadgeText: {
     fontSize: 12,

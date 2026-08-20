@@ -81,11 +81,13 @@ export interface PropertyListResponse {
 export interface BuildersResponse {
   success: boolean;
   builders: BuilderItem[];
+  message?: string;
 }
 
 export interface ExecutivesResponse {
   success: boolean;
   executives: ExecutiveItem[];
+  message?: string;
 }
 
 export interface GeneralApiResponse {
