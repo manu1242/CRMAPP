@@ -38,6 +38,14 @@ export const HEADER_CONFIG: HeaderConfig = {
         '/admin/payouts',
         '/admin/Tasks',
         '/admin/teammanagement',
+        '/admin/leads/leads',
+        '/admin/SalesUnit/bookings',
+        '/admin/SalesUnit/invoice',
+        '/admin/SalesUnit/payments',
+        '/admin/finance/expenses',
+        '/admin/finance/revenue',
+        '/admin/finance/profit',
+        '/admin/usemanagement/ManageUsers'
     ],
     hiddenPaths: [
         '/login',
@@ -46,15 +54,22 @@ export const HEADER_CONFIG: HeaderConfig = {
         '/forgot-password',
         '/reset-password',
         '/select-workspace',
-        '/index',
-        '/',
+        // '/index',
+        // '/',
         '/profile',
         '/admin/settings',
         '/admin/SalesUnit',
-        '/admin/SalesUnit/bookings',
-        '/admin/SalesUnit/invoice',
+        '/admin/SalesUnit/bookings/[id]',
+        '/admin/SalesUnit/bookings/CreateBooking',
+        '/admin/SalesUnit/invoice/[id]',
+        '/admin/SalesUnit/invoice/GenerateInvoice',
         '/admin/SalesUnit/payments',
         '/admin/SalesUnit/quotation',
+        '/admin/leads/AddLead',
+        '/admin/leads/[id]',
+        '/admin/properties/add-property',
+        '/admin/properties/add-flat',
+        '/admin/teammanagement/channelpartner/createchannel'
     ],
     inheritParentVisibility: true,
 };
@@ -66,6 +81,9 @@ const normalizePath = (p: string): string => {
     }
     if (normalized.endsWith('/') && normalized.length > 1) {
         normalized = normalized.slice(0, -1);
+    }
+    if (normalized.endsWith('/index') && normalized.length > 6) {
+        normalized = normalized.slice(0, -6);
     }
     return normalized;
 };
@@ -79,20 +97,23 @@ const normalizePath = (p: string): string => {
 export const checkHeaderVisibility = (currentPath: string): boolean => {
     if (!currentPath) return false;
 
-    const normCurrent = normalizePath(currentPath);
+    const normCurrent = normalizePath(currentPath).toLowerCase();
 
     // 1. Check for exact match in hidden paths first (explicit overrides win)
     const isExplicitlyHidden = HEADER_CONFIG.hiddenPaths.some(
-        (p) => normalizePath(p) === normCurrent
+        (p) => normalizePath(p).toLowerCase() === normCurrent
     );
+
+    const isExplicitlyVisible = HEADER_CONFIG.visiblePaths.some(
+        (p) => normalizePath(p).toLowerCase() === normCurrent
+    );
+
+    console.log('[DEBUG Header] currentPath:', currentPath, 'normCurrent:', normCurrent, 'isExplicitlyHidden:', isExplicitlyHidden, 'isExplicitlyVisible:', isExplicitlyVisible);
+
     if (isExplicitlyHidden) {
         return false;
     }
 
-    // 2. Check for exact match in visible paths
-    const isExplicitlyVisible = HEADER_CONFIG.visiblePaths.some(
-        (p) => normalizePath(p) === normCurrent
-    );
     if (isExplicitlyVisible) {
         return true;
     }
@@ -111,14 +132,14 @@ export const checkHeaderVisibility = (currentPath: string): boolean => {
         // Find if a parent segment is explicitly configured to be hidden
         for (const parent of sortedHidden) {
             // Ensure we match '/parent' as a path segment boundary of '/parent/child'
-            if (normCurrent.startsWith(parent + '/')) {
+            if (normCurrent.startsWith(parent.toLowerCase() + '/')) {
                 return false;
             }
         }
 
         // Find if a parent segment is explicitly configured to be visible
         for (const parent of sortedVisible) {
-            if (normCurrent.startsWith(parent + '/')) {
+            if (normCurrent.startsWith(parent.toLowerCase() + '/')) {
                 return true;
             }
         }

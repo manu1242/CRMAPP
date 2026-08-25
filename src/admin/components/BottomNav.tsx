@@ -7,10 +7,15 @@ import { getAdminTheme } from '../../theme/adminTheme';
 import { useUpdateStore } from '../../hooks/useUpdateStore';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { NotificationService } from '../../Services/NotificationService';
+import { useAuthStore } from '../../auth/store/authStore';
 
 interface BottomNavProps {
   active: 'dashboard' | 'users' | 'settings' | 'profile';
 }
+
+const TAB_KEYS = ['dashboard', 'users', 'settings', 'profile'] as const;
+const PILL_WIDTH = 50;
+const PILL_HEIGHT = 38;
 
 const BottomNav = React.memo(({ active }: BottomNavProps) => {
   const router = useRouter();
@@ -35,36 +40,65 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
   const activeColor = adminTheme.brand;
   const inactiveColor = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.45)';
 
-  const navigateToDashboard = useCallback(() => router.replace('/admin/dashboard' as any), [router]);
+  // Background pill color — subtle tint of the brand color
+  const pillBg = isDark
+    ? `${adminTheme.brand}50`   // ~19% opacity in dark
+    : `${adminTheme.brand}30`;  // ~12% opacity in light
+
+  const user = useAuthStore((state) => state.user);
+  const role = user?.role?.trim()?.toLowerCase() || '';
+
+  const visibleTabs = useMemo(() => {
+    if (role === 'admin') {
+      return ['dashboard', 'users', 'settings', 'profile'];
+    } else {
+      // Hide users/settings for partners, agents and sales
+      return ['dashboard', 'profile'];
+    }
+  }, [role]);
+
+  const navigateToDashboard = useCallback(() => {
+    if (role === 'partner') {
+      router.replace('/admin/PartnerDashboard' as any);
+    } else {
+      router.replace('/admin/dashboard' as any);
+    }
+  }, [router, role]);
+
   const navigateToUsers = useCallback(() => router.replace('/admin/users' as any), [router]);
   const navigateToSettings = useCallback(() => router.replace('/admin/settings' as any), [router]);
   const navigateToProfile = useCallback(() => router.replace('/profile' as any), [router]);
 
   const [containerWidth, setContainerWidth] = useState(0);
+  const isFirstRender = React.useRef(true);
+
+  // translateX for the sliding background pill
   const translateX = useSharedValue(0);
 
   useEffect(() => {
-    const index = ['dashboard', 'users', 'settings', 'profile'].indexOf(active);
+    const index = visibleTabs.indexOf(active);
     if (index !== -1 && containerWidth > 0) {
-      const tabWidth = (containerWidth - 24) / 4;
-      translateX.value = withSpring(index * tabWidth + tabWidth / 2 - 7, {
-        damping: 18,
-        stiffness: 150,
-      });
+      // Each tab occupies equal space; center the pill on the icon
+      const tabWidth = containerWidth / visibleTabs.length;
+      const centeredX = index * tabWidth + tabWidth / 2 - PILL_WIDTH / 2;
+
+      if (isFirstRender.current) {
+        translateX.value = centeredX;
+        isFirstRender.current = false;
+      } else {
+        // Smooth sliding transition
+        translateX.value = withSpring(centeredX, {
+          damping: 35,
+          stiffness: 180,
+        });
+      }
     }
-  }, [active, containerWidth]);
+  }, [active, containerWidth, visibleTabs]);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: translateX.value }],
-    };
-  });
+  const pillAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
-  // NOTE: The parent SafeAreaView in _layout.tsx already uses edges={['bottom']},
-  // which means the layout container is already padded above the system nav bar.
-  // BottomNav's `position: absolute` bottom is relative to that safe container.
-  // DO NOT use insets.bottom here — it would double-count the safe area causing a gap.
-  // Just use a small visual offset so the pill floats slightly above the container edge.
   const containerStyle = useMemo(
     () => [
       styles.container,
@@ -85,51 +119,51 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
           style={styles.content}
           onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
         >
-          {/* Sliding Indicator */}
-          {containerWidth > 0 && (
+          {/* Sliding background pill */}
+          {containerWidth > 0 && visibleTabs.includes(active) && (
             <Animated.View
               style={[
-                styles.indicator,
-                {
-                  position: 'absolute',
-                  bottom: 4,
-                  left: 12,
-                  backgroundColor: activeColor,
-                },
-                animatedStyle,
+                styles.slidingPill,
+                { backgroundColor: pillBg },
+                pillAnimatedStyle,
               ]}
+              pointerEvents="none"
             />
           )}
 
           {/* Dashboard */}
-          <TouchableOpacity onPress={navigateToDashboard} style={styles.tabButton} activeOpacity={0.7}>
-            <LayoutDashboard size={22} color={active === 'dashboard' ? activeColor : inactiveColor} />
-            <View style={styles.indicatorDummy} />
-          </TouchableOpacity>
+          {visibleTabs.includes('dashboard') && (
+            <TouchableOpacity onPress={navigateToDashboard} style={styles.tabButton} activeOpacity={0.7}>
+              <LayoutDashboard size={22} color={active === 'dashboard' ? activeColor : inactiveColor} />
+            </TouchableOpacity>
+          )}
 
           {/* Users */}
-          <TouchableOpacity onPress={navigateToUsers} style={styles.tabButton} activeOpacity={0.7}>
-            <Users size={22} color={active === 'users' ? activeColor : inactiveColor} />
-            <View style={styles.indicatorDummy} />
-          </TouchableOpacity>
+          {visibleTabs.includes('users') && (
+            <TouchableOpacity onPress={navigateToUsers} style={styles.tabButton} activeOpacity={0.7}>
+              <Users size={22} color={active === 'users' ? activeColor : inactiveColor} />
+            </TouchableOpacity>
+          )}
 
           {/* Settings */}
-          <TouchableOpacity onPress={navigateToSettings} style={styles.tabButton} activeOpacity={0.7}>
-            <View style={styles.iconWrapper}>
-              <Settings size={22} color={active === 'settings' ? activeColor : inactiveColor} />
-              {isUpdateAvailable && <View style={styles.updateDot} />}
-            </View>
-            <View style={styles.indicatorDummy} />
-          </TouchableOpacity>
+          {visibleTabs.includes('settings') && (
+            <TouchableOpacity onPress={navigateToSettings} style={styles.tabButton} activeOpacity={0.7}>
+              <View style={styles.iconWrapper}>
+                <Settings size={22} color={active === 'settings' ? activeColor : inactiveColor} />
+                {isUpdateAvailable && <View style={styles.updateDot} />}
+              </View>
+            </TouchableOpacity>
+          )}
 
           {/* Profile */}
-          <TouchableOpacity onPress={navigateToProfile} style={styles.tabButton} activeOpacity={0.7}>
-            <View style={styles.iconWrapper}>
-              <User size={22} color={active === 'profile' ? activeColor : inactiveColor} />
-              {unreadCount > 0 && <View style={styles.notificationDot} />}
-            </View>
-            <View style={styles.indicatorDummy} />
-          </TouchableOpacity>
+          {visibleTabs.includes('profile') && (
+            <TouchableOpacity onPress={navigateToProfile} style={styles.tabButton} activeOpacity={0.7}>
+              <View style={styles.iconWrapper}>
+                <User size={22} color={active === 'profile' ? activeColor : inactiveColor} />
+                {unreadCount > 0 && <View style={styles.notificationDot} />}
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>
@@ -158,19 +192,25 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-around',
     alignItems: 'center',
-    paddingHorizontal: 12,
   },
   tabButton: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
     height: '100%',
-    paddingTop: 8,
   },
   iconWrapper: {
     position: 'relative',
+  },
+  slidingPill: {
+    position: 'absolute',
+    width: PILL_WIDTH,
+    height: PILL_HEIGHT,
+    borderRadius: PILL_HEIGHT / 2,
+    top: '50%',
+    marginTop: -(PILL_HEIGHT / 2),
+    left: 0,
   },
   updateDot: {
     position: 'absolute',
@@ -191,17 +231,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#ef4444',
-  },
-  indicator: {
-    width: 14,
-    height: 4,
-    borderRadius: 2,
-  },
-  indicatorDummy: {
-    width: 14,
-    height: 4,
-    marginTop: 6,
-    marginBottom: 4,
   },
 });
 

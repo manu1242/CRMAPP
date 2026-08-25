@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     View,
     Text,
@@ -12,7 +12,11 @@ import {
     Alert,
     Platform,
     KeyboardAvoidingView,
+    Animated,
+    FlatList,
+    Pressable,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import {
     ChevronLeft,
@@ -35,6 +39,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
+import Toast from 'react-native-toast-message';
 import {
     useExpenses,
     useRecordExpense,
@@ -96,6 +101,34 @@ export default function ExpensesScreen() {
     // Inline Filter Dropdowns Toggle
     const [isCategoryFilterOpen, setCategoryFilterOpen] = useState(false);
     const [isDateDropdownOpen, setDateDropdownOpen] = useState(false);
+
+    const scrollY = useRef(new Animated.Value(0)).current;
+    const [stickyHeaderHeight, setStickyHeaderHeight] = useState(70);
+    const scrollViewRef = useRef<any>(null);
+
+    const FILTER_HEIGHT = dateRangeType === 'Custom Range' ? 180 : 130;
+    const METRICS_HEIGHT = 120;
+    const headerHeight = FILTER_HEIGHT + METRICS_HEIGHT;
+
+    const activeScrollY = useMemo(() => {
+        return scrollY.interpolate({
+            inputRange: [0, 1000000],
+            outputRange: [0, 1000000],
+            extrapolate: 'clamp',
+        });
+    }, [scrollY]);
+
+    const clampedScroll = useMemo(() => {
+        return Animated.diffClamp(activeScrollY, 0, headerHeight || 1);
+    }, [activeScrollY, headerHeight]);
+
+    const translateY = useMemo(() => {
+        return clampedScroll.interpolate({
+            inputRange: [0, headerHeight || 1],
+            outputRange: [0, -(headerHeight || 1)],
+            extrapolate: 'clamp',
+        });
+    }, [clampedScroll, headerHeight]);
 
     // Queries
     const {
@@ -171,15 +204,15 @@ export default function ExpensesScreen() {
     const handleRecordExpense = () => {
         const amt = parseFloat(formAmount);
         if (isNaN(amt) || amt <= 0) {
-            Alert.alert('Validation Error', 'Please enter a valid positive Amount.');
+            Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please enter a valid positive Amount.' });
             return;
         }
         if (!formDate) {
-            Alert.alert('Validation Error', 'Please specify the expense Date.');
+            Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please specify the expense Date.' });
             return;
         }
         if (!formDescription.trim()) {
-            Alert.alert('Validation Error', 'Please enter a Description.');
+            Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please enter a Description.' });
             return;
         }
 
@@ -192,14 +225,14 @@ export default function ExpensesScreen() {
 
         recordExpenseMutation.mutate(payload, {
             onSuccess: (res) => {
-                Alert.alert('Success', res.message || 'Expense recorded successfully!');
+                Toast.show({ type: 'success', text1: 'Success', text2: res.message || 'Expense recorded successfully!' });
                 setFormModalOpen(false);
                 resetForm();
                 refetchList();
             },
             onError: (err: any) => {
                 const msg = err.response?.data?.message || err.message || 'Failed to record expense.';
-                Alert.alert('Error', msg);
+                Toast.show({ type: 'error', text1: 'Error', text2: msg });
             },
         });
     };
@@ -210,15 +243,15 @@ export default function ExpensesScreen() {
         if (!selectedExpense) return;
         const amt = parseFloat(formAmount);
         if (isNaN(amt) || amt <= 0) {
-            Alert.alert('Validation Error', 'Please enter a valid positive Amount.');
+            Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please enter a valid positive Amount.' });
             return;
         }
         if (!formDate) {
-            Alert.alert('Validation Error', 'Please specify the expense Date.');
+            Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please specify the expense Date.' });
             return;
         }
         if (!formDescription.trim()) {
-            Alert.alert('Validation Error', 'Please enter a Description.');
+            Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please enter a Description.' });
             return;
         }
 
@@ -231,7 +264,7 @@ export default function ExpensesScreen() {
 
         updateExpenseMutation.mutate(payload, {
             onSuccess: (res) => {
-                Alert.alert('Success', res.message || 'Expense updated successfully!');
+                Toast.show({ type: 'success', text1: 'Success', text2: res.message || 'Expense updated successfully!' });
                 setFormModalOpen(false);
                 resetForm();
                 setDetailModalOpen(false);
@@ -240,7 +273,7 @@ export default function ExpensesScreen() {
             },
             onError: (err: any) => {
                 const msg = err.response?.data?.message || err.message || 'Failed to update expense.';
-                Alert.alert('Error', msg);
+                Toast.show({ type: 'error', text1: 'Error', text2: msg });
             },
         });
     };
@@ -257,13 +290,13 @@ export default function ExpensesScreen() {
                     onPress: () => {
                         deleteExpenseMutation.mutate(id, {
                             onSuccess: () => {
-                                Alert.alert('Success', 'Expense deleted successfully.');
+                                Toast.show({ type: 'success', text1: 'Success', text2: 'Expense deleted successfully.' });
                                 setDetailModalOpen(false);
                                 setSelectedExpense(null);
                                 refetchList();
                             },
                             onError: (err: any) => {
-                                Alert.alert('Error', err.message || 'Failed to delete expense.');
+                                Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Failed to delete expense.' });
                             },
                         });
                     },
@@ -300,27 +333,192 @@ export default function ExpensesScreen() {
     return (
         <View style={[styles.container, { backgroundColor: theme.primaryBg }]}>
 
-            {/* HEADER SECTION */}
-            {/* <View style={[styles.headerRow, { borderBottomColor: theme.border, backgroundColor: theme.secondaryBg }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
-            <ChevronLeft size={24} color={theme.textPrimary} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Expenses Tracker</Text>
-        </View>
-        
-      </View> */}
+            {/* Sticky Top Header & Search Container */}
+            <View
+                onLayout={(e) => setStickyHeaderHeight(e.nativeEvent.layout.height)}
+                style={{
+                    backgroundColor: theme.primaryBg,
+                    zIndex: 10,
+                    borderBottomWidth: 1,
+                    borderBottomColor: theme.border,
+                    paddingTop: 12,
+                    paddingBottom: 8,
+                }}>
+                {/* Search & Create Row */}
+                <View style={{ paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={[styles.inlineSearchBox, { flex: 1, backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+                        <Search size={16} color={theme.textSecondary} />
+                        <TextInput
+                            style={[styles.inlineSearchInput, { color: theme.textPrimary }]}
+                            placeholder="Search anything..."
+                            placeholderTextColor={theme.textMuted}
+                            value={searchInput}
+                            onChangeText={setSearchInput}
+                            onSubmitEditing={handleSearchSubmit}
+                        />
+                        {searchInput ? (
+                            <TouchableOpacity onPress={() => { setSearchInput(''); setSearchQuery(''); setPage(1); }}>
+                                <X size={16} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
+                    <TouchableOpacity
+                        onPress={openAddForm}
+                        style={[styles.createBtn, { backgroundColor: theme.brand, height: 38, width: 38 }]}
+                    >
+                        <Plus size={20} color="#ffffff" />
+                    </TouchableOpacity>
+                </View>
+            </View>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetchList} />}
-            >
+            {/* Animating Header (Filters & Metrics) */}
+            <Animated.View style={{
+                position: 'absolute',
+                top: stickyHeaderHeight,
+                left: 0,
+                right: 0,
+                zIndex: 9,
+                backgroundColor: theme.primaryBg,
+                transform: [{ translateY }],
+                height: headerHeight,
+                overflow: 'hidden',
+                borderBottomWidth: 1,
+                borderBottomColor: theme.border,
+            }}>
+                {/* Filter Card Body */}
+                <View style={{ paddingHorizontal: 16, paddingTop: 10, gap: 10 }}>
+                    {/* Category & Date range Row */}
+                    <View style={{ flexDirection: 'row', gap: 10, zIndex: 100 }}>
+                        {/* Category Dropdown */}
+                        <View style={{ flex: 1, zIndex: 120 }}>
+                            <Text style={[styles.fieldHeaderLabel, { color: theme.textSecondary, marginBottom: 4 }]}>CATEGORY TYPE</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setCategoryFilterOpen(!isCategoryFilterOpen);
+                                    setDateDropdownOpen(false);
+                                }}
+                                style={[styles.inlineSelectBox, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
+                            >
+                                <Text style={{ color: theme.textPrimary, fontSize: 13 }} numberOfLines={1}>
+                                    {selectedCategory === 'All' ? 'All Types' : getCategoryDetails(selectedCategory).label}
+                                </Text>
+                                <ChevronDown size={14} color={theme.textSecondary} />
+                            </TouchableOpacity>
+
+                            {isCategoryFilterOpen && (
+                                <View style={[styles.inlineDropdownList, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+                                    <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                setSelectedCategory('All');
+                                                setCategoryFilterOpen(false);
+                                                setPage(1);
+                                            }}
+                                            style={styles.dropdownOptionRow}
+                                        >
+                                            <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: selectedCategory === 'All' ? '700' : '400' }}>
+                                                All Types
+                                            </Text>
+                                        </TouchableOpacity>
+                                        {EXPENSE_CATEGORIES.map((cat) => (
+                                            <TouchableOpacity
+                                                key={cat.value}
+                                                onPress={() => {
+                                                    setSelectedCategory(cat.value);
+                                                    setCategoryFilterOpen(false);
+                                                    setPage(1);
+                                                }}
+                                                style={styles.dropdownOptionRow}
+                                            >
+                                                <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: selectedCategory === cat.value ? '700' : '400' }}>
+                                                    {cat.label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Date Range Dropdown */}
+                        <View style={{ flex: 1, zIndex: 110 }}>
+                            <Text style={[styles.fieldHeaderLabel, { color: theme.textSecondary, marginBottom: 4 }]}>DATE RANGE</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setDateDropdownOpen(!isDateDropdownOpen);
+                                    setCategoryFilterOpen(false);
+                                }}
+                                style={[styles.inlineSelectBox, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
+                            >
+                                <Text style={{ color: theme.textPrimary, fontSize: 13 }} numberOfLines={1}>
+                                    {dateRangeType}
+                                </Text>
+                                <ChevronDown size={14} color={theme.textSecondary} />
+                            </TouchableOpacity>
+
+                            {isDateDropdownOpen && (
+                                <View style={[styles.inlineDropdownList, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+                                    {['All Time', 'This Month', 'Last Month', 'Custom Range'].map((range) => (
+                                        <TouchableOpacity
+                                            key={range}
+                                            onPress={() => applyDateRangeType(range)}
+                                            style={styles.dropdownOptionRow}
+                                        >
+                                            <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: dateRangeType === range ? '700' : '400' }}>
+                                                {range}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Custom Dates Inputs */}
+                    {dateRangeType === 'Custom Range' && (
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textSecondary }}>FROM DATE</Text>
+                                <TextInput
+                                    style={[styles.dateInput, { backgroundColor: theme.secondaryBg, borderColor: theme.border, color: theme.textPrimary }]}
+                                    placeholder="YYYY-MM-DD"
+                                    placeholderTextColor={theme.textMuted}
+                                    value={fromDate}
+                                    onChangeText={(val) => { setFromDate(val); setPage(1); }}
+                                />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textSecondary }}>TO DATE</Text>
+                                <TextInput
+                                    style={[styles.dateInput, { backgroundColor: theme.secondaryBg, borderColor: theme.border, color: theme.textPrimary }]}
+                                    placeholder="YYYY-MM-DD"
+                                    placeholderTextColor={theme.textMuted}
+                                    value={toDate}
+                                    onChangeText={(val) => { setToDate(val); setPage(1); }}
+                                />
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Export Excel Row */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-start' }}>
+                        <TouchableOpacity
+                            onPress={() => {
+                                Toast.show({ type: 'success', text1: 'Excel Export', text2: 'Expenses sheet exported to Excel successfully!' });
+                            }}
+                            style={[styles.exportExcelBtn, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
+                        >
+                            <FileSpreadsheet size={16} color="#2563eb" />
+                            <Text style={[styles.exportExcelText, { color: '#2563eb' }]}>Export Excel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
 
                 {/* METRICS ROW */}
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}
+                    contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4, gap: 10 }}
                 >
                     {/* Total Expenses */}
                     <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
@@ -355,246 +553,92 @@ export default function ExpensesScreen() {
                         </Text>
                     </View>
                 </ScrollView>
+            </Animated.View>
 
-                {/* SEARCH & FILTERS CONTAINER - MATCHING THE USER'S ATTACHED SCREENSHOT */}
-                <View style={[styles.filterBarCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-
-                    <View style={{ gap: 10 }}>
-                        {/* Search Input and Plus Button row */}
-                        <View>
-                            <Text style={[styles.fieldHeaderLabel, { color: theme.textSecondary }]}>SEARCH</Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                <View style={[styles.inlineSearchBox, { flex: 1, backgroundColor: theme.inputBg, borderColor: theme.border }]}>
-                                    <TextInput
-                                        style={[styles.inlineSearchInput, { color: theme.textPrimary }]}
-                                        placeholder="Search anything..."
-                                        placeholderTextColor={theme.textMuted}
-                                        value={searchInput}
-                                        onChangeText={setSearchInput}
-                                        onSubmitEditing={handleSearchSubmit}
-                                    />
-                                    {searchInput ? (
-                                        <TouchableOpacity onPress={() => { setSearchInput(''); setSearchQuery(''); setPage(1); }}>
-                                            <X size={16} color={theme.textSecondary} />
-                                        </TouchableOpacity>
-                                    ) : null}
-                                </View>
-                                <TouchableOpacity
-                                    onPress={openAddForm}
-                                    style={[styles.createBtn, { backgroundColor: theme.brand, height: 38, width: 38 }]}
-                                >
-                                    <Plus size={20} color="#ffffff" />
-                                </TouchableOpacity>
-                            </View>
+            {/* EXPENSE LIST SECTION */}
+            {isLoading ? (
+                <View style={{ flex: 1, paddingVertical: 60, alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator size="large" color={theme.brand} />
+                    <Text style={{ color: theme.textSecondary, marginTop: 12 }}>Loading expenses list...</Text>
+                </View>
+            ) : (
+                <Animated.FlatList
+                    ref={scrollViewRef}
+                    data={expenseItems}
+                    keyExtractor={(item) => item.expenseId.toString()}
+                    contentContainerStyle={{
+                        paddingTop: headerHeight + 16,
+                        paddingBottom: 120,
+                        paddingHorizontal: 16,
+                    }}
+                    ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                    ListHeaderComponent={() => (
+                        <View style={[styles.sectionHeaderRow, { marginHorizontal: 0, marginBottom: 10 }]}>
+                            <Text style={[styles.sectionHeaderText, { color: theme.textSecondary }]}>RECENT EXPENSES</Text>
                         </View>
-
-                        {/* Category & Date range Row */}
-                        <View style={{ flexDirection: 'row', gap: 10, zIndex: 100 }}>
-
-                            {/* Category Dropdown */}
-                            <View style={{ flex: 1, zIndex: 120 }}>
-                                <Text style={[styles.fieldHeaderLabel, { color: theme.textSecondary }]}>CATEGORY TYPE</Text>
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        setCategoryFilterOpen(!isCategoryFilterOpen);
-                                        setDateDropdownOpen(false);
-                                    }}
-                                    style={[styles.inlineSelectBox, { backgroundColor: theme.inputBg, borderColor: theme.border }]}
-                                >
-                                    <Text style={{ color: theme.textPrimary, fontSize: 13 }} numberOfLines={1}>
-                                        {selectedCategory === 'All' ? 'All Types' : getCategoryDetails(selectedCategory).label}
-                                    </Text>
-                                    <ChevronDown size={14} color={theme.textSecondary} />
-                                </TouchableOpacity>
-
-                                {isCategoryFilterOpen && (
-                                    <View style={[styles.inlineDropdownList, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-                                        <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    setSelectedCategory('All');
-                                                    setCategoryFilterOpen(false);
-                                                    setPage(1);
-                                                }}
-                                                style={styles.dropdownOptionRow}
-                                            >
-                                                <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: selectedCategory === 'All' ? '700' : '400' }}>
-                                                    All Types
-                                                </Text>
-                                            </TouchableOpacity>
-                                            {EXPENSE_CATEGORIES.map((cat) => (
-                                                <TouchableOpacity
-                                                    key={cat.value}
-                                                    onPress={() => {
-                                                        setSelectedCategory(cat.value);
-                                                        setCategoryFilterOpen(false);
-                                                        setPage(1);
-                                                    }}
-                                                    style={styles.dropdownOptionRow}
-                                                >
-                                                    <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: selectedCategory === cat.value ? '700' : '400' }}>
-                                                        {cat.label}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </ScrollView>
-                                    </View>
-                                )}
-                            </View>
-
-                            {/* Date Range Dropdown */}
-                            <View style={{ flex: 1, zIndex: 110 }}>
-                                <Text style={[styles.fieldHeaderLabel, { color: theme.textSecondary }]}>DATE RANGE</Text>
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        setDateDropdownOpen(!isDateDropdownOpen);
-                                        setCategoryFilterOpen(false);
-                                    }}
-                                    style={[styles.inlineSelectBox, { backgroundColor: theme.inputBg, borderColor: theme.border }]}
-                                >
-                                    <Text style={{ color: theme.textPrimary, fontSize: 13 }} numberOfLines={1}>
-                                        {dateRangeType}
-                                    </Text>
-                                    <ChevronDown size={14} color={theme.textSecondary} />
-                                </TouchableOpacity>
-
-                                {isDateDropdownOpen && (
-                                    <View style={[styles.inlineDropdownList, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-                                        {['All Time', 'This Month', 'Last Month', 'Custom Range'].map((range) => (
-                                            <TouchableOpacity
-                                                key={range}
-                                                onPress={() => applyDateRangeType(range)}
-                                                style={styles.dropdownOptionRow}
-                                            >
-                                                <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: dateRangeType === range ? '700' : '400' }}>
-                                                    {range}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                )}
-                            </View>
-                        </View>
-
-                        {/* Custom Dates Inputs */}
-                        {dateRangeType === 'Custom Range' && (
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textSecondary }}>FROM DATE</Text>
-                                    <TextInput
-                                        style={[styles.dateInput, { backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.textPrimary }]}
-                                        placeholder="YYYY-MM-DD"
-                                        placeholderTextColor={theme.textMuted}
-                                        value={fromDate}
-                                        onChangeText={(val) => { setFromDate(val); setPage(1); }}
-                                    />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textSecondary }}>TO DATE</Text>
-                                    <TextInput
-                                        style={[styles.dateInput, { backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.textPrimary }]}
-                                        placeholder="YYYY-MM-DD"
-                                        placeholderTextColor={theme.textMuted}
-                                        value={toDate}
-                                        onChangeText={(val) => { setToDate(val); setPage(1); }}
-                                    />
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Export Excel Row */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'flex-start', marginTop: 4 }}>
+                    )}
+                    renderItem={({ item }) => {
+                        const catDetails = getCategoryDetails(item.type);
+                        return (
                             <TouchableOpacity
                                 onPress={() => {
-                                    Alert.alert('Excel Export', 'Expenses sheet exported to Excel successfully!');
+                                    setSelectedExpense(item);
+                                    setDetailModalOpen(true);
                                 }}
-                                style={[styles.exportExcelBtn, { backgroundColor: theme.inputBg, borderColor: theme.border }]}
+                                style={[styles.expenseCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border, borderLeftColor: catDetails.color }]}
                             >
-                                <FileSpreadsheet size={16} color="#2563eb" />
-                                <Text style={[styles.exportExcelText, { color: '#2563eb' }]}>Export Excel</Text>
-                            </TouchableOpacity>
-                        </View>
+                                {/* Left Column details */}
+                                <View style={{ flex: 1.3, gap: 5 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <FileText size={14} color="#2563eb" />
+                                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#1e3a8a' }}>
+                                            {item.type}
+                                        </Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <Calendar size={14} color={theme.textSecondary} />
+                                        <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                                            {formatDate(item.date)}
+                                        </Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <MessageSquare size={14} color={theme.textSecondary} />
+                                        <Text style={{ fontSize: 12, color: theme.textSecondary }} numberOfLines={1}>
+                                            {item.description}
+                                        </Text>
+                                    </View>
+                                </View>
 
-                    </View>
-                </View>
-
-                {/* SECTION DIVIDER */}
-                <View style={styles.sectionHeaderRow}>
-                    <Text style={[styles.sectionHeaderText, { color: theme.textSecondary }]}>RECENT EXPENSES</Text>
-                    <View style={[styles.sectionHeaderLine, { backgroundColor: theme.border }]} />
-                </View>
-
-                {/* EXPENSE LIST SECTION */}
-                <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
-                    {isLoading ? (
-                        <View style={{ padding: 40, alignItems: 'center' }}>
-                            <ActivityIndicator size="large" color={theme.brand} />
-                            <Text style={{ color: theme.textSecondary, marginTop: 12 }}>Loading expenses list...</Text>
-                        </View>
-                    ) : expenseItems.length > 0 ? (
-                        <View style={{ gap: 10 }}>
-                            {expenseItems.map((item) => {
-                                const catDetails = getCategoryDetails(item.type);
-                                return (
+                                {/* Right Column details */}
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                    <View style={{ alignItems: 'flex-end', marginRight: 4 }}>
+                                        <Text style={{ fontSize: 8, fontWeight: '700', color: theme.textMuted }}>AMOUNT</Text>
+                                        <Text style={{ fontSize: 16, fontWeight: '800', color: '#1e3a8a', marginTop: 2 }}>
+                                            {formatCurrency(item.amount)}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.catBadge, { backgroundColor: catDetails.bgColor }]}>
+                                        <Text style={{ fontSize: 10, fontWeight: '700', color: catDetails.color }}>
+                                            {catDetails.value}
+                                        </Text>
+                                    </View>
                                     <TouchableOpacity
-                                        key={item.expenseId}
                                         onPress={() => {
                                             setSelectedExpense(item);
                                             setDetailModalOpen(true);
                                         }}
-                                        style={[styles.expenseCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border, borderLeftColor: catDetails.color }]}
+                                        style={[styles.optionsCircle, { backgroundColor: theme.inputBg }]}
                                     >
-                                        {/* Left Column details */}
-                                        <View style={{ flex: 1.3, gap: 5 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                                <FileText size={14} color="#2563eb" />
-                                                <Text style={{ fontSize: 13, fontWeight: '700', color: '#1e3a8a' }}>
-                                                    {item.type}
-                                                </Text>
-                                            </View>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                                <Calendar size={14} color={theme.textSecondary} />
-                                                <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-                                                    {formatDate(item.date)}
-                                                </Text>
-                                            </View>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                                <MessageSquare size={14} color={theme.textSecondary} />
-                                                <Text style={{ fontSize: 12, color: theme.textSecondary }} numberOfLines={1}>
-                                                    {item.description}
-                                                </Text>
-                                            </View>
-                                        </View>
-
-                                        {/* Right Column details */}
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                            <View style={{ alignItems: 'flex-end', marginRight: 4 }}>
-                                                <Text style={{ fontSize: 8, fontWeight: '700', color: theme.textMuted }}>AMOUNT</Text>
-                                                <Text style={{ fontSize: 16, fontWeight: '800', color: '#1e3a8a', marginTop: 2 }}>
-                                                    {formatCurrency(item.amount)}
-                                                </Text>
-                                            </View>
-                                            <View style={[styles.catBadge, { backgroundColor: catDetails.bgColor }]}>
-                                                <Text style={{ fontSize: 10, fontWeight: '700', color: catDetails.color }}>
-                                                    {catDetails.value}
-                                                </Text>
-                                            </View>
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    setSelectedExpense(item);
-                                                    setDetailModalOpen(true);
-                                                }}
-                                                style={[styles.optionsCircle, { backgroundColor: theme.inputBg }]}
-                                            >
-                                                <MoreVertical size={15} color={theme.textSecondary} />
-                                            </TouchableOpacity>
-                                        </View>
+                                        <MoreVertical size={15} color={theme.textSecondary} />
                                     </TouchableOpacity>
-                                );
-                            })}
-
-                            {/* PAGINATION SECTION */}
-                            <View style={[styles.paginationRow, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    }}
+                    ListFooterComponent={() => {
+                        if (expenseItems.length === 0) return null;
+                        return (
+                            <View style={[styles.paginationRow, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 12 }]}>
                                 <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
                                     Showing {totalCount > 0 ? (page - 1) * pageSize + 1 : 0}-{Math.min(page * pageSize, totalCount)} of {totalCount} expenses
                                 </Text>
@@ -615,8 +659,9 @@ export default function ExpensesScreen() {
                                     </TouchableOpacity>
                                 </View>
                             </View>
-                        </View>
-                    ) : (
+                        );
+                    }}
+                    ListEmptyComponent={() => (
                         <View style={[styles.emptyContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
                             <AlertCircle size={32} color={theme.textMuted} style={{ marginBottom: 8 }} />
                             <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No expenses found</Text>
@@ -625,268 +670,291 @@ export default function ExpensesScreen() {
                             </Text>
                         </View>
                     )}
-                </View>
-
-            </ScrollView>
+                    onScroll={Animated.event(
+                        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                        { useNativeDriver: true }
+                    )}
+                    scrollEventThrottle={16}
+                    refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetchList} />}
+                />
+            )}
 
             {/* DETAIL MODAL */}
-            <Modal visible={isDetailModalOpen} transparent animationType="slide" onRequestClose={() => setDetailModalOpen(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.detailModalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+            <Modal visible={isDetailModalOpen} transparent animationType="fade" onRequestClose={() => setDetailModalOpen(false)}>
+                <View style={{ flex: 1 }}>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={() => setDetailModalOpen(false)}>
+                        <BlurView
+                            intensity={15}
+                            tint={isDark ? 'dark' : 'light'}
+                            style={StyleSheet.absoluteFill}
+                        />
+                    </Pressable>
+                    <View style={styles.modalOverlay}>
+                        <View style={[styles.detailModalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
 
-                        {/* Header */}
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Expense Details</Text>
-                            <TouchableOpacity onPress={() => setDetailModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
-                                <X size={18} color={theme.textPrimary} />
-                            </TouchableOpacity>
-                        </View>
+                            {/* Header */}
+                            <View style={styles.modalHeader}>
+                                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Expense Details</Text>
+                                <TouchableOpacity onPress={() => setDetailModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
+                                    <X size={18} color={theme.textPrimary} />
+                                </TouchableOpacity>
+                            </View>
 
-                        {selectedExpense ? (
-                            <ScrollView showsVerticalScrollIndicator={false}>
+                            {selectedExpense ? (
+                                <ScrollView showsVerticalScrollIndicator={false}>
 
-                                {/* Summary Box */}
-                                <View style={{ backgroundColor: theme.inputBg, padding: 16, borderRadius: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.border, alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, marginBottom: 4 }}>EXPENSE AMOUNT</Text>
-                                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#ef4444' }}>
-                                        {formatCurrency(selectedExpense.amount)}
-                                    </Text>
-                                </View>
-
-                                {/* Grid Fields */}
-                                <View style={{ gap: 10, marginBottom: 16 }}>
-
-                                    {/* Category Field */}
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border }}>
-                                        <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Category</Text>
-                                        <View style={[styles.catBadge, { backgroundColor: getCategoryDetails(selectedExpense.type).bgColor }]}>
-                                            <Text style={{ fontSize: 11, fontWeight: '700', color: getCategoryDetails(selectedExpense.type).color }}>
-                                                {getCategoryDetails(selectedExpense.type).label}
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    {/* Date Field */}
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border }}>
-                                        <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Date</Text>
-                                        <Text style={{ color: theme.textPrimary, fontSize: 13, fontWeight: '600' }}>
-                                            {formatDate(selectedExpense.date)}
+                                    {/* Summary Box */}
+                                    <View style={{ backgroundColor: theme.inputBg, padding: 16, borderRadius: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.border, alignItems: 'center' }}>
+                                        <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, marginBottom: 4 }}>EXPENSE AMOUNT</Text>
+                                        <Text style={{ fontSize: 24, fontWeight: '800', color: '#ef4444' }}>
+                                            {formatCurrency(selectedExpense.amount)}
                                         </Text>
                                     </View>
 
-                                    {/* Description Box */}
-                                    <View style={{ gap: 6, marginTop: 4 }}>
-                                        <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Description</Text>
-                                        <View style={{ backgroundColor: theme.inputBg, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.border }}>
-                                            <Text style={{ color: theme.textPrimary, fontSize: 13, lineHeight: 18 }}>
-                                                {selectedExpense.description}
+                                    {/* Grid Fields */}
+                                    <View style={{ gap: 10, marginBottom: 16 }}>
+
+                                        {/* Category Field */}
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                                            <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Category</Text>
+                                            <View style={[styles.catBadge, { backgroundColor: getCategoryDetails(selectedExpense.type).bgColor }]}>
+                                                <Text style={{ fontSize: 11, fontWeight: '700', color: getCategoryDetails(selectedExpense.type).color }}>
+                                                    {getCategoryDetails(selectedExpense.type).label}
+                                                </Text>
+                                            </View>
+                                        </View>
+
+                                        {/* Date Field */}
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                                            <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Date</Text>
+                                            <Text style={{ color: theme.textPrimary, fontSize: 13, fontWeight: '600' }}>
+                                                {formatDate(selectedExpense.date)}
                                             </Text>
                                         </View>
+
+                                        {/* Description Box */}
+                                        <View style={{ gap: 6, marginTop: 4 }}>
+                                            <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Description</Text>
+                                            <View style={{ backgroundColor: theme.inputBg, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.border }}>
+                                                <Text style={{ color: theme.textPrimary, fontSize: 13, lineHeight: 18 }}>
+                                                    {selectedExpense.description}
+                                                </Text>
+                                            </View>
+                                        </View>
                                     </View>
-                                </View>
 
-                                {/* Actions Grid */}
-                                <View style={{ flexDirection: 'row', gap: 10, marginVertical: 16 }}>
-                                    <TouchableOpacity
-                                        onPress={openEditForm}
-                                        style={{
-                                            flex: 1,
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            backgroundColor: theme.inputBg,
-                                            borderWidth: 1,
-                                            borderColor: theme.border,
-                                            paddingVertical: 12,
-                                            borderRadius: 10,
-                                            gap: 6
-                                        }}
-                                    >
-                                        <Edit size={16} color={theme.textPrimary} />
-                                        <Text style={{ color: theme.textPrimary, fontWeight: '700', fontSize: 13 }}>Edit</Text>
-                                    </TouchableOpacity>
+                                    {/* Actions Grid */}
+                                    <View style={{ flexDirection: 'row', gap: 10, marginVertical: 16 }}>
+                                        <TouchableOpacity
+                                            onPress={openEditForm}
+                                            style={{
+                                                flex: 1,
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                backgroundColor: theme.inputBg,
+                                                borderWidth: 1,
+                                                borderColor: theme.border,
+                                                paddingVertical: 12,
+                                                borderRadius: 10,
+                                                gap: 6
+                                            }}
+                                        >
+                                            <Edit size={16} color={theme.textPrimary} />
+                                            <Text style={{ color: theme.textPrimary, fontWeight: '700', fontSize: 13 }}>Edit</Text>
+                                        </TouchableOpacity>
 
-                                    <TouchableOpacity
-                                        onPress={() => handleDeleteExpense(selectedExpense.expenseId)}
-                                        style={{
-                                            flex: 1,
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            backgroundColor: '#fee2e2',
-                                            paddingVertical: 12,
-                                            borderRadius: 10,
-                                            borderWidth: 1,
-                                            borderColor: '#fca5a5',
-                                            gap: 6
-                                        }}
-                                    >
-                                        <Trash2 size={16} color="#ef4444" />
-                                        <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 13 }}>Delete</Text>
-                                    </TouchableOpacity>
-                                </View>
+                                        <TouchableOpacity
+                                            onPress={() => handleDeleteExpense(selectedExpense.expenseId)}
+                                            style={{
+                                                flex: 1,
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                backgroundColor: '#fee2e2',
+                                                paddingVertical: 12,
+                                                borderRadius: 10,
+                                                borderWidth: 1,
+                                                borderColor: '#fca5a5',
+                                                gap: 6
+                                            }}
+                                        >
+                                            <Trash2 size={16} color="#ef4444" />
+                                            <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 13 }}>Delete</Text>
+                                        </TouchableOpacity>
+                                    </View>
 
-                            </ScrollView>
-                        ) : null}
+                                </ScrollView>
+                            ) : null}
 
+                        </View>
                     </View>
                 </View>
             </Modal>
 
             {/* RECORD/EDIT EXPENSE FORM MODAL */}
-            <Modal visible={isFormModalOpen} transparent animationType="slide" onRequestClose={() => setFormModalOpen(false)}>
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.modalOverlay}
-                >
-                    <View style={[styles.formModalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+            <Modal visible={isFormModalOpen} transparent animationType="fade" onRequestClose={() => setFormModalOpen(false)}>
+                <View style={{ flex: 1 }}>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={() => setFormModalOpen(false)}>
+                        <BlurView
+                            intensity={15}
+                            tint={isDark ? 'dark' : 'light'}
+                            style={StyleSheet.absoluteFill}
+                        />
+                    </Pressable>
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={styles.modalOverlay}
+                    >
+                        <View style={[styles.formModalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
 
-                        {/* Header */}
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                                {formMode === 'add' ? 'Record Expense' : 'Edit Expense'}
-                            </Text>
-                            <TouchableOpacity onPress={() => setFormModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
-                                <X size={18} color={theme.textPrimary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                            <View style={{ gap: 14, paddingBottom: 24, paddingTop: 10 }}>
-
-                                {/* Row 1: Amount & Date */}
-                                <View style={{ flexDirection: 'row', gap: 12 }}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Amount (INR) *</Text>
-                                        <View style={[styles.formInputContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 6 }]}>
-                                            <TextInput
-                                                style={[styles.formTextInput, { color: theme.textPrimary }]}
-                                                keyboardType="numeric"
-                                                placeholder="0.00"
-                                                placeholderTextColor={theme.textMuted}
-                                                value={formAmount}
-                                                onChangeText={setFormAmount}
-                                            />
-                                        </View>
-                                    </View>
-
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Expense Date *</Text>
-                                        <View style={[styles.formInputContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 6 }]}>
-                                            <TextInput
-                                                style={[styles.formTextInput, { color: theme.textPrimary }]}
-                                                placeholder="YYYY-MM-DD"
-                                                placeholderTextColor={theme.textMuted}
-                                                value={formDate}
-                                                onChangeText={setFormDate}
-                                            />
-                                        </View>
-                                    </View>
-                                </View>
-
-                                {/* Dropdown Category Selector */}
-                                <View style={{ zIndex: 10 }}>
-                                    <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Category *</Text>
-                                    <TouchableOpacity
-                                        onPress={() => setCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                                        style={[styles.selectBox, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
-                                    >
-                                        <Text style={{ color: theme.textPrimary, fontSize: 13 }}>
-                                            {getCategoryDetails(formCategory).label}
-                                        </Text>
-                                        <ChevronDown size={16} color={theme.textSecondary} />
-                                    </TouchableOpacity>
-
-                                    {isCategoryDropdownOpen && (
-                                        <View style={{
-                                            position: 'absolute',
-                                            top: 68,
-                                            left: 0,
-                                            right: 0,
-                                            backgroundColor: theme.secondaryBg,
-                                            borderColor: theme.border,
-                                            borderWidth: 1,
-                                            borderRadius: 10,
-                                            shadowColor: '#000',
-                                            shadowOffset: { width: 0, height: 2 },
-                                            shadowOpacity: 0.1,
-                                            shadowRadius: 4,
-                                            elevation: 3,
-                                            zIndex: 100,
-                                            maxHeight: 180,
-                                        }}>
-                                            <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
-                                                {EXPENSE_CATEGORIES.map((cat) => (
-                                                    <TouchableOpacity
-                                                        key={cat.value}
-                                                        onPress={() => {
-                                                            setFormCategory(cat.value);
-                                                            setCategoryDropdownOpen(false);
-                                                        }}
-                                                        style={{
-                                                            paddingVertical: 10,
-                                                            paddingHorizontal: 12,
-                                                            borderBottomWidth: 1,
-                                                            borderBottomColor: theme.border,
-                                                        }}
-                                                    >
-                                                        <Text style={{ color: theme.textPrimary, fontSize: 13, fontWeight: formCategory === cat.value ? '700' : '400' }}>
-                                                            {cat.label}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                            </ScrollView>
-                                        </View>
-                                    )}
-                                </View>
-
-                                {/* Description input */}
-                                <View>
-                                    <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Description / Notes *</Text>
-                                    <View style={[styles.formInputContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 6, height: 80, alignItems: 'flex-start' }]}>
-                                        <TextInput
-                                            style={[styles.formTextInput, { color: theme.textPrimary, height: '100%', paddingVertical: 8, textAlignVertical: 'top' }]}
-                                            placeholder="Specify campaign, materials, vendor names or purchase reasons..."
-                                            placeholderTextColor={theme.textMuted}
-                                            multiline
-                                            value={formDescription}
-                                            onChangeText={setFormDescription}
-                                        />
-                                    </View>
-                                </View>
-
-                                {/* Form Buttons */}
-                                <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-                                    <TouchableOpacity
-                                        onPress={() => setFormModalOpen(false)}
-                                        style={[styles.formCancelBtn, { backgroundColor: theme.inputBg, borderColor: theme.border }]}
-                                    >
-                                        <Text style={{ color: theme.textSecondary, fontWeight: '700' }}>Cancel</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        onPress={formMode === 'add' ? handleRecordExpense : handleEditSubmit}
-                                        disabled={recordExpenseMutation.isPending || updateExpenseMutation.isPending}
-                                        style={[styles.formSaveBtn, { backgroundColor: theme.brand }]}
-                                    >
-                                        {recordExpenseMutation.isPending || updateExpenseMutation.isPending ? (
-                                            <ActivityIndicator size="small" color="#ffffff" />
-                                        ) : (
-                                            <Text style={{ color: '#ffffff', fontWeight: '700' }}>
-                                                {formMode === 'add' ? 'Record Expense' : 'Save Changes'}
-                                            </Text>
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
-
+                            {/* Header */}
+                            <View style={styles.modalHeader}>
+                                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+                                    {formMode === 'add' ? 'Record Expense' : 'Edit Expense'}
+                                </Text>
+                                <TouchableOpacity onPress={() => setFormModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
+                                    <X size={18} color={theme.textPrimary} />
+                                </TouchableOpacity>
                             </View>
-                        </ScrollView>
 
-                    </View>
-                </KeyboardAvoidingView>
+                            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                                <View style={{ gap: 14, paddingBottom: 24, paddingTop: 10 }}>
+
+                                    {/* Row 1: Amount & Date */}
+                                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Amount (INR) *</Text>
+                                            <View style={[styles.formInputContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 6 }]}>
+                                                <TextInput
+                                                    style={[styles.formTextInput, { color: theme.textPrimary }]}
+                                                    keyboardType="numeric"
+                                                    placeholder="0.00"
+                                                    placeholderTextColor={theme.textMuted}
+                                                    value={formAmount}
+                                                    onChangeText={setFormAmount}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Expense Date *</Text>
+                                            <View style={[styles.formInputContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 6 }]}>
+                                                <TextInput
+                                                    style={[styles.formTextInput, { color: theme.textPrimary }]}
+                                                    placeholder="YYYY-MM-DD"
+                                                    placeholderTextColor={theme.textMuted}
+                                                    value={formDate}
+                                                    onChangeText={setFormDate}
+                                                />
+                                            </View>
+                                        </View>
+                                    </View>
+
+                                    {/* Dropdown Category Selector */}
+                                    <View style={{ zIndex: 10 }}>
+                                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Category *</Text>
+                                        <TouchableOpacity
+                                            onPress={() => setCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                                            style={[styles.selectBox, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
+                                        >
+                                            <Text style={{ color: theme.textPrimary, fontSize: 13 }}>
+                                                {getCategoryDetails(formCategory).label}
+                                            </Text>
+                                            <ChevronDown size={16} color={theme.textSecondary} />
+                                        </TouchableOpacity>
+
+                                        {isCategoryDropdownOpen && (
+                                            <View style={{
+                                                position: 'absolute',
+                                                top: 68,
+                                                left: 0,
+                                                right: 0,
+                                                backgroundColor: theme.secondaryBg,
+                                                borderColor: theme.border,
+                                                borderWidth: 1,
+                                                borderRadius: 10,
+                                                shadowColor: '#000',
+                                                shadowOffset: { width: 0, height: 2 },
+                                                shadowOpacity: 0.1,
+                                                shadowRadius: 4,
+                                                elevation: 3,
+                                                zIndex: 100,
+                                                maxHeight: 180,
+                                            }}>
+                                                <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
+                                                    {EXPENSE_CATEGORIES.map((cat) => (
+                                                        <TouchableOpacity
+                                                            key={cat.value}
+                                                            onPress={() => {
+                                                                setFormCategory(cat.value);
+                                                                setCategoryDropdownOpen(false);
+                                                            }}
+                                                            style={{
+                                                                paddingVertical: 10,
+                                                                paddingHorizontal: 12,
+                                                                borderBottomWidth: 1,
+                                                                borderBottomColor: theme.border,
+                                                            }}
+                                                        >
+                                                            <Text style={{ color: theme.textPrimary, fontSize: 13, fontWeight: formCategory === cat.value ? '700' : '400' }}>
+                                                                {cat.label}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </ScrollView>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {/* Description input */}
+                                    <View>
+                                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Description / Notes *</Text>
+                                        <View style={[styles.formInputContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 6, height: 80, alignItems: 'flex-start' }]}>
+                                            <TextInput
+                                                style={[styles.formTextInput, { color: theme.textPrimary, height: '100%', paddingVertical: 8, textAlignVertical: 'top' }]}
+                                                placeholder="Specify campaign, materials, vendor names or purchase reasons..."
+                                                placeholderTextColor={theme.textMuted}
+                                                multiline
+                                                value={formDescription}
+                                                onChangeText={setFormDescription}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    {/* Form Buttons */}
+                                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                                        <TouchableOpacity
+                                            onPress={() => setFormModalOpen(false)}
+                                            style={[styles.formCancelBtn, { backgroundColor: theme.inputBg, borderColor: theme.border }]}
+                                        >
+                                            <Text style={{ color: theme.textSecondary, fontWeight: '700' }}>Cancel</Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            onPress={formMode === 'add' ? handleRecordExpense : handleEditSubmit}
+                                            disabled={recordExpenseMutation.isPending || updateExpenseMutation.isPending}
+                                            style={[styles.formSaveBtn, { backgroundColor: theme.brand }]}
+                                        >
+                                            {recordExpenseMutation.isPending || updateExpenseMutation.isPending ? (
+                                                <ActivityIndicator size="small" color="#ffffff" />
+                                            ) : (
+                                                <Text style={{ color: '#ffffff', fontWeight: '700' }}>
+                                                    {formMode === 'add' ? 'Record Expense' : 'Save Changes'}
+                                                </Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+
+                                </View>
+                            </ScrollView>
+
+                        </View>
+                    </KeyboardAvoidingView>
+                </View>
             </Modal>
 
-        </View>
+        </View >
     );
 }
 

@@ -214,9 +214,12 @@ export default function AddPropertyScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
+      <View style={{ padding: 12, backgroundColor: bgColor }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor }}>Add Property</Text>
+      </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

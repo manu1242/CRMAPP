@@ -804,6 +804,7 @@ function FinancialBanner({
 export default function AdminDashboardContent() {
   const { isDark } = useTheme();
   const user = useAuthStore((state) => state.user);
+  const role = user?.role?.trim()?.toLowerCase() || '';
   const router = useRouter();
   const adminTheme = getAdminTheme(isDark);
 
@@ -1114,7 +1115,7 @@ export default function AdminDashboardContent() {
             {data && (
               <View
                 style={{
-                  flex: 1.2,
+                  flex: role === 'admin' ? 1.2 : 1,
                   height: 150,
                   backgroundColor: isDark ? 'transparent' : cardBg,
                   borderRadius: 16,
@@ -1162,7 +1163,7 @@ export default function AdminDashboardContent() {
             )}
 
             {/* Right Column - Stacked Cards */}
-            {data && (
+            {data && role === 'admin' && (
               <View style={{ flex: 1, gap: 12, height: 150 }}>
                 {/* Top Card - Total Revenue */}
                 <View
@@ -1345,12 +1346,12 @@ export default function AdminDashboardContent() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {[
               { label: 'Leads List', icon: Users, color: '#3b82f6', route: '/admin/leads' },
-              { label: 'User Roles', icon: CheckSquare, color: '#10b981', route: '/admin/usemanagement/RolesManagement' },
-              { label: 'Manage Users', icon: Users, color: '#8b5cf6', route: '/admin/usemanagement/ManageUsers' },
-              { label: 'Settings', icon: SlidersHorizontal, color: '#f59e0b', route: '/admin/settings' },
+              { label: 'User Roles', icon: CheckSquare, color: '#10b981', route: '/admin/usemanagement/RolesManagement', adminOnly: true },
+              { label: 'Manage Users', icon: Users, color: '#8b5cf6', route: '/admin/usemanagement/ManageUsers', adminOnly: true },
+              { label: 'Settings', icon: SlidersHorizontal, color: '#f59e0b', route: '/admin/settings', adminOnly: true },
               { label: 'Log Actions', icon: MessageSquare, color: '#ec4899', sheet: 'quick' },
               { label: 'App Metrics', icon: TrendingUp, color: '#06b6d4', sheet: 'notifications' },
-            ].map((action, i) => (
+            ].filter((act) => !act.adminOnly || role === 'admin').map((action, i) => (
               <TouchableOpacity
                 key={i}
                 onPress={() => {
@@ -1404,7 +1405,7 @@ export default function AdminDashboardContent() {
         </View>
 
         {/* Financial Overview Card */}
-        {data && (
+        {data && role === 'admin' && (
           <FinancialBanner
             totalRevenue={data.totalRevenue}
             totalExpenses={data.totalExpenses}
@@ -1417,7 +1418,7 @@ export default function AdminDashboardContent() {
         )}
 
         {/* Traffic Sources */}
-        {data && data.sources.length > 0 && (
+        {data && data.sources.length > 0 && role === 'admin' && (
           <View
             style={[
               styles.card,

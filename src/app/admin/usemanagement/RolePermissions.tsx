@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View,
@@ -149,21 +150,21 @@ export default function RolePermissions() {
         if (!roleName || !permissionsMatrix) return;
         setSaving(true);
 
-        const permissionsPayload: Array<{ pageId: number; permissionName: string; isAllowed: boolean }> = [];
+        const availableTypes = permissionsMatrix.availablePermissionTypes || ['View', 'Create', 'Edit', 'Delete', 'Export', 'Bulk Upload'];
+        const permissionsPayload: Array<{ pageId: number; permissionId: number; permissionName: string; isAllowed: boolean }> = [];
         if (permissionsMatrix.modules) {
             permissionsMatrix.modules.forEach((mod) => {
                 mod.pages.forEach((page) => {
-                    (permissionsMatrix.availablePermissionTypes || ['View', 'Create', 'Edit', 'Delete', 'Export', 'Bulk Upload']).forEach(
-                        (permType) => {
-                            const key = `${page.pageId}_${permType}`;
-                            const isAllowed = !!permState[key];
-                            permissionsPayload.push({
-                                pageId: page.pageId,
-                                permissionName: permType,
-                                isAllowed,
-                            });
-                        }
-                    );
+                    availableTypes.forEach((permType, idx) => {
+                        const key = `${page.pageId}_${permType}`;
+                        const isAllowed = !!permState[key];
+                        permissionsPayload.push({
+                            pageId: page.pageId,
+                            permissionId: idx + 1,
+                            permissionName: permType,
+                            isAllowed,
+                        });
+                    });
                 });
             });
         }
@@ -182,24 +183,24 @@ export default function RolePermissions() {
                 });
                 setInitialPermState({ ...permState });
 
-                const updatedMatrix = { ...permissionsMatrix };
-                if (updatedMatrix.modules) {
-                    updatedMatrix.modules = updatedMatrix.modules.map(mod => {
+                const updatedMatrix: RolePermissionsMatrixResponse = {
+                    ...permissionsMatrix,
+                    modules: (permissionsMatrix.modules || []).map(mod => {
                         const updatedMod = { ...mod };
                         updatedMod.pages = updatedMod.pages.map(page => {
                             const updatedPage = { ...page };
                             const pagePermissions: Record<string, boolean> = {};
-                            (permissionsMatrix.availablePermissionTypes || ['View', 'Create', 'Edit', 'Delete', 'Export', 'Bulk Upload']).forEach(
+                            availableTypes.forEach(
                                 (permType) => {
                                     pagePermissions[permType] = !!permState[`${page.pageId}_${permType}`];
                                 }
                             );
-                            updatedPage.permissions = pagePermissions as any;
+                            updatedPage.permissions = pagePermissions;
                             return updatedPage;
                         });
                         return updatedMod;
-                    });
-                }
+                    })
+                };
                 updateCache(roleName, updatedMatrix);
             } else {
                 Toast.show({

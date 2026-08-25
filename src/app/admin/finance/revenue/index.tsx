@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     View,
     Text,
@@ -9,9 +9,10 @@ import {
     RefreshControl,
     StyleSheet,
     Modal,
-    Alert,
     Platform,
     KeyboardAvoidingView,
+    Animated,
+    Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -42,6 +43,8 @@ import {
     useDeleteRevenue,
 } from '../../../../admin/hooks/useRevenue';
 import { RevenueItem } from '../../../../admin/models/RevenueTypes';
+import { BlurView } from 'expo-blur';
+import Toast from 'react-native-toast-message';
 
 const REVENUE_TYPES = [
     { value: 'Sale', label: 'Sale price of property/unit', color: '#b45309', bgColor: '#fef3c7' }, // Gold/Amber
@@ -100,6 +103,34 @@ export default function RevenueScreen() {
     // Inline Filter Dropdowns Toggle
     const [isCategoryFilterOpen, setCategoryFilterOpen] = useState(false);
     const [isDateDropdownOpen, setDateDropdownOpen] = useState(false);
+
+    const scrollY = useRef(new Animated.Value(0)).current;
+    const [stickyHeaderHeight, setStickyHeaderHeight] = useState(70);
+    const scrollViewRef = useRef<any>(null);
+
+    const FILTER_HEIGHT = dateRangeType === 'Custom Range' ? 180 : 130;
+    const METRICS_HEIGHT = 120;
+    const headerHeight = FILTER_HEIGHT + METRICS_HEIGHT;
+
+    const activeScrollY = useMemo(() => {
+        return scrollY.interpolate({
+            inputRange: [0, 1000000],
+            outputRange: [0, 1000000],
+            extrapolate: 'clamp',
+        });
+    }, [scrollY]);
+
+    const clampedScroll = useMemo(() => {
+        return Animated.diffClamp(activeScrollY, 0, headerHeight || 1);
+    }, [activeScrollY, headerHeight]);
+
+    const translateY = useMemo(() => {
+        return clampedScroll.interpolate({
+            inputRange: [0, headerHeight || 1],
+            outputRange: [0, -(headerHeight || 1)],
+            extrapolate: 'clamp',
+        });
+    }, [clampedScroll, headerHeight]);
 
     // Fetch raw revenue list
     const {
@@ -231,11 +262,11 @@ export default function RevenueScreen() {
     const handleRecordRevenue = () => {
         const amt = parseFloat(formAmount);
         if (isNaN(amt) || amt <= 0) {
-            Alert.alert('Validation Error', 'Please enter a valid positive Amount.');
+            Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please enter a valid positive Amount.' });
             return;
         }
         if (!formDescription.trim()) {
-            Alert.alert('Validation Error', 'Please enter a Description.');
+            Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please enter a Description.' });
             return;
         }
 
@@ -247,14 +278,14 @@ export default function RevenueScreen() {
 
         recordRevenueMutation.mutate(payload, {
             onSuccess: (res) => {
-                Alert.alert('Success', 'Revenue logged successfully!');
+                Toast.show({ type: 'success', text1: 'Success', text2: 'Revenue logged successfully!' });
                 setFormModalOpen(false);
                 resetForm();
                 refetchList();
             },
             onError: (err: any) => {
                 const msg = err.response?.data?.message || err.message || 'Failed to record revenue.';
-                Alert.alert('Error', msg);
+                Toast.show({ type: 'error', text1: 'Error', text2: msg });
             },
         });
     };
@@ -263,11 +294,11 @@ export default function RevenueScreen() {
         if (!selectedRevenue) return;
         const amt = parseFloat(formAmount);
         if (isNaN(amt) || amt <= 0) {
-            Alert.alert('Validation Error', 'Please enter a valid positive Amount.');
+            Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please enter a valid positive Amount.' });
             return;
         }
         if (!formDescription.trim()) {
-            Alert.alert('Validation Error', 'Please enter a Description.');
+            Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please enter a Description.' });
             return;
         }
 
@@ -280,7 +311,7 @@ export default function RevenueScreen() {
 
         updateRevenueMutation.mutate(payload, {
             onSuccess: (res) => {
-                Alert.alert('Success', 'Revenue updated successfully!');
+                Toast.show({ type: 'success', text1: 'Success', text2: 'Revenue updated successfully!' });
                 setFormModalOpen(false);
                 resetForm();
                 setDetailModalOpen(false);
@@ -289,12 +320,13 @@ export default function RevenueScreen() {
             },
             onError: (err: any) => {
                 const msg = err.response?.data?.message || err.message || 'Failed to update revenue.';
-                Alert.alert('Error', msg);
+                Toast.show({ type: 'error', text1: 'Error', text2: msg });
             },
         });
     };
 
     const handleDeleteRevenue = (id: number) => {
+        // Keep Alert.alert for platform confirmation dialog, but use Toast inside callback
         Alert.alert(
             'Confirm Deletion',
             'Are you sure you want to delete this revenue record? This action cannot be undone.',
@@ -306,13 +338,13 @@ export default function RevenueScreen() {
                     onPress: () => {
                         deleteRevenueMutation.mutate(id, {
                             onSuccess: () => {
-                                Alert.alert('Success', 'Revenue deleted successfully.');
+                                Toast.show({ type: 'success', text1: 'Success', text2: 'Revenue deleted successfully.' });
                                 setDetailModalOpen(false);
                                 setSelectedRevenue(null);
                                 refetchList();
                             },
                             onError: (err: any) => {
-                                Alert.alert('Error', err.message || 'Failed to delete revenue.');
+                                Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Failed to delete revenue.' });
                             },
                         });
                     },
@@ -347,16 +379,190 @@ export default function RevenueScreen() {
     return (
         <View style={[styles.container, { backgroundColor: theme.primaryBg }]}>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetchList} />}
-            >
+            {/* Sticky Top Header & Search Container */}
+            <View
+                onLayout={(e) => setStickyHeaderHeight(e.nativeEvent.layout.height)}
+                style={{
+                    backgroundColor: theme.primaryBg,
+                    zIndex: 10,
+                    borderBottomWidth: 1,
+                    borderBottomColor: theme.border,
+                    paddingTop: 12,
+                    paddingBottom: 8,
+                }}>
+                {/* Search & Create Row */}
+                <View style={{ paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={[styles.inlineSearchBox, { flex: 1, backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+                        <Search size={16} color={theme.textSecondary} />
+                        <TextInput
+                            style={[styles.inlineSearchInput, { color: theme.textPrimary }]}
+                            placeholder="Search description or type..."
+                            placeholderTextColor={theme.textMuted}
+                            value={searchInput}
+                            onChangeText={setSearchInput}
+                            onSubmitEditing={handleSearchSubmit}
+                        />
+                        {searchInput ? (
+                            <TouchableOpacity onPress={() => { setSearchInput(''); setSearchQuery(''); setPage(1); }}>
+                                <X size={16} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
+                    <TouchableOpacity
+                        onPress={openAddForm}
+                        style={[styles.createBtn, { backgroundColor: theme.brand, height: 38, width: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }]}
+                    >
+                        <Plus size={20} color="#ffffff" />
+                    </TouchableOpacity>
+                </View>
+            </View>
 
-                {/* METRICS ROW */}
+            {/* Animating Header (Filters & Metrics) */}
+            <Animated.View style={{
+                position: 'absolute',
+                top: stickyHeaderHeight,
+                left: 0,
+                right: 0,
+                zIndex: 9,
+                backgroundColor: theme.primaryBg,
+                transform: [{ translateY }],
+                height: headerHeight,
+                overflow: 'hidden',
+                borderBottomWidth: 1,
+                borderBottomColor: theme.border,
+            }}>
+                <View style={{ paddingHorizontal: 16, paddingTop: 10, gap: 10 }}>
+                    <View style={{ flexDirection: 'row', gap: 10, zIndex: 100 }}>
+                        {/* Category Dropdown */}
+                        <View style={{ flex: 1, zIndex: 120 }}>
+                            <Text style={[styles.fieldHeaderLabel, { color: theme.textSecondary, marginBottom: 4 }]}>REVENUE TYPE</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setCategoryFilterOpen(!isCategoryFilterOpen);
+                                    setDateDropdownOpen(false);
+                                }}
+                                style={[styles.inlineSelectBox, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
+                            >
+                                <Text style={{ color: theme.textPrimary, fontSize: 13 }} numberOfLines={1}>
+                                    {selectedCategory === 'All' ? 'All Types' : getRevenueTypeDetails(selectedCategory).label}
+                                </Text>
+                                <ChevronDown size={14} color={theme.textSecondary} />
+                            </TouchableOpacity>
+
+                            {isCategoryFilterOpen && (
+                                <View style={[styles.inlineDropdownList, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+                                    <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                setSelectedCategory('All');
+                                                setCategoryFilterOpen(false);
+                                                setPage(1);
+                                            }}
+                                            style={styles.dropdownOptionRow}
+                                        >
+                                            <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: selectedCategory === 'All' ? '700' : '400' }}>
+                                                All Types
+                                            </Text>
+                                        </TouchableOpacity>
+                                        {REVENUE_TYPES.map((cat) => (
+                                            <TouchableOpacity
+                                                key={cat.value}
+                                                onPress={() => {
+                                                    setSelectedCategory(cat.value);
+                                                    setCategoryFilterOpen(false);
+                                                    setPage(1);
+                                                }}
+                                                style={styles.dropdownOptionRow}
+                                            >
+                                                <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: selectedCategory === cat.value ? '700' : '400' }}>
+                                                    {cat.value}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Date Range Dropdown */}
+                        <View style={{ flex: 1, zIndex: 110 }}>
+                            <Text style={[styles.fieldHeaderLabel, { color: theme.textSecondary, marginBottom: 4 }]}>DATE RANGE</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setDateDropdownOpen(!isDateDropdownOpen);
+                                    setCategoryFilterOpen(false);
+                                }}
+                                style={[styles.inlineSelectBox, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
+                            >
+                                <Text style={{ color: theme.textPrimary, fontSize: 13 }} numberOfLines={1}>
+                                    {dateRangeType}
+                                </Text>
+                                <ChevronDown size={14} color={theme.textSecondary} />
+                            </TouchableOpacity>
+
+                            {isDateDropdownOpen && (
+                                <View style={[styles.inlineDropdownList, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+                                    {['All Time', 'Today', 'This Week', 'This Month', 'Last 3 Months', 'Custom Range'].map((range) => (
+                                        <TouchableOpacity
+                                            key={range}
+                                            onPress={() => applyDateRangeType(range)}
+                                            style={styles.dropdownOptionRow}
+                                        >
+                                            <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: dateRangeType === range ? '700' : '400' }}>
+                                                {range}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Custom Dates Inputs */}
+                    {dateRangeType === 'Custom Range' && (
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textSecondary }}>FROM DATE</Text>
+                                <TextInput
+                                    style={[styles.dateInput, { backgroundColor: theme.secondaryBg, borderColor: theme.border, color: theme.textPrimary }]}
+                                    placeholder="YYYY-MM-DD"
+                                    placeholderTextColor={theme.textMuted}
+                                    value={fromDate}
+                                    onChangeText={(val) => { setFromDate(val); setPage(1); }}
+                                />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textSecondary }}>TO DATE</Text>
+                                <TextInput
+                                    style={[styles.dateInput, { backgroundColor: theme.secondaryBg, borderColor: theme.border, color: theme.textPrimary }]}
+                                    placeholder="YYYY-MM-DD"
+                                    placeholderTextColor={theme.textMuted}
+                                    value={toDate}
+                                    onChangeText={(val) => { setToDate(val); setPage(1); }}
+                                />
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Export Excel Row */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-start', marginTop: 4 }}>
+                        <TouchableOpacity
+                            onPress={() => {
+                                Toast.show({ type: 'success', text1: 'Excel Export', text2: 'Revenue analytics report exported to Excel successfully!' });
+                            }}
+                            style={[styles.exportExcelBtn, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
+                        >
+                            <FileSpreadsheet size={16} color="#16a34a" />
+                            <Text style={[styles.exportExcelText, { color: '#16a34a' }]}>Export Excel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* METRICS SPLITS / ROW */}
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 14, gap: 10 }}
+                    contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, gap: 10, height: 110 }}
                 >
                     {/* Total Revenue */}
                     <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
@@ -371,7 +577,7 @@ export default function RevenueScreen() {
 
                     {/* Total Entries Count */}
                     <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-                        <View style={[styles.metricIconBox, { backgroundColor: '#bp' === '#bp' ? '#dbeafe' : theme.inputBg }]}>
+                        <View style={[styles.metricIconBox, { backgroundColor: '#dbeafe' }]}>
                             <FileText size={20} color="#2563eb" />
                         </View>
                         <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>TOTAL ENTRIES</Text>
@@ -391,262 +597,112 @@ export default function RevenueScreen() {
                         </Text>
                     </View>
                 </ScrollView>
+            </Animated.View>
 
-                {/* SEARCH & FILTERS CONTAINER */}
-                <View style={[styles.filterBarCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-
-                    <View style={{ gap: 10 }}>
-                        {/* Search Input and Plus Button row */}
-                        <View>
-                            <Text style={[styles.fieldHeaderLabel, { color: theme.textSecondary }]}>SEARCH</Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                <View style={[styles.inlineSearchBox, { flex: 1, backgroundColor: theme.inputBg, borderColor: theme.border }]}>
-                                    <TextInput
-                                        style={[styles.inlineSearchInput, { color: theme.textPrimary }]}
-                                        placeholder="Search description or type..."
-                                        placeholderTextColor={theme.textMuted}
-                                        value={searchInput}
-                                        onChangeText={setSearchInput}
-                                        onSubmitEditing={handleSearchSubmit}
-                                    />
-                                    {searchInput ? (
-                                        <TouchableOpacity onPress={() => { setSearchInput(''); setSearchQuery(''); setPage(1); }}>
-                                            <X size={16} color={theme.textSecondary} />
-                                        </TouchableOpacity>
-                                    ) : null}
-                                </View>
-                                <TouchableOpacity
-                                    onPress={openAddForm}
-                                    style={[styles.createBtn, { backgroundColor: theme.brand, height: 38, width: 38 }]}
-                                >
-                                    <Plus size={20} color="#ffffff" />
-                                </TouchableOpacity>
-                            </View>
+            {/* REVENUE LIST SECTION */}
+            {isLoading ? (
+                <View style={{ flex: 1, paddingVertical: 60, alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator size="large" color={theme.brand} />
+                    <Text style={{ color: theme.textSecondary, marginTop: 12 }}>Loading revenue list...</Text>
+                </View>
+            ) : (
+                <Animated.FlatList
+                    ref={scrollViewRef}
+                    data={paginatedItems}
+                    keyExtractor={(item, index) => item.revenueId > 0 ? `manual-${item.revenueId}` : `sys-${index}`}
+                    contentContainerStyle={{
+                        paddingTop: headerHeight + 16,
+                        paddingBottom: 120,
+                        paddingHorizontal: 16,
+                    }}
+                    ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                    ListHeaderComponent={() => (
+                        <View style={[styles.sectionHeaderRow, { marginHorizontal: 0, marginBottom: 10 }]}>
+                            <Text style={[styles.sectionHeaderText, { color: theme.textSecondary }]}>REVENUE LOGS</Text>
                         </View>
-
-                        {/* Category & Date range Row */}
-                        <View style={{ flexDirection: 'row', gap: 10, zIndex: 100 }}>
-
-                            {/* Category Dropdown */}
-                            <View style={{ flex: 1, zIndex: 120 }}>
-                                <Text style={[styles.fieldHeaderLabel, { color: theme.textSecondary }]}>REVENUE TYPE</Text>
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        setCategoryFilterOpen(!isCategoryFilterOpen);
-                                        setDateDropdownOpen(false);
-                                    }}
-                                    style={[styles.inlineSelectBox, { backgroundColor: theme.inputBg, borderColor: theme.border }]}
-                                >
-                                    <Text style={{ color: theme.textPrimary, fontSize: 13 }} numberOfLines={1}>
-                                        {selectedCategory === 'All' ? 'All Types' : getRevenueTypeDetails(selectedCategory).label}
-                                    </Text>
-                                    <ChevronDown size={14} color={theme.textSecondary} />
-                                </TouchableOpacity>
-
-                                {isCategoryFilterOpen && (
-                                    <View style={[styles.inlineDropdownList, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-                                        <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    setSelectedCategory('All');
-                                                    setCategoryFilterOpen(false);
-                                                    setPage(1);
-                                                }}
-                                                style={styles.dropdownOptionRow}
-                                            >
-                                                <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: selectedCategory === 'All' ? '700' : '400' }}>
-                                                    All Types
-                                                </Text>
-                                            </TouchableOpacity>
-                                            {REVENUE_TYPES.map((cat) => (
-                                                <TouchableOpacity
-                                                    key={cat.value}
-                                                    onPress={() => {
-                                                        setSelectedCategory(cat.value);
-                                                        setCategoryFilterOpen(false);
-                                                        setPage(1);
-                                                    }}
-                                                    style={styles.dropdownOptionRow}
-                                                >
-                                                    <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: selectedCategory === cat.value ? '700' : '400' }}>
-                                                        {cat.value}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </ScrollView>
-                                    </View>
-                                )}
-                            </View>
-
-                            {/* Date Range Dropdown */}
-                            <View style={{ flex: 1, zIndex: 110 }}>
-                                <Text style={[styles.fieldHeaderLabel, { color: theme.textSecondary }]}>DATE RANGE</Text>
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        setDateDropdownOpen(!isDateDropdownOpen);
-                                        setCategoryFilterOpen(false);
-                                    }}
-                                    style={[styles.inlineSelectBox, { backgroundColor: theme.inputBg, borderColor: theme.border }]}
-                                >
-                                    <Text style={{ color: theme.textPrimary, fontSize: 13 }} numberOfLines={1}>
-                                        {dateRangeType}
-                                    </Text>
-                                    <ChevronDown size={14} color={theme.textSecondary} />
-                                </TouchableOpacity>
-
-                                {isDateDropdownOpen && (
-                                    <View style={[styles.inlineDropdownList, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-                                        {['All Time', 'Today', 'This Week', 'This Month', 'Last 3 Months', 'Custom Range'].map((range) => (
-                                            <TouchableOpacity
-                                                key={range}
-                                                onPress={() => applyDateRangeType(range)}
-                                                style={styles.dropdownOptionRow}
-                                            >
-                                                <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: dateRangeType === range ? '700' : '400' }}>
-                                                    {range}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                )}
-                            </View>
-                        </View>
-
-                        {/* Custom Dates Inputs */}
-                        {dateRangeType === 'Custom Range' && (
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textSecondary }}>FROM DATE</Text>
-                                    <TextInput
-                                        style={[styles.dateInput, { backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.textPrimary }]}
-                                        placeholder="YYYY-MM-DD"
-                                        placeholderTextColor={theme.textMuted}
-                                        value={fromDate}
-                                        onChangeText={(val) => { setFromDate(val); setPage(1); }}
-                                    />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textSecondary }}>TO DATE</Text>
-                                    <TextInput
-                                        style={[styles.dateInput, { backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.textPrimary }]}
-                                        placeholder="YYYY-MM-DD"
-                                        placeholderTextColor={theme.textMuted}
-                                        value={toDate}
-                                        onChangeText={(val) => { setToDate(val); setPage(1); }}
-                                    />
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Export Excel Row */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'flex-start', marginTop: 4 }}>
+                    )}
+                    onScroll={Animated.event(
+                        [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                        { useNativeDriver: true }
+                    )}
+                    scrollEventThrottle={16}
+                    renderItem={({ item }) => {
+                        const catDetails = getRevenueTypeDetails(item.type);
+                        return (
                             <TouchableOpacity
                                 onPress={() => {
-                                    Alert.alert('Excel Export', 'Revenue analytics report exported to Excel successfully!');
+                                    setSelectedRevenue(item);
+                                    setDetailModalOpen(true);
                                 }}
-                                style={[styles.exportExcelBtn, { backgroundColor: theme.inputBg, borderColor: theme.border }]}
+                                style={[styles.expenseCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border, borderLeftColor: catDetails.color }]}
                             >
-                                <FileSpreadsheet size={16} color="#16a34a" />
-                                <Text style={[styles.exportExcelText, { color: '#16a34a' }]}>Export Excel</Text>
-                            </TouchableOpacity>
-                        </View>
+                                {/* Left Column details */}
+                                <View style={{ flex: 1.3, gap: 5 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <FileText size={14} color={catDetails.color} />
+                                        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }} numberOfLines={1}>
+                                            {item.description}
+                                        </Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <Calendar size={14} color={theme.textSecondary} />
+                                        <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                                            {formatDate(item.date)}
+                                        </Text>
+                                    </View>
+                                </View>
 
-                    </View>
-                </View>
-
-                {/* SECTION DIVIDER */}
-                <View style={styles.sectionHeaderRow}>
-                    <Text style={[styles.sectionHeaderText, { color: theme.textSecondary }]}>REVENUE LOGS</Text>
-                    <View style={[styles.sectionHeaderLine, { backgroundColor: theme.border }]} />
-                </View>
-
-                {/* REVENUE LIST SECTION */}
-                <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
-                    {isLoading ? (
-                        <View style={{ padding: 40, alignItems: 'center' }}>
-                            <ActivityIndicator size="large" color={theme.brand} />
-                            <Text style={{ color: theme.textSecondary, marginTop: 12 }}>Loading revenue logs...</Text>
-                        </View>
-                    ) : paginatedItems.length > 0 ? (
-                        <View style={{ gap: 10 }}>
-                            {paginatedItems.map((item, index) => {
-                                const catDetails = getRevenueTypeDetails(item.type);
-                                return (
+                                {/* Right Column details */}
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                    <View style={{ alignItems: 'flex-end', marginRight: 4 }}>
+                                        <Text style={{ fontSize: 8, fontWeight: '700', color: theme.textMuted }}>AMOUNT</Text>
+                                        <Text style={{ fontSize: 15, fontWeight: '800', color: '#059669', marginTop: 2 }}>
+                                            {formatCurrency(item.amount)}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.catBadge, { backgroundColor: catDetails.bgColor }]}>
+                                        <Text style={{ fontSize: 9, fontWeight: '700', color: catDetails.color }}>
+                                            {item.type}
+                                        </Text>
+                                    </View>
                                     <TouchableOpacity
-                                        key={item.revenueId > 0 ? `manual-${item.revenueId}` : `sys-${index}`}
                                         onPress={() => {
                                             setSelectedRevenue(item);
                                             setDetailModalOpen(true);
                                         }}
-                                        style={[styles.expenseCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border, borderLeftColor: catDetails.color }]}
+                                        style={[styles.optionsCircle, { backgroundColor: theme.inputBg }]}
                                     >
-                                        {/* Left Column details */}
-                                        <View style={{ flex: 1.3, gap: 5 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                                <FileText size={14} color={catDetails.color} />
-                                                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }} numberOfLines={1}>
-                                                    {item.description}
-                                                </Text>
-                                            </View>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                                <Calendar size={14} color={theme.textSecondary} />
-                                                <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-                                                    {formatDate(item.date)}
-                                                </Text>
-                                            </View>
-                                        </View>
-
-                                        {/* Right Column details */}
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                            <View style={{ alignItems: 'flex-end', marginRight: 4 }}>
-                                                <Text style={{ fontSize: 8, fontWeight: '700', color: theme.textMuted }}>AMOUNT</Text>
-                                                <Text style={{ fontSize: 15, fontWeight: '800', color: '#059669', marginTop: 2 }}>
-                                                    {formatCurrency(item.amount)}
-                                                </Text>
-                                            </View>
-                                            <View style={[styles.catBadge, { backgroundColor: catDetails.bgColor }]}>
-                                                <Text style={{ fontSize: 9, fontWeight: '700', color: catDetails.color }}>
-                                                    {item.type}
-                                                </Text>
-                                            </View>
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    setSelectedRevenue(item);
-                                                    setDetailModalOpen(true);
-                                                }}
-                                                style={[styles.optionsCircle, { backgroundColor: theme.inputBg }]}
-                                            >
-                                                <MoreVertical size={15} color={theme.textSecondary} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    </TouchableOpacity>
-                                );
-                            })}
-
-                            {/* PAGINATION SECTION */}
-                            <View style={[styles.paginationRow, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-                                <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
-                                    Showing {totalCount > 0 ? (page - 1) * pageSize + 1 : 0}-{Math.min(page * pageSize, totalCount)} of {totalCount} revenues
-                                </Text>
-                                <View style={{ flexDirection: 'row', gap: 8 }}>
-                                    <TouchableOpacity
-                                        disabled={page <= 1}
-                                        onPress={() => setPage(page - 1)}
-                                        style={[styles.pageBtn, { borderColor: theme.border, opacity: page <= 1 ? 0.4 : 1 }]}
-                                    >
-                                        <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: '600' }}>&lt; Previous</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        disabled={page >= totalPages}
-                                        onPress={() => setPage(page + 1)}
-                                        style={[styles.pageBtn, { borderColor: theme.border, opacity: page >= totalPages ? 0.4 : 1 }]}
-                                    >
-                                        <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: '600' }}>Next &gt;</Text>
+                                        <MoreVertical size={15} color={theme.textSecondary} />
                                     </TouchableOpacity>
                                 </View>
+                            </TouchableOpacity>
+                        );
+                    }}
+                    ListFooterComponent={() => paginatedItems.length > 0 ? (
+                        /* PAGINATION SECTION */
+                        <View style={[styles.paginationRow, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 16 }]}>
+                            <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+                                Showing {totalCount > 0 ? (page - 1) * pageSize + 1 : 0}-{Math.min(page * pageSize, totalCount)} of {totalCount} revenues
+                            </Text>
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <TouchableOpacity
+                                    disabled={page <= 1}
+                                    onPress={() => setPage(page - 1)}
+                                    style={[styles.pageBtn, { borderColor: theme.border, opacity: page <= 1 ? 0.4 : 1 }]}
+                                >
+                                    <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: '600' }}>&lt; Previous</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    disabled={page >= totalPages}
+                                    onPress={() => setPage(page + 1)}
+                                    style={[styles.pageBtn, { borderColor: theme.border, opacity: page >= totalPages ? 0.4 : 1 }]}
+                                >
+                                    <Text style={{ fontSize: 12, color: theme.textPrimary, fontWeight: '600' }}>Next &gt;</Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
-                    ) : (
+                    ) : null}
+                    ListEmptyComponent={() => (
                         <View style={[styles.emptyContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
                             <AlertCircle size={32} color={theme.textMuted} style={{ marginBottom: 8 }} />
                             <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No revenues found</Text>
@@ -655,262 +711,279 @@ export default function RevenueScreen() {
                             </Text>
                         </View>
                     )}
-                </View>
-
-            </ScrollView>
+                />
+            )}
 
             {/* DETAIL MODAL */}
-            <Modal visible={isDetailModalOpen} transparent animationType="slide" onRequestClose={() => setDetailModalOpen(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.detailModalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+            <Modal visible={isDetailModalOpen} transparent animationType="fade" onRequestClose={() => setDetailModalOpen(false)}>
+                <View style={{ flex: 1 }}>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={() => setDetailModalOpen(false)}>
+                        <BlurView
+                            intensity={15}
+                            tint={isDark ? 'dark' : 'light'}
+                            style={StyleSheet.absoluteFill}
+                        />
+                    </Pressable>
+                    <View style={styles.modalOverlay}>
+                        <View style={[styles.detailModalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
 
-                        {/* Header */}
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Revenue Details</Text>
-                            <TouchableOpacity onPress={() => setDetailModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
-                                <X size={18} color={theme.textPrimary} />
-                            </TouchableOpacity>
-                        </View>
+                            {/* Header */}
+                            <View style={styles.modalHeader}>
+                                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Revenue Details</Text>
+                                <TouchableOpacity onPress={() => setDetailModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
+                                    <X size={18} color={theme.textPrimary} />
+                                </TouchableOpacity>
+                            </View>
 
-                        {selectedRevenue ? (
-                            <ScrollView showsVerticalScrollIndicator={false}>
+                            {selectedRevenue ? (
+                                <ScrollView showsVerticalScrollIndicator={false}>
 
-                                {/* Summary Box */}
-                                <View style={{ backgroundColor: theme.inputBg, padding: 16, borderRadius: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.border, alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, marginBottom: 4 }}>REVENUE AMOUNT</Text>
-                                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#059669' }}>
-                                        {formatCurrency(selectedRevenue.amount)}
-                                    </Text>
-                                </View>
-
-                                {/* Grid Fields */}
-                                <View style={{ gap: 10, marginBottom: 16 }}>
-
-                                    {/* Type Badge */}
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border }}>
-                                        <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Category Type</Text>
-                                        <View style={[styles.catBadge, { backgroundColor: getRevenueTypeDetails(selectedRevenue.type).bgColor }]}>
-                                            <Text style={{ fontSize: 11, fontWeight: '700', color: getRevenueTypeDetails(selectedRevenue.type).color }}>
-                                                {getRevenueTypeDetails(selectedRevenue.type).label}
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    {/* Date Field */}
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border }}>
-                                        <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Date</Text>
-                                        <Text style={{ color: theme.textPrimary, fontSize: 13, fontWeight: '600' }}>
-                                            {formatDate(selectedRevenue.date)}
+                                    {/* Summary Box */}
+                                    <View style={{ backgroundColor: theme.inputBg, padding: 16, borderRadius: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.border, alignItems: 'center' }}>
+                                        <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary, marginBottom: 4 }}>REVENUE AMOUNT</Text>
+                                        <Text style={{ fontSize: 24, fontWeight: '800', color: '#059669' }}>
+                                            {formatCurrency(selectedRevenue.amount)}
                                         </Text>
                                     </View>
 
-                                    {/* Description Box */}
-                                    <View style={{ gap: 6, marginTop: 4 }}>
-                                        <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Description</Text>
-                                        <View style={{ backgroundColor: theme.inputBg, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.border }}>
-                                            <Text style={{ color: theme.textPrimary, fontSize: 13, lineHeight: 18 }}>
-                                                {selectedRevenue.description}
+                                    {/* Grid Fields */}
+                                    <View style={{ gap: 10, marginBottom: 16 }}>
+
+                                        {/* Type Badge */}
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                                            <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Category Type</Text>
+                                            <View style={[styles.catBadge, { backgroundColor: getRevenueTypeDetails(selectedRevenue.type).bgColor }]}>
+                                                <Text style={{ fontSize: 11, fontWeight: '700', color: getRevenueTypeDetails(selectedRevenue.type).color }}>
+                                                    {getRevenueTypeDetails(selectedRevenue.type).label}
+                                                </Text>
+                                            </View>
+                                        </View>
+
+                                        {/* Date Field */}
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                                            <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Date</Text>
+                                            <Text style={{ color: theme.textPrimary, fontSize: 13, fontWeight: '600' }}>
+                                                {formatDate(selectedRevenue.date)}
                                             </Text>
                                         </View>
+
+                                        {/* Description Box */}
+                                        <View style={{ gap: 6, marginTop: 4 }}>
+                                            <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Description</Text>
+                                            <View style={{ backgroundColor: theme.inputBg, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.border }}>
+                                                <Text style={{ color: theme.textPrimary, fontSize: 13, lineHeight: 18 }}>
+                                                    {selectedRevenue.description}
+                                                </Text>
+                                            </View>
+                                        </View>
+
+                                        {/* Origin info if system generated */}
+                                        {selectedRevenue.isSystem && (
+                                            <View style={{ flexDirection: 'row', gap: 6, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', borderRadius: 8, padding: 10, marginTop: 8 }}>
+                                                <AlertCircle size={16} color="#16a34a" />
+                                                <Text style={{ color: '#16a34a', fontSize: 11, flex: 1 }}>
+                                                    This is an automated system entry and cannot be edited or deleted manually.
+                                                </Text>
+                                            </View>
+                                        )}
                                     </View>
 
-                                    {/* Origin info if system generated */}
-                                    {selectedRevenue.isSystem && (
-                                        <View style={{ flexDirection: 'row', gap: 6, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', borderRadius: 8, padding: 10, marginTop: 8 }}>
-                                            <AlertCircle size={16} color="#16a34a" />
-                                            <Text style={{ color: '#16a34a', fontSize: 11, flex: 1 }}>
-                                                This is an automated system entry and cannot be edited or deleted manually.
-                                            </Text>
+                                    {/* Actions Grid (Only show if manually added and has valid ID) */}
+                                    {!selectedRevenue.isSystem && selectedRevenue.revenueId > 0 && (
+                                        <View style={{ flexDirection: 'row', gap: 10, marginVertical: 16 }}>
+                                            <TouchableOpacity
+                                                onPress={openEditForm}
+                                                style={{
+                                                    flex: 1,
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    backgroundColor: theme.inputBg,
+                                                    borderWidth: 1,
+                                                    borderColor: theme.border,
+                                                    paddingVertical: 12,
+                                                    borderRadius: 10,
+                                                    gap: 6
+                                                }}
+                                            >
+                                                <Edit size={16} color={theme.textPrimary} />
+                                                <Text style={{ color: theme.textPrimary, fontWeight: '700', fontSize: 13 }}>Edit</Text>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity
+                                                onPress={() => handleDeleteRevenue(selectedRevenue.revenueId)}
+                                                style={{
+                                                    flex: 1,
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    backgroundColor: '#fee2e2',
+                                                    paddingVertical: 12,
+                                                    borderRadius: 10,
+                                                    borderWidth: 1,
+                                                    borderColor: '#fca5a5',
+                                                    gap: 6
+                                                } as any}
+                                            >
+                                                <Trash2 size={16} color="#ef4444" />
+                                                <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 13 }}>Delete</Text>
+                                            </TouchableOpacity>
                                         </View>
                                     )}
-                                </View>
 
-                                {/* Actions Grid (Only show if manually added and has valid ID) */}
-                                {!selectedRevenue.isSystem && selectedRevenue.revenueId > 0 && (
-                                    <View style={{ flexDirection: 'row', gap: 10, marginVertical: 16 }}>
-                                        <TouchableOpacity
-                                            onPress={openEditForm}
-                                            style={{
-                                                flex: 1,
-                                                flexDirection: 'row',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                backgroundColor: theme.inputBg,
-                                                borderWidth: 1,
-                                                borderColor: theme.border,
-                                                paddingVertical: 12,
-                                                borderRadius: 10,
-                                                gap: 6
-                                            }}
-                                        >
-                                            <Edit size={16} color={theme.textPrimary} />
-                                            <Text style={{ color: theme.textPrimary, fontWeight: '700', fontSize: 13 }}>Edit</Text>
-                                        </TouchableOpacity>
+                                </ScrollView>
+                            ) : null}
 
-                                        <TouchableOpacity
-                                            onPress={() => handleDeleteRevenue(selectedRevenue.revenueId)}
-                                            style={{
-                                                flex: 1,
-                                                flexDirection: 'row',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                backgroundColor: '#fee2e2',
-                                                paddingVertical: 12,
-                                                borderRadius: 10,
-                                                borderWidth: 1,
-                                                borderColor: '#fca5a5',
-                                                gap: 6
-                                            } as any}
-                                        >
-                                            <Trash2 size={16} color="#ef4444" />
-                                            <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 13 }}>Delete</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
-
-                            </ScrollView>
-                        ) : null}
-
+                        </View>
                     </View>
                 </View>
             </Modal>
 
             {/* RECORD/EDIT REVENUE FORM MODAL */}
-            <Modal visible={isFormModalOpen} transparent animationType="slide" onRequestClose={() => setFormModalOpen(false)}>
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.modalOverlay}
-                >
-                    <View style={[styles.formModalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+            <Modal visible={isFormModalOpen} transparent animationType="fade" onRequestClose={() => setFormModalOpen(false)}>
+                <View style={{ flex: 1 }}>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={() => setFormModalOpen(false)}>
+                        <BlurView
+                            intensity={15}
+                            tint={isDark ? 'dark' : 'light'}
+                            style={StyleSheet.absoluteFill}
+                        />
+                    </Pressable>
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={styles.modalOverlay}
+                    >
+                        <View style={[styles.formModalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
 
-                        {/* Header */}
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                                {formMode === 'add' ? 'Record Revenue' : 'Edit Revenue'}
-                            </Text>
-                            <TouchableOpacity onPress={() => setFormModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
-                                <X size={18} color={theme.textPrimary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                            <View style={{ gap: 14, paddingBottom: 24, paddingTop: 10 }}>
-
-                                {/* Form Field: Amount */}
-                                <View>
-                                    <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Amount (INR) *</Text>
-                                    <View style={[styles.formInputContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 6 }]}>
-                                        <TextInput
-                                            style={[styles.formTextInput, { color: theme.textPrimary }]}
-                                            keyboardType="numeric"
-                                            placeholder="0.00"
-                                            placeholderTextColor={theme.textMuted}
-                                            value={formAmount}
-                                            onChangeText={setFormAmount}
-                                        />
-                                    </View>
-                                </View>
-
-                                {/* Dropdown Category Selector */}
-                                <View style={{ zIndex: 10 }}>
-                                    <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Category Type *</Text>
-                                    <TouchableOpacity
-                                        onPress={() => setCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                                        style={[styles.selectBox, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
-                                    >
-                                        <Text style={{ color: theme.textPrimary, fontSize: 13 }}>
-                                            {getRevenueTypeDetails(formCategory).label}
-                                        </Text>
-                                        <ChevronDown size={16} color={theme.textSecondary} />
-                                    </TouchableOpacity>
-
-                                    {isCategoryDropdownOpen && (
-                                        <View style={{
-                                            position: 'absolute',
-                                            top: 68,
-                                            left: 0,
-                                            right: 0,
-                                            backgroundColor: theme.secondaryBg,
-                                            borderColor: theme.border,
-                                            borderWidth: 1,
-                                            borderRadius: 10,
-                                            shadowColor: '#000',
-                                            shadowOffset: { width: 0, height: 2 },
-                                            shadowOpacity: 0.1,
-                                            shadowRadius: 4,
-                                            elevation: 3,
-                                            zIndex: 100,
-                                            maxHeight: 180,
-                                        }}>
-                                            <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
-                                                {MANUAL_REVENUE_TYPES.map((cat) => (
-                                                    <TouchableOpacity
-                                                        key={cat.value}
-                                                        onPress={() => {
-                                                            setFormCategory(cat.value);
-                                                            setCategoryDropdownOpen(false);
-                                                        }}
-                                                        style={{
-                                                            paddingVertical: 10,
-                                                            paddingHorizontal: 12,
-                                                            borderBottomWidth: 1,
-                                                            borderBottomColor: theme.border,
-                                                        }}
-                                                    >
-                                                        <Text style={{ color: theme.textPrimary, fontSize: 13, fontWeight: formCategory === cat.value ? '700' : '400' }}>
-                                                            {cat.label}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                            </ScrollView>
-                                        </View>
-                                    )}
-                                </View>
-
-                                {/* Description input */}
-                                <View>
-                                    <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Description / Notes *</Text>
-                                    <View style={[styles.formInputContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 6, height: 80, alignItems: 'flex-start' }]}>
-                                        <TextInput
-                                            style={[styles.formTextInput, { color: theme.textPrimary, height: '100%', paddingVertical: 8, textAlignVertical: 'top' }]}
-                                            placeholder="Property details, Booking advance particulars, lease names, etc..."
-                                            placeholderTextColor={theme.textMuted}
-                                            multiline
-                                            value={formDescription}
-                                            onChangeText={setFormDescription}
-                                        />
-                                    </View>
-                                </View>
-
-                                {/* Form Buttons */}
-                                <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-                                    <TouchableOpacity
-                                        onPress={() => setFormModalOpen(false)}
-                                        style={[styles.formCancelBtn, { backgroundColor: theme.inputBg, borderColor: theme.border }]}
-                                    >
-                                        <Text style={{ color: theme.textSecondary, fontWeight: '700' }}>Cancel</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        onPress={formMode === 'add' ? handleRecordRevenue : handleEditSubmit}
-                                        disabled={recordRevenueMutation.isPending || updateRevenueMutation.isPending}
-                                        style={[styles.formSaveBtn, { backgroundColor: theme.brand }]}
-                                    >
-                                        {recordRevenueMutation.isPending || updateRevenueMutation.isPending ? (
-                                            <ActivityIndicator size="small" color="#ffffff" />
-                                        ) : (
-                                            <Text style={{ color: '#ffffff', fontWeight: '700' }}>
-                                                {formMode === 'add' ? 'Record Revenue' : 'Save Changes'}
-                                            </Text>
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
-
+                            {/* Header */}
+                            <View style={styles.modalHeader}>
+                                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+                                    {formMode === 'add' ? 'Record Revenue' : 'Edit Revenue'}
+                                </Text>
+                                <TouchableOpacity onPress={() => setFormModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
+                                    <X size={18} color={theme.textPrimary} />
+                                </TouchableOpacity>
                             </View>
-                        </ScrollView>
 
-                    </View>
-                </KeyboardAvoidingView>
+                            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                                <View style={{ gap: 14, paddingBottom: 24, paddingTop: 10 }}>
+
+                                    {/* Form Field: Amount */}
+                                    <View>
+                                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Amount (INR) *</Text>
+                                        <View style={[styles.formInputContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 6 }]}>
+                                            <TextInput
+                                                style={[styles.formTextInput, { color: theme.textPrimary }]}
+                                                keyboardType="numeric"
+                                                placeholder="0.00"
+                                                placeholderTextColor={theme.textMuted}
+                                                value={formAmount}
+                                                onChangeText={setFormAmount}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    {/* Dropdown Category Selector */}
+                                    <View style={{ zIndex: 10 }}>
+                                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Category Type *</Text>
+                                        <TouchableOpacity
+                                            onPress={() => setCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                                            style={[styles.selectBox, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
+                                        >
+                                            <Text style={{ color: theme.textPrimary, fontSize: 13 }}>
+                                                {getRevenueTypeDetails(formCategory).label}
+                                            </Text>
+                                            <ChevronDown size={16} color={theme.textSecondary} />
+                                        </TouchableOpacity>
+
+                                        {isCategoryDropdownOpen && (
+                                            <View style={{
+                                                position: 'absolute',
+                                                top: 68,
+                                                left: 0,
+                                                right: 0,
+                                                backgroundColor: theme.secondaryBg,
+                                                borderColor: theme.border,
+                                                borderWidth: 1,
+                                                borderRadius: 10,
+                                                shadowColor: '#000',
+                                                shadowOffset: { width: 0, height: 2 },
+                                                shadowOpacity: 0.1,
+                                                shadowRadius: 4,
+                                                elevation: 3,
+                                                zIndex: 100,
+                                                maxHeight: 180,
+                                            }}>
+                                                <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
+                                                    {MANUAL_REVENUE_TYPES.map((cat) => (
+                                                        <TouchableOpacity
+                                                            key={cat.value}
+                                                            onPress={() => {
+                                                                setFormCategory(cat.value);
+                                                                setCategoryDropdownOpen(false);
+                                                            }}
+                                                            style={{
+                                                                paddingVertical: 10,
+                                                                paddingHorizontal: 12,
+                                                                borderBottomWidth: 1,
+                                                                borderBottomColor: theme.border,
+                                                            }}
+                                                        >
+                                                            <Text style={{ color: theme.textPrimary, fontSize: 13, fontWeight: formCategory === cat.value ? '700' : '400' }}>
+                                                                {cat.label}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </ScrollView>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {/* Description input */}
+                                    <View>
+                                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Description / Notes *</Text>
+                                        <View style={[styles.formInputContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 6, height: 80, alignItems: 'flex-start' }]}>
+                                            <TextInput
+                                                style={[styles.formTextInput, { color: theme.textPrimary, height: '100%', paddingVertical: 8, textAlignVertical: 'top' }]}
+                                                placeholder="Property details, Booking advance particulars, lease names, etc..."
+                                                placeholderTextColor={theme.textMuted}
+                                                multiline
+                                                value={formDescription}
+                                                onChangeText={setFormDescription}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    {/* Form Buttons */}
+                                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                                        <TouchableOpacity
+                                            onPress={() => setFormModalOpen(false)}
+                                            style={[styles.formCancelBtn, { backgroundColor: theme.inputBg, borderColor: theme.border }]}
+                                        >
+                                            <Text style={{ color: theme.textSecondary, fontWeight: '700' }}>Cancel</Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            onPress={formMode === 'add' ? handleRecordRevenue : handleEditSubmit}
+                                            disabled={recordRevenueMutation.isPending || updateRevenueMutation.isPending}
+                                            style={[styles.formSaveBtn, { backgroundColor: theme.brand }]}
+                                        >
+                                            {recordRevenueMutation.isPending || updateRevenueMutation.isPending ? (
+                                                <ActivityIndicator size="small" color="#ffffff" />
+                                            ) : (
+                                                <Text style={{ color: '#ffffff', fontWeight: '700' }}>
+                                                    {formMode === 'add' ? 'Record Revenue' : 'Save Changes'}
+                                                </Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+
+                                </View>
+                            </ScrollView>
+
+                        </View>
+                    </KeyboardAvoidingView>
+                </View>
             </Modal>
 
         </View>

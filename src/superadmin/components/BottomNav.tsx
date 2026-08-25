@@ -25,16 +25,23 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
   const navigateToProfile = useCallback(() => router.replace('/superadmin/profile' as any), [router]);
 
   const [containerWidth, setContainerWidth] = useState(0);
+  const isFirstRender = React.useRef(true);
   const translateX = useSharedValue(0);
 
   useEffect(() => {
     const index = ['dashboard', 'tenants', 'inquiries', 'subscriptions', 'profile'].indexOf(active);
     if (index !== -1 && containerWidth > 0) {
       const tabWidth = (containerWidth - 24) / 5;
-      translateX.value = withSpring(index * tabWidth + tabWidth / 2 - 7, {
-        damping: 18,
-        stiffness: 150,
-      });
+      const targetX = index * tabWidth + tabWidth / 2 - 7;
+      if (isFirstRender.current) {
+        translateX.value = targetX;
+        isFirstRender.current = false;
+      } else {
+        translateX.value = withSpring(targetX, {
+          damping: 18,
+          stiffness: 150,
+        });
+      }
     }
   }, [active, containerWidth]);
 

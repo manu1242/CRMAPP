@@ -239,10 +239,64 @@ interface BottomMenuSheetProps {
   blurTargetRef?: React.RefObject<any>;
 }
 
+import { useAuthStore } from '../../auth/store/authStore';
+
 export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSheetProps) {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const user = useAuthStore((state) => state.user);
+  const role = user?.role?.trim()?.toLowerCase() || '';
+
+  const visibleModules = React.useMemo(() => {
+    return MODULES.map((module) => {
+      const filteredSubLinks = module.subLinks.filter((link) => {
+        const route = link.route;
+
+        // Admin has full access except partner dashboard home
+        if (role === 'admin') {
+          if (route === '/admin/PartnerDashboard') return false;
+          return true;
+        }
+
+        // Partner role filtering
+        if (role === 'partner') {
+          const allowedRoutes = [
+            '/admin/PartnerDashboard',
+            '/admin/leads',
+            '/admin/sales',
+            '/admin/properties',
+            '/admin/attendance/AgentAttendance',
+            '/admin/payouts/PartnerPayout',
+            '/admin/settings/profile/Profile',
+          ];
+          return allowedRoutes.includes(route);
+        }
+
+        // Agent / Sales role filtering
+        if (role === 'agent' || role === 'sales') {
+          const allowedRoutes = [
+            '/admin/leads',
+            '/admin/sales',
+            '/admin/Tasks',
+            '/admin/properties',
+            '/admin/attendance/AgentAttendance',
+            '/admin/settings/profile/Profile',
+          ];
+          return allowedRoutes.includes(route);
+        }
+
+        return false;
+      });
+
+      if (filteredSubLinks.length === 0) return null;
+
+      return {
+        ...module,
+        subLinks: filteredSubLinks,
+      };
+    }).filter(Boolean) as ModuleItem[];
+  }, [role]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [focusedModuleId, setFocusedModuleId] = useState<string | null>(null);
@@ -518,7 +572,7 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
     handleContentHeightChange(roundedHeight + nonContentHeight);
   };
 
-  const filteredModules = MODULES.filter(
+  const filteredModules = visibleModules.filter(
     (m) =>
       m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.category.toLowerCase().includes(searchQuery.toLowerCase())

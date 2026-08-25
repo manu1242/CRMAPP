@@ -95,6 +95,7 @@ export default function InvoicesPage() {
   const summary = invoicesResponse?.data?.summary;
 
   const scrollY = useRef(new Animated.Value(0)).current;
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(68);
 
   // Auto-scroll to bottom when new invoice appears
   const scrollViewRef = useRef<any>(null);
@@ -129,7 +130,6 @@ export default function InvoicesPage() {
   ];
 
   const headerHeight = summary ? (STATUS_PILLS_HEIGHT + METRICS_HEIGHT) : STATUS_PILLS_HEIGHT;
-  const searchBarHeight = 112;
 
   const activeScrollY = useMemo(() => {
     return scrollY.interpolate({
@@ -154,24 +154,20 @@ export default function InvoicesPage() {
   return (
     <View style={[styles.container, { backgroundColor: theme.primaryBg }]}>
       {/* Sticky Top Header & Search Container */}
-      <View style={{
-        backgroundColor: theme.primaryBg,
-        zIndex: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.border,
-        paddingTop: 12,
-        paddingBottom: 8,
-      }}>
-        {/* Top Header Row with title and back button */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 12, gap: 8 }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}>
-            <ChevronLeft size={22} color={theme.textPrimary} />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 17, fontWeight: '600', color: theme.textPrimary }}>Invoices</Text>
-        </View>
+      <View
+        onLayout={(e) => setStickyHeaderHeight(e.nativeEvent.layout.height)}
+        style={{
+          backgroundColor: theme.primaryBg,
+          zIndex: 10,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.border,
+          paddingTop: 12,
+          paddingBottom: 8,
+        }}>
+
 
         {/* Search & Create Row */}
-        <View style={{ paddingHorizontal: 20, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+        <View style={{ paddingHorizontal: 12, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
           <View style={[styles.searchBox, { flex: 1, backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
             <Search size={16} color={theme.textSecondary} />
             <TextInput
@@ -200,7 +196,7 @@ export default function InvoicesPage() {
       {/* Animating Header (Status Pills + Metrics) */}
       <Animated.View style={{
         position: 'absolute',
-        top: searchBarHeight,
+        top: stickyHeaderHeight,
         left: 0,
         right: 0,
         zIndex: 9,
@@ -258,7 +254,7 @@ export default function InvoicesPage() {
         ref={scrollViewRef}
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingTop: headerHeight + 16,
+          paddingTop:headerHeight + 16,
           paddingBottom: 110,
           paddingHorizontal: 16,
         }}

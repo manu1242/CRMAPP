@@ -193,37 +193,21 @@ export default function CreateChannelPartnerScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      {/* Header navbar */}
+
+
       <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
         paddingHorizontal: 16,
         paddingVertical: 14,
         backgroundColor: cardBg,
         borderBottomWidth: 1,
         borderBottomColor: borderCol,
-        gap: 12
       }}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: inputBg,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <ArrowLeft size={20} color={textColor} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Onboard Partner</Text>
-          <Text style={{ fontSize: 10, color: subTextColor, marginTop: 1 }}>Register a new channel partner</Text>
-        </View>
+        <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Onboard Partner</Text>
+        <Text style={{ fontSize: 10, color: subTextColor, marginTop: 1 }}>Register a new channel partner</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} showsVerticalScrollIndicator={false}>
+
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         {/* Basic Information Section */}
         <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16, gap: 12 }}>
           <Text style={{ fontSize: 13, fontWeight: '700', color: textColor, marginBottom: 4 }}>Basic Information</Text>

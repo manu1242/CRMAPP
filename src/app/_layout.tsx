@@ -97,9 +97,9 @@ function AuthGuardLayout() {
       // User is logged in but on a public/auth screen — send to dashboard
       if (role === 'superadmin') {
         router.replace('/superadmin/dashboard');
-      } else if (role === 'admin' || isImpersonating) {
-        // For impersonating a partner-role user, show the Partner Dashboard
-        if (isImpersonating && role === 'partner') {
+      } else if (role === 'admin' || role === 'partner' || role === 'agent' || role === 'sales' || isImpersonating) {
+        // Redirect to correct dashboard based on role
+        if (role === 'partner') {
           router.replace('/admin/PartnerDashboard');
         } else {
           router.replace('/admin/dashboard');
@@ -123,7 +123,7 @@ function AuthGuardLayout() {
         } else {
           router.replace('/select-workspace');
         }
-      } else if (segments[0] === 'admin' && role !== 'admin' && !isImpersonating) {
+      } else if (segments[0] === 'admin' && !['admin', 'partner', 'agent', 'sales'].includes(role || '') && !isImpersonating) {
         // Skip warning if user is impersonating, allowing them to test the admin panel
         Toast.show({
           type: 'error',
@@ -138,9 +138,12 @@ function AuthGuardLayout() {
       } else if (segments[0] === 'select-workspace') {
         if (role === 'superadmin') {
           router.replace('/superadmin/dashboard');
-        } else if (role === 'admin' || isImpersonating) {
-          // If impersonating a non-admin user, still go to admin dashboard (same as web behavior)
-          router.replace('/admin/dashboard');
+        } else if (role === 'admin' || role === 'partner' || role === 'agent' || role === 'sales' || isImpersonating) {
+          if (role === 'partner') {
+            router.replace('/admin/PartnerDashboard');
+          } else {
+            router.replace('/admin/dashboard');
+          }
         }
       }
     }
@@ -315,7 +318,7 @@ function InnerLayout() {
     (['profile', 'change-password', 'select-workspace'].includes(segments[0] as string) && userRole === 'superadmin');
 
   const isAdminFlow = (segments[0] as string) === 'admin' ||
-    (['profile', 'change-password', 'select-workspace'].includes(segments[0] as string) && userRole === 'admin');
+    (['profile', 'change-password', 'select-workspace'].includes(segments[0] as string) && userRole !== 'superadmin');
 
   // Sync Android System Navigation Bar & Root Background Color to match Active Login Theme
   useEffect(() => {
@@ -337,6 +340,8 @@ function InnerLayout() {
       // Impersonation just ended — go back to correct dashboard
       if (userRole === 'superadmin') {
         router.replace('/superadmin/dashboard');
+      } else if (userRole === 'partner') {
+        router.replace('/admin/PartnerDashboard');
       } else {
         router.replace('/admin/dashboard');
       }
@@ -380,8 +385,53 @@ function InnerLayout() {
   const themeClass = isSuperAdminFlow ? 'superadmin-theme' : isAdminFlow ? 'admin-theme' : '';
 
   // Determine header visibility using centralized configuration
-  const isHeaderVisible = checkHeaderVisibility(path);
+  let isHeaderVisible = checkHeaderVisibility(path);
+
+  // Direct safe overrides to prevent caching and guarantee visibility on index pages
+  const normalizedPath = path.toLowerCase().trim();
+  if (
+    normalizedPath.includes('admin/salesunit/bookings') &&
+    !normalizedPath.includes('/[id]') &&
+    !normalizedPath.includes('/createbooking')
+  ) {
+    isHeaderVisible = true;
+  }
+  if (
+    normalizedPath.includes('admin/salesunit/invoice') &&
+    !normalizedPath.includes('/[id]') &&
+    !normalizedPath.includes('/generateinvoice')
+  ) {
+    isHeaderVisible = true;
+  }
+  if (
+    normalizedPath.includes('admin/salesunit/payments')
+  ) {
+    isHeaderVisible = true;
+  }
+  if (
+    normalizedPath.includes('admin/finance/expenses')
+  ) {
+    isHeaderVisible = true;
+  }
+  if (
+    normalizedPath.includes('admin/finance/revenue')
+  ) {
+    isHeaderVisible = true;
+  }
+  if (
+    normalizedPath.includes('admin/finance/profit')
+  ) {
+    isHeaderVisible = true;
+  }
+  if (
+    normalizedPath.includes('admin/usemanagement/manageusers')
+  ) {
+    isHeaderVisible = true;
+  }
+
   const hideHeader = !isHeaderVisible;
+
+  console.log('[DEBUG LAYOUT] segments:', segments, 'path:', path, 'isHeaderVisible:', isHeaderVisible, 'isAdminFlow:', isAdminFlow);
 
   let headerComponent = null;
   let bottomNavComponent = null;
@@ -488,25 +538,25 @@ function InnerLayout() {
           )}
           {isImpersonating && (
             <View style={{
-              backgroundColor: '#eab308',
+              backgroundColor: '#991b1b',
               paddingVertical: 8,
               paddingHorizontal: 16,
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
               borderBottomWidth: 1,
-              borderBottomColor: '#d97706',
+              borderBottomColor: '#7f1d1d',
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={{ fontSize: 13 }}>🕵️</Text>
-                <Text style={{ color: '#1e293b', fontSize: 12, fontWeight: '700' }}>
-                  Impersonating: {impersonatedUsername}
+                <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>
+                  Impersonating: {impersonatedUsername} - Click to stop
                 </Text>
               </View>
               <TouchableOpacity
                 onPress={() => setIsStopConfirmOpen(true)}
                 style={{
-                  backgroundColor: '#1e293b',
+                  backgroundColor: '#111827',
                   paddingHorizontal: 10,
                   paddingVertical: 4,
                   borderRadius: 6,

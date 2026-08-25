@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Modal,
   Alert,
   Platform,
+  Animated,
+  FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -20,6 +22,7 @@ import {
   FileText,
   Calendar,
   Filter,
+  Eye,
   Plus,
   Trash2,
   Info,
@@ -336,62 +339,50 @@ export default function PaymentsScreen() {
     }
   };
 
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(130);
+  const scrollViewRef = useRef<any>(null);
+
+  const DATE_FILTER_HEIGHT = 68;
+  const METRICS_HEIGHT = 120;
+  const headerHeight = DATE_FILTER_HEIGHT + (summary ? METRICS_HEIGHT : 0);
+
+  const activeScrollY = useMemo(() => {
+    return scrollY.interpolate({
+      inputRange: [0, 1000000],
+      outputRange: [0, 1000000],
+      extrapolate: 'clamp',
+    });
+  }, [scrollY]);
+
+  const clampedScroll = useMemo(() => {
+    return Animated.diffClamp(activeScrollY, 0, headerHeight || 1);
+  }, [activeScrollY, headerHeight]);
+
+  const translateY = useMemo(() => {
+    return clampedScroll.interpolate({
+      inputRange: [0, headerHeight || 1],
+      outputRange: [0, -(headerHeight || 1)],
+      extrapolate: 'clamp',
+    });
+  }, [clampedScroll, headerHeight]);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.primaryBg }]}>
-      
-      {/* Overview Metric Summary Dashboard */}
-      {summary ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0 }}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4, gap: 12 }}
-        >
-          <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-            <View style={[styles.metricIconBox, { backgroundColor: '#10b98115' }]}>
-              <CheckCircle size={20} color="#10b981" />
-            </View>
-            <View style={{ marginTop: 8 }}>
-              <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Total Receipts</Text>
-              <Text style={[styles.metricVal, { color: theme.textPrimary }]}>{summary.totalPayments}</Text>
-            </View>
-          </View>
 
-          <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-            <View style={[styles.metricIconBox, { backgroundColor: '#6366f115' }]}>
-              <DollarSign size={20} color="#6366f1" />
-            </View>
-            <View style={{ marginTop: 8 }}>
-              <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Total Received</Text>
-              <Text style={[styles.metricVal, { color: theme.textPrimary }]}>{formatCurrency(summary.totalReceived)}</Text>
-            </View>
-          </View>
-
-          <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-            <View style={[styles.metricIconBox, { backgroundColor: '#f59e0b15' }]}>
-              <Clock size={20} color="#f59e0b" />
-            </View>
-            <View style={{ marginTop: 8 }}>
-              <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>This Month</Text>
-              <Text style={[styles.metricVal, { color: theme.textPrimary }]}>{summary.thisMonthCount} payments</Text>
-            </View>
-          </View>
-
-          <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-            <View style={[styles.metricIconBox, { backgroundColor: '#3b82f615' }]}>
-              <Building size={20} color="#3b82f6" />
-            </View>
-            <View style={{ marginTop: 8 }}>
-              <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Month Revenue</Text>
-              <Text style={[styles.metricVal, { color: theme.textPrimary }]}>{formatCurrency(summary.monthRevenue)}</Text>
-            </View>
-          </View>
-        </ScrollView>
-      ) : null}
-
-      {/* Filter & Search Panel */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 4, gap: 10 }}>
-        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+      {/* Sticky Top Header & Search Container */}
+      <View
+        onLayout={(e) => setStickyHeaderHeight(e.nativeEvent.layout.height)}
+        style={{
+          backgroundColor: theme.primaryBg,
+          zIndex: 10,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.border,
+          paddingTop: 12,
+          paddingBottom: 8,
+        }}>
+        {/* Search & Create Row */}
+        <View style={{ paddingHorizontal: 16, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
           <View style={[styles.searchBox, { flex: 1, backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
             <Search size={16} color={theme.textSecondary} />
             <TextInput
@@ -420,123 +411,201 @@ export default function PaymentsScreen() {
             <Plus size={16} color="#ffffff" />
           </TouchableOpacity>
         </View>
-
-        {/* Date Inputs Panel */}
-        <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 4 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 4 }}>From Date (YYYY-MM-DD)</Text>
-            <TextInput
-              style={[styles.dateInput, { backgroundColor: theme.secondaryBg, borderColor: theme.border, color: theme.textPrimary }]}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={theme.textMuted}
-              value={fromDate}
-              onChangeText={setFromDate}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 4 }}>To Date (YYYY-MM-DD)</Text>
-            <TextInput
-              style={[styles.dateInput, { backgroundColor: theme.secondaryBg, borderColor: theme.border, color: theme.textPrimary }]}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={theme.textMuted}
-              value={toDate}
-              onChangeText={setToDate}
-            />
-          </View>
-        </View>
       </View>
 
-      {/* Payments List */}
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16, paddingTop: 8 }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isListLoading && isListRefetching} onRefresh={refetchList} />}
-      >
-        {isListLoading && !isListRefetching ? (
-          <View style={{ paddingVertical: 60, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color={theme.brand} />
-            <Text style={{ color: theme.textSecondary, marginTop: 12 }}>Fetching payments...</Text>
+      {/* Animating Header (Filter & Metrics) */}
+      <Animated.View style={{
+        position: 'absolute',
+        top: stickyHeaderHeight,
+        left: 0,
+        right: 0,
+        zIndex: 9,
+        backgroundColor: theme.primaryBg,
+        transform: [{ translateY }],
+        height: headerHeight,
+        overflow: 'hidden',
+      }}>
+        {/* Date Inputs Panel */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 6, gap: 8, height: DATE_FILTER_HEIGHT }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 2 }}>From Date (YYYY-MM-DD)</Text>
+              <TextInput
+                style={[styles.dateInput, { backgroundColor: theme.secondaryBg, borderColor: theme.border, color: theme.textPrimary }]}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={theme.textMuted}
+                value={fromDate}
+                onChangeText={setFromDate}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 2 }}>To Date (YYYY-MM-DD)</Text>
+              <TextInput
+                style={[styles.dateInput, { backgroundColor: theme.secondaryBg, borderColor: theme.border, color: theme.textPrimary }]}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={theme.textMuted}
+                value={toDate}
+                onChangeText={setToDate}
+              />
+            </View>
           </View>
-        ) : payments.length > 0 ? (
-          <View style={{ gap: 12 }}>
-            {payments.map((item) => (
-              <TouchableOpacity
-                key={item.paymentId}
-                onPress={() => {
-                  setSelectedPayment(item);
-                  setDetailModalOpen(true);
-                }}
-                style={[styles.card, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
-              >
-                <View style={styles.cardHeader}>
-                  <View>
-                    <Text style={[styles.receiptText, { color: theme.textPrimary }]}>{item.receiptNumber}</Text>
-                    <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>{formatDate(item.paymentDate)}</Text>
-                  </View>
+        </View>
+
+        {/* Overview Metric Summary Dashboard */}
+        {summary ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4, gap: 12 }}
+          >
+            <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+              <View style={[styles.metricIconBox, { backgroundColor: '#10b98115' }]}>
+                <CheckCircle size={20} color="#10b981" />
+              </View>
+              <View style={{ marginTop: 8 }}>
+                <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Total Receipts</Text>
+                <Text style={[styles.metricVal, { color: theme.textPrimary }]}>{summary.totalPayments}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+              <View style={[styles.metricIconBox, { backgroundColor: '#6366f115' }]}>
+                <DollarSign size={20} color="#6366f1" />
+              </View>
+              <View style={{ marginTop: 8 }}>
+                <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Total Received</Text>
+                <Text style={[styles.metricVal, { color: theme.textPrimary }]}>{formatCurrency(summary.totalReceived)}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+              <View style={[styles.metricIconBox, { backgroundColor: '#f59e0b15' }]}>
+                <Clock size={20} color="#f59e0b" />
+              </View>
+              <View style={{ marginTop: 8 }}>
+                <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>This Month</Text>
+                <Text style={[styles.metricVal, { color: theme.textPrimary }]}>{summary.thisMonthCount} payments</Text>
+              </View>
+            </View>
+
+            <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+              <View style={[styles.metricIconBox, { backgroundColor: '#3b82f615' }]}>
+                <Building size={20} color="#3b82f6" />
+              </View>
+              <View style={{ marginTop: 8 }}>
+                <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Month Revenue</Text>
+                <Text style={[styles.metricVal, { color: theme.textPrimary }]}>{formatCurrency(summary.monthRevenue)}</Text>
+              </View>
+            </View>
+          </ScrollView>
+        ) : null}
+      </Animated.View>
+
+      {/* Payments List */}
+      {isListLoading && !isListRefetching ? (
+        <View style={{ flex: 1, paddingVertical: 60, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={theme.brand} />
+          <Text style={{ color: theme.textSecondary, marginTop: 12 }}>Fetching payments...</Text>
+        </View>
+      ) : (
+        <Animated.FlatList
+          ref={scrollViewRef}
+          data={payments}
+          keyExtractor={(item) => item.paymentId.toString()}
+          contentContainerStyle={{
+            paddingTop: headerHeight + 16,
+            paddingBottom: 110,
+            paddingHorizontal: 16,
+          }}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedPayment(item);
+                setDetailModalOpen(true);
+              }}
+              style={[styles.card, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
+            >
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={[styles.receiptText, { color: theme.textPrimary }]}>{item.receiptNumber}</Text>
+                  <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>{formatDate(item.paymentDate)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Eye size={15} color={theme.textSecondary} style={{ opacity: 0.8 }} />
                   <View style={[styles.methodBadge, { backgroundColor: getMethodColor(item.paymentMethod).bg }]}>
                     <Text style={[styles.methodText, { color: getMethodColor(item.paymentMethod).text }]}>{item.paymentMethod}</Text>
                   </View>
                 </View>
+              </View>
 
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-                <View style={{ gap: 6 }}>
-                  <View style={styles.gridRow}>
-                    <User size={13} color={theme.textSecondary} />
-                    <Text style={[styles.gridText, { color: theme.textPrimary }]}>{item.leadName}</Text>
-                  </View>
-                  <View style={styles.gridRow}>
-                    <Building size={13} color={theme.textSecondary} />
-                    <Text style={[styles.gridText, { color: theme.textSecondary }]} numberOfLines={1}>
-                      {item.propertyName} · {item.flatName}
-                    </Text>
-                  </View>
-                  <View style={styles.gridRow}>
-                    <FileText size={13} color={theme.textSecondary} />
-                    <Text style={[styles.gridText, { color: theme.textSecondary }]}>Invoice: {item.invoiceNumber}</Text>
-                  </View>
+              <View style={{ gap: 6 }}>
+                <View style={styles.gridRow}>
+                  <User size={13} color={theme.textSecondary} />
+                  <Text style={[styles.gridText, { color: theme.textPrimary }]}>{item.leadName}</Text>
                 </View>
-
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 11, color: theme.textMuted }}>Ref: {item.transactionReference || 'N/A'}</Text>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: theme.brand }}>{formatCurrency(item.amount)}</Text>
+                <View style={styles.gridRow}>
+                  <Building size={13} color={theme.textSecondary} />
+                  <Text style={[styles.gridText, { color: theme.textSecondary }]} numberOfLines={1}>
+                    {item.propertyName} · {item.flatName}
+                  </Text>
                 </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <View style={[styles.emptyContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-            <Info size={36} color={theme.textMuted} style={{ marginBottom: 12 }} />
-            <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No Payments Found</Text>
-            <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>There are no payments matching your search criteria.</Text>
-          </View>
-        )}
+                <View style={styles.gridRow}>
+                  <FileText size={13} color={theme.textSecondary} />
+                  <Text style={[styles.gridText, { color: theme.textSecondary }]}>Invoice: {item.invoiceNumber}</Text>
+                </View>
+              </View>
 
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <View style={[styles.paginationRow, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 16 }]}>
-            <TouchableOpacity
-              disabled={page <= 1}
-              onPress={() => setPage(page - 1)}
-              style={[styles.pageBtn, { backgroundColor: theme.inputBg, opacity: page <= 1 ? 0.4 : 1 }]}
-            >
-              <ChevronLeft size={16} color={theme.textPrimary} />
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 11, color: theme.textMuted }}>Ref: {item.transactionReference || 'N/A'}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: theme.brand }}>{formatCurrency(item.amount)}</Text>
+              </View>
             </TouchableOpacity>
-            <Text style={{ color: theme.textPrimary, fontSize: 13 }}>
-              Page {page} of {totalPages}
-            </Text>
-            <TouchableOpacity
-              disabled={page >= totalPages}
-              onPress={() => setPage(page + 1)}
-              style={[styles.pageBtn, { backgroundColor: theme.inputBg, opacity: page >= totalPages ? 0.4 : 1 }]}
-            >
-              <ChevronRight size={16} color={theme.textPrimary} />
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
+          )}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={isListLoading && isListRefetching} onRefresh={refetchList} />}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
+          ListEmptyComponent={
+            <View style={[styles.emptyContainer, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+              <Info size={36} color={theme.textMuted} style={{ marginBottom: 12 }} />
+              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No Payments Found</Text>
+              <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>There are no payments matching your search criteria.</Text>
+            </View>
+          }
+          ListFooterComponent={
+            totalPages > 1 ? (
+              <View style={[styles.paginationRow, { backgroundColor: theme.secondaryBg, borderColor: theme.border, marginTop: 16 }]}>
+                <TouchableOpacity
+                  disabled={page <= 1}
+                  onPress={() => setPage(page - 1)}
+                  style={[styles.pageBtn, { backgroundColor: theme.inputBg, opacity: page <= 1 ? 0.4 : 1 }]}
+                >
+                  <ChevronLeft size={16} color={theme.textPrimary} />
+                </TouchableOpacity>
+                <Text style={{ color: theme.textPrimary, fontSize: 13 }}>
+                  Page {page} of {totalPages}
+                </Text>
+                <TouchableOpacity
+                  disabled={page >= totalPages}
+                  onPress={() => setPage(page + 1)}
+                  style={[styles.pageBtn, { backgroundColor: theme.inputBg, opacity: page >= totalPages ? 0.4 : 1 }]}
+                >
+                  <ChevronRight size={16} color={theme.textPrimary} />
+                </TouchableOpacity>
+              </View>
+            ) : null
+          }
+        />
+      )}
 
       {/* PAYMENT DETAIL MODAL */}
       <Modal visible={isDetailModalOpen} transparent animationType="fade" onRequestClose={() => setDetailModalOpen(false)}>
@@ -554,7 +623,7 @@ export default function PaymentsScreen() {
 
             {selectedPayment ? (
               <ScrollView showsVerticalScrollIndicator={false}>
-                
+
                 {/* Main Receipt Summary */}
                 <View style={{ backgroundColor: theme.inputBg, padding: 14, borderRadius: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -606,11 +675,11 @@ export default function PaymentsScreen() {
                     <Text style={{ fontSize: 11, color: theme.textSecondary, marginBottom: 3 }}><Text style={{ fontWeight: '600', color: theme.textPrimary }}>Payment Date: </Text>{formatDate(selectedPayment.paymentDate)}</Text>
                     <Text style={{ fontSize: 11, color: theme.textSecondary, marginBottom: 3 }}><Text style={{ fontWeight: '600', color: theme.textPrimary }}>Linked Invoice: </Text>{selectedPayment.invoiceNumber}</Text>
                     <Text style={{ fontSize: 11, color: theme.textSecondary, marginBottom: 3 }}><Text style={{ fontWeight: '600', color: theme.textPrimary }}>Property / Flat: </Text>{selectedPayment.propertyName} · {selectedPayment.flatName}</Text>
-                    
+
                     {selectedPayment.milestoneName && (
                       <Text style={{ fontSize: 11, color: theme.textSecondary, marginBottom: 3 }}><Text style={{ fontWeight: '600', color: theme.textPrimary }}>Milestone Component: </Text>{selectedPayment.milestoneName}</Text>
                     )}
-                    
+
                     {selectedPayment.transactionReference && (
                       <Text style={{ fontSize: 11, color: theme.textSecondary, marginBottom: 3 }}><Text style={{ fontWeight: '600', color: theme.textPrimary }}>Transaction Reference: </Text>{selectedPayment.transactionReference}</Text>
                     )}
@@ -730,10 +799,10 @@ export default function PaymentsScreen() {
               </View>
             ) : receiptResponse?.data ? (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12 }}>
-                
+
                 {/* Paper Receipt Frame */}
                 <View style={{ backgroundColor: '#ffffff', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
-                  
+
                   {/* Company Header */}
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 2, borderBottomColor: theme.brand, paddingBottom: 10, marginBottom: 12 }}>
                     <View style={{ flex: 1.2 }}>
@@ -867,7 +936,7 @@ export default function PaymentsScreen() {
       <Modal visible={isFormModalOpen} transparent animationType="slide" onRequestClose={() => setFormModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.formModalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-            
+
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Record Payment</Text>
               <TouchableOpacity onPress={() => setFormModalOpen(false)} style={[styles.closeBtn, { backgroundColor: theme.inputBg }]}>
@@ -877,7 +946,7 @@ export default function PaymentsScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={{ gap: 14, paddingBottom: 24 }}>
-                
+
                 {/* Select Invoice Section */}
                 <View style={[styles.detailCard, { backgroundColor: theme.inputBg, borderColor: theme.border, padding: 12, marginBottom: 4, zIndex: 20 }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -1131,7 +1200,7 @@ export default function PaymentsScreen() {
                   >
                     <Text style={{ color: theme.textSecondary, fontWeight: '700' }}>Cancel</Text>
                   </TouchableOpacity>
-                  
+
                   <TouchableOpacity
                     onPress={handleRecordPayment}
                     disabled={recordPaymentMutation.isPending}
@@ -1178,7 +1247,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   metricVal: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
     marginTop: 2,
   },

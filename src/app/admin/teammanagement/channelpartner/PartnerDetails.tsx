@@ -427,19 +427,7 @@ export default function PartnerDetailsScreen() {
         borderBottomColor: borderCol,
         gap: 12
       }}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: inputBg,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <ArrowLeft size={20} color={textColor} />
-        </TouchableOpacity>
+       
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Channel Partner Details</Text>
           <Text style={{ fontSize: 11, color: subTextColor, marginTop: 1 }}>ID: #{partner.partnerId}</Text>
@@ -473,7 +461,7 @@ export default function PartnerDetailsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 120 }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[brandColor]} />}
         showsVerticalScrollIndicator={false}
       >

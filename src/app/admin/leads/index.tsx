@@ -127,7 +127,7 @@ export default function LeadsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
       {/* Top Header Bar */}
-      <View style={{
+      {/* <View style={{
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -162,7 +162,7 @@ export default function LeadsScreen() {
             {totalCount} Total
           </Text>
         </View>
-      </View>
+      </View> */}
 
 
       <ScrollView

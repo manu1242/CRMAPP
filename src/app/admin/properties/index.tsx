@@ -298,7 +298,7 @@ export default function PropertiesScreen() {
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         // Pressing scroll area should close any open inline dropdown
