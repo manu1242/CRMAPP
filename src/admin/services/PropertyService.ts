@@ -80,7 +80,7 @@ export const PropertyService = {
     // Send uploadId in a FormData object as expected by standard POST endpoints in MVC
     const formData = new FormData();
     formData.append('uploadId', uploadId.toString());
-    return apiClient.postForm<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_IMAGE, formData);
+    return apiClient.postForm<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_IMAGE(uploadId), formData);
   },
 
   getDocuments: async (propertyId: number | string): Promise<{ success: boolean; documents: any[] }> => {
@@ -94,7 +94,7 @@ export const PropertyService = {
   deleteDocument: async (documentId: number | string): Promise<GeneralApiResponse> => {
     const formData = new FormData();
     formData.append('documentId', documentId.toString());
-    return apiClient.postForm<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_DOCUMENT, formData);
+    return apiClient.postForm<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_DOCUMENT(documentId), formData);
   },
 
   // Fetch property cover image as authenticated base64 data URI

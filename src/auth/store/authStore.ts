@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isLoginSuccess } from '../models/LoginResponse';
 import Toast from 'react-native-toast-message';
 import { User } from '../models/User';
 import { LoginRequest } from '../models/LoginRequest';
@@ -18,11 +19,14 @@ interface AuthState {
   error: string | null;
   isImpersonating: boolean;
   impersonatedUsername: string | null;
+  pendingCredentials: { username: string; password: string } | null;
+  pendingWorkspaces: any[];
   setUser: (user: User | null) => void;
   setAuthenticated: (isAuthenticated: boolean) => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
-  login: (credentials: LoginRequest) => Promise<void>;
+  login: (credentials: LoginRequest) => Promise<'success' | 'pick_workspace' | 'error'>;
+  loginWithWorkspace: (tenantId: number) => Promise<'success' | 'error'>;
   logout: () => Promise<void>;
   initializeSession: () => Promise<void>;
   impersonate: (token: string, targetUser: any) => Promise<void>;
@@ -36,6 +40,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   error: null,
   isImpersonating: false,
   impersonatedUsername: null,
+  pendingCredentials: null,
+  pendingWorkspaces: [],
 
   setUser: (user) => set({ user }),
   setAuthenticated: (isAuthenticated) => set({ isAuthenticated }),
@@ -46,27 +52,72 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await AuthService.login(credentials);
-      set({
-        user: response.user,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-      Toast.show({
-        type: 'success',
-        text1: 'Success',
-        text2: 'Logged in successfully!',
-      });
+
+      if (isLoginSuccess(response)) {
+        const u = response.data.user;
+        set({
+          user: {
+            username: u.username,
+            role: u.role,
+            tenantId: u.tenantId,
+            tenantName: u.companyName,
+            subdomain: u.subdomain,
+            userId: u.userId,
+            email: u.email,
+            channelPartnerId: u.channelPartnerId,
+          },
+          isAuthenticated: true,
+          isLoading: false,
+          pendingCredentials: null,
+        });
+        Toast.show({ type: 'success', text1: 'Success', text2: `Welcome, ${u.username}!` });
+        return 'success';
+      }
+
+      throw new Error('Unexpected login response');
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || err.message || 'Login failed';
       set({ error: errorMsg, isLoading: false });
-      Toast.show({
-        type: 'error',
-        text1: 'Login Failed',
-        text2: errorMsg,
-      });
-      throw err;
+      Toast.show({ type: 'error', text1: 'Login Failed', text2: errorMsg });
+      return 'error';
     }
   },
+
+  loginWithWorkspace: async (tenantId) => {
+    const { pendingCredentials } = useAuthStore.getState();
+    if (!pendingCredentials) {
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Session expired. Please log in again.' });
+      return 'error';
+    }
+    set({ isLoading: true, error: null });
+    try {
+      const response = await AuthService.loginWithWorkspace(pendingCredentials, tenantId);
+      if (isLoginSuccess(response)) {
+        const u = response.data.user;
+        set({
+          user: {
+            username:   u.username,
+            role:       u.role,
+            tenantId:   u.tenantId,
+            tenantName: u.companyName,
+            subdomain:  u.subdomain,
+          },
+          isAuthenticated: true,
+          isLoading: false,
+          pendingCredentials: null,
+        });
+        Toast.show({ type: 'success', text1: 'Success', text2: `Welcome, ${u.username}!` });
+        return 'success';
+      }
+      throw new Error('Unexpected response after workspace selection');
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.message || err.message || 'Login failed';
+      set({ error: errorMsg, isLoading: false });
+      Toast.show({ type: 'error', text1: 'Login Failed', text2: errorMsg });
+      return 'error';
+    }
+  },
+
 
   logout: async () => {
     set({ isLoading: true });
@@ -184,7 +235,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       await SecureStorage.removeItem('crm_impersonated_username');
 
       try {
-        await apiClient.post(API_ENDPOINTS.AUTH.STOP_IMPERSONATION);
+        await apiClient.post('/account/stopimpersonation');
       } catch (e) {
         // Backend notification optional
       }

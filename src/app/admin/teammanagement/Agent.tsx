@@ -87,8 +87,12 @@ export default function AgentListScreen() {
   const { data, isLoading, isRefetching, refetch } = useAgents(queryParams);
   const deleteAgentMutation = useDeleteAgent();
 
-  const agents = data?.data?.items || [];
-  const totalCount = data?.data?.totalCount || 0;
+  const agents: AgentType[] = Array.isArray(data?.data?.items)
+    ? data.data.items
+    : Array.isArray(data?.data)
+    ? (data.data as any)
+    : [];
+  const totalCount = data?.data?.totalCount || agents.length || 0;
   const totalPages = data?.data?.totalPages || 1;
 
   // Re-fetch when screen comes back into focus

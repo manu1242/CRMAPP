@@ -34,6 +34,7 @@ export const apiClient = {
         'Content-Type': 'multipart/form-data',
         ...config?.headers,
       },
+      transformRequest: (data) => data,
     });
     return response.data;
   },
@@ -45,6 +46,7 @@ export const apiClient = {
         'Content-Type': 'multipart/form-data',
         ...config?.headers,
       },
+      transformRequest: (data) => data,
     });
     return response.data;
   },

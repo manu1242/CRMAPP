@@ -12,10 +12,9 @@ import {
 
 export const TaskService = {
   getTasksByDate: async (weekStart?: string, signal?: AbortSignal): Promise<GetTasksByDateResponse> => {
-    const params = weekStart ? { weekStart } : undefined;
     return apiClient.get<GetTasksByDateResponse>(
-      API_ENDPOINTS.TASKS.GET_TASKS_BY_DATE,
-      params,
+      API_ENDPOINTS.TASKS.GET_TASKS_BY_DATE(weekStart),
+      undefined,
       { signal }
     );
   },

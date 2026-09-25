@@ -15,7 +15,7 @@ export const LeadService = {
 
   addLead: async (payload: AddLeadPayload): Promise<ApiResponse<LeadItem>> => {
     return apiClient.post<ApiResponse<LeadItem>>(
-      API_ENDPOINTS.LEADS.ADD_LEAD(''),
+      API_ENDPOINTS.LEADS.SAVE,
       payload
     );
   },
@@ -106,22 +106,22 @@ export const LeadService = {
 
   addNote: async (id: number | string, payload: AddNotePayload): Promise<ApiResponse<any>> => {
     return apiClient.post<ApiResponse<any>>(
-      API_ENDPOINTS.LEADS.ADD_NOTE(id),
-      payload
+      API_ENDPOINTS.LEADS.SAVE_NOTE,
+      { ...payload, leadId: id }
     );
   },
 
   addFollowUp: async (id: number | string, payload: AddFollowUpPayload): Promise<ApiResponse<any>> => {
     return apiClient.post<ApiResponse<any>>(
-      API_ENDPOINTS.LEADS.ADD_FOLLOW_UP(id),
-      payload
+      API_ENDPOINTS.LEADS.SAVE_FOLLOW_UP,
+      { ...payload, leadId: id }
     );
   },
 
   editFollowUp: async (id: number | string, followUpId: number | string, payload: any): Promise<ApiResponse<any>> => {
-    return apiClient.put<ApiResponse<any>>(
-      API_ENDPOINTS.LEADS.EDIT_FOLLOW_UP(id, followUpId),
-      payload
+    return apiClient.post<ApiResponse<any>>(
+      API_ENDPOINTS.LEADS.SAVE_FOLLOW_UP,
+      { ...payload, leadId: id, followUpId }
     );
   },
 
@@ -140,7 +140,7 @@ export const LeadService = {
 
   uploadDocument: async (id: number | string, formData: FormData): Promise<ApiResponse<any>> => {
     return apiClient.postForm<ApiResponse<any>>(
-      API_ENDPOINTS.LEADS.UPLOAD_DOC(id),
+      API_ENDPOINTS.LEADS.UPLOAD_DOC,
       formData
     );
   },

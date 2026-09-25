@@ -7,13 +7,10 @@ export const useLogin = () => {
   const error = useAuthStore((state) => state.error);
   const [isLoading, setIsLoading] = useState(false);
 
-  const login = async (credentials: LoginRequest) => {
+  const login = async (credentials: LoginRequest): Promise<'success' | 'pick_workspace' | 'error'> => {
     setIsLoading(true);
     try {
-      await loginFn(credentials);
-      return true;
-    } catch (err) {
-      return false;
+      return await loginFn(credentials);
     } finally {
       setIsLoading(false);
     }

@@ -4,7 +4,7 @@
     "slug": "crm",
     "version": "1.5.1",
     "orientation": "portrait",
-    "icon": "./assets/images/Appicon.jpg",
+    "icon": "./assets/images/ios/iTunesArtwork@2x.png",
     "splash": {
       "image": "./assets/images/splashscreen.png",
       "resizeMode": "contain",
@@ -15,6 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ultrakey.crm",
+      "icon": "./assets/images/ios/iTunesArtwork@2x.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -22,8 +23,9 @@
     "android": {
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/images/AdaptiveIcon.png"
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/images/AdaptiveIcon.png",
+        "monochromeImage": "./assets/images/android/mipmap-xxxhdpi/icon_monochrome.png"
       },
       "splash": {
         "backgroundColor": "#000000",
@@ -35,7 +37,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/Appicon.jpg"
+      "favicon": "./assets/images/ios/iTunesArtwork@1x.png"
     },
     "plugins": [
       "expo-router",

@@ -221,7 +221,7 @@ export default function AgentDetailsScreen() {
     );
   };
 
-  const agent = data?.data;
+  const agent = data?.data || (data as any)?.agent || (data as any)?.Agent || (data as any);
 
   // Re-fetch when screen comes back into focus
   useFocusEffect(
@@ -415,7 +415,7 @@ export default function AgentDetailsScreen() {
             borderColor: brandColor + '30'
           }}>
             <Text style={{ fontSize: 24, fontWeight: '700', color: brandColor }}>
-              {agent.fullName ? agent.fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '?'}
+              {agent.fullName ? agent.fullName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : '?'}
             </Text>
           </View>
 
@@ -583,7 +583,7 @@ export default function AgentDetailsScreen() {
               <Text style={{ fontSize: 12, color: subTextColor }}>No document attachments uploaded</Text>
             </View>
           ) : (
-            agent.agentDocuments.map((doc) => {
+            agent.agentDocuments.map((doc: any) => {
               const docStatus = getDocStatusConfig(doc.verificationStatus);
               return (
                 <View

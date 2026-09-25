@@ -259,7 +259,7 @@ export default function RolePermissions() {
 
                     <ScrollView
                         style={{ flex: 1 }}
-                        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+                        contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
                         showsVerticalScrollIndicator={false}
                     >
                         {permissionsMatrix.modules && permissionsMatrix.modules.length > 0 ? (
@@ -399,7 +399,7 @@ export default function RolePermissions() {
                             style={{
                                 flexDirection: 'row',
                                 gap: 12,
-                                padding: 16,
+                                paddingBottom: 120,
                                 backgroundColor: cardBg,
                                 borderTopWidth: 1,
                                 borderTopColor: borderCol,

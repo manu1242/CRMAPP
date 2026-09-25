@@ -4,64 +4,130 @@ import { LoginRequest } from '../models/LoginRequest';
 import { LoginResponse } from '../models/LoginResponse';
 import { getApiUrl } from '../../api/remoteConfig';
 
+const ENDPOINT = API_ENDPOINTS.AUTH.LOGIN;
+
 export const authApi = {
+  /**
+   * Initial login — no tenant context.
+   * Backend will check SuperAdmin, then scan all active tenants.
+   */
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const endpoint = API_ENDPOINTS.AUTH.LOGIN;
-    const fullUrl = `${getApiUrl().replace(/\/$/, '')}${endpoint}`;
+    const fullUrl = `${getApiUrl().replace(/\/$/, '')}${ENDPOINT}`;
     const payload = {
       username: credentials.username,
       password: credentials.password,
-      Username: credentials.username,
-      Password: credentials.password,
     };
 
     if (__DEV__) console.log(`\n=== [AUTH API REQUEST] ===\nURL: ${fullUrl}\nPayload:`, JSON.stringify(payload, null, 2));
 
     try {
-      const response = await apiClient.post<LoginResponse>(endpoint, payload);
-      if (__DEV__) console.log(`\n=== [AUTH API SUCCESS] ===\nURL: ${fullUrl}\nResponse:`, JSON.stringify(response, null, 2));
+      const response = await apiClient.post<LoginResponse>(ENDPOINT, payload);
+      if (__DEV__) console.log(`\n=== [AUTH API SUCCESS] ===\nResponse:`, JSON.stringify(response, null, 2));
       return response;
     } catch (error: any) {
-      console.error(`\n=== [AUTH API ERROR] ===\nURL: ${fullUrl}\nError details:`, {
+      console.error(`\n=== [AUTH API ERROR] ===\nURL: ${fullUrl}\nError:`, {
         message: error.message,
         status: error.response?.status,
-        statusText: error.response?.statusText,
         responseData: error.response?.data,
       });
       throw error;
     }
   },
 
+  /**
+   * Re-login after workspace selection.
+   * POSTs username, password, and tenantId to /auth/login-workspace.
+   */
+  loginWithWorkspace: async (credentials: LoginRequest, tenantId: number): Promise<LoginResponse> => {
+    const endpoint = API_ENDPOINTS.AUTH.LOGIN_WORKSPACE;
+    const fullUrl = `${getApiUrl().replace(/\/$/, '')}${endpoint}`;
+    const payload = {
+      username: credentials.username,
+      password: credentials.password,
+      tenantId,
+    };
+
+    if (__DEV__) console.log(`\n=== [AUTH API WORKSPACE LOGIN] ===\nURL: ${fullUrl}\nTenantId: ${tenantId}`);
+
+    try {
+      const response = await apiClient.post<LoginResponse>(endpoint, payload);
+      if (__DEV__) console.log(`\n=== [AUTH API WORKSPACE SUCCESS] ===\nResponse:`, JSON.stringify(response, null, 2));
+      return response;
+    } catch (error: any) {
+      console.error(`\n=== [AUTH API WORKSPACE ERROR] ===\nTenantId: ${tenantId}\nError:`, {
+        message: error.message,
+        status: error.response?.status,
+        responseData: error.response?.data,
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Logout — POST to /auth/logout.
+   * JWT is stateless: the caller must delete the stored token after this resolves.
+   */
   logout: async (): Promise<void> => {
-    return apiClient.get<void>(API_ENDPOINTS.AUTH.LOGOUT);
+    return apiClient.post<void>(API_ENDPOINTS.AUTH.LOGOUT);
+  },
+
+  /**
+   * Refresh the current token before it expires.
+   */
+  refresh: async (): Promise<RefreshTokenResponse> => {
+    return apiClient.post<RefreshTokenResponse>(API_ENDPOINTS.AUTH.REFRESH);
+  },
+
+  /**
+   * Fetch the authenticated user's profile.
+   */
+  getProfile: async (): Promise<ProfileResponse> => {
+    return apiClient.get<ProfileResponse>(API_ENDPOINTS.AUTH.PROFILE);
   },
 
   forgotPassword: async (email: string): Promise<void> => {
-    // Forgot password accepts application/x-www-form-urlencoded / multipart/form-data
     const formData = new FormData();
     formData.append('Email', email);
-
     return apiClient.post<void>(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, formData);
   },
 
   resetPassword: async (token: string, password: string): Promise<void> => {
-    // Token-based reset accepts application/x-www-form-urlencoded / multipart/form-data
     const formData = new FormData();
     formData.append('token', token);
     formData.append('newPassword', password);
     formData.append('confirmPassword', password);
-
     return apiClient.post<void>(API_ENDPOINTS.AUTH.RESET_PASSWORD_WITH_TOKEN, formData);
   },
 
   changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-    // Logged-in reset accepts application/x-www-form-urlencoded / multipart/form-data
-    // Note cased keys: oldPassword, NewPassword, ConfirmPassword
     const formData = new FormData();
     formData.append('oldPassword', currentPassword);
     formData.append('NewPassword', newPassword);
     formData.append('ConfirmPassword', newPassword);
-
     return apiClient.post<void>(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, formData);
   },
 };
+
+// ── Response types for new endpoints ────────────────────────────────────────
+
+export interface RefreshTokenResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    token: string;
+    expires: string;
+  };
+}
+
+export interface ProfileResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    userId: number;
+    username: string;
+    email: string;
+    role: string;
+    phone: string;
+    isActive: boolean;
+  };
+}

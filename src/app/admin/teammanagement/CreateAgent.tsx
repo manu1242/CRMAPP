@@ -169,25 +169,50 @@ export default function CreateAgentScreen() {
     }
 
     try {
+      const salaryVal = parseFloat(form.salary);
+      const computedSalary =
+        (form.agentType === 'Salary' || form.agentType === 'Hybrid') && !isNaN(salaryVal)
+          ? salaryVal
+          : 0;
+
+      // 1. JSON Payload Model (supports case variations for ASP.NET model binding)
+      const payload: any = {
+        fullName: form.fullName.trim(),
+        FullName: form.fullName.trim(),
+        email: form.email.trim(),
+        Email: form.email.trim(),
+        phone: cleanPhone,
+        Phone: cleanPhone,
+        address: form.address.trim(),
+        Address: form.address.trim(),
+        agentType: form.agentType,
+        AgentType: form.agentType,
+        salary: computedSalary,
+        Salary: computedSalary,
+        commissionRules: form.commissionRules,
+        CommissionRules: form.commissionRules,
+      };
+
+      // 2. FormData Model
       const formData = new FormData();
       formData.append('FullName', form.fullName.trim());
+      formData.append('fullName', form.fullName.trim());
       formData.append('Email', form.email.trim());
+      formData.append('email', form.email.trim());
       formData.append('Phone', cleanPhone);
+      formData.append('phone', cleanPhone);
       if (form.address.trim()) {
         formData.append('Address', form.address.trim());
+        formData.append('address', form.address.trim());
       }
       formData.append('AgentType', form.agentType);
-
-      const salaryVal = parseFloat(form.salary);
-      if ((form.agentType === 'Salary' || form.agentType === 'Hybrid') && !isNaN(salaryVal)) {
-        formData.append('Salary', salaryVal.toString());
-      } else {
-        formData.append('Salary', '0');
-      }
-
+      formData.append('agentType', form.agentType);
+      formData.append('Salary', computedSalary.toString());
+      formData.append('salary', computedSalary.toString());
       formData.append('CommissionRules', form.commissionRules);
+      formData.append('commissionRules', form.commissionRules);
 
-      // Append files and their parallel custom details
+      // Append files for multipart upload support
       pendingDocs.forEach((doc) => {
         formData.append('DocumentFiles', {
           uri: Platform.OS === 'android' ? doc.uri : doc.uri.replace('file://', ''),
@@ -199,24 +224,70 @@ export default function CreateAgentScreen() {
         formData.append('DocumentTypes', doc.documentType);
       });
 
-      let res;
+      let res: any;
       if (isEdit && id) {
-        res = await updateMutation.mutateAsync({ id, formData });
+        res = await updateMutation.mutateAsync({ id, payload, formData });
       } else {
-        res = await onboardMutation.mutateAsync(formData);
+        res = await onboardMutation.mutateAsync({ payload, formData });
       }
 
-      if (res.success) {
+      // Check success across ASP.NET Core response wrappers
+      const isSuccess =
+        res?.success !== false &&
+        (res?.success === true ||
+          res?.Success === true ||
+          res?.status === 200 ||
+          res?.statusCode === 200 ||
+          res?.agentId != null ||
+          res?.id != null ||
+          res?.agent != null ||
+          res?.data != null ||
+          !!res);
+
+      if (isSuccess) {
+        // Upload any pending documents if agent was created/updated and has an ID
+        const targetAgentId =
+          id ||
+          res?.data?.agentId ||
+          res?.agentId ||
+          res?.data?.id ||
+          res?.id ||
+          res?.agent?.agentId ||
+          res?.agent?.id;
+
+        if (targetAgentId && pendingDocs.length > 0) {
+          for (const doc of pendingDocs) {
+            try {
+              await AgentsService.uploadDocument(
+                targetAgentId,
+                doc.uri,
+                doc.fileName,
+                doc.type,
+                doc.customName.trim() || doc.fileName,
+                doc.documentType
+              );
+            } catch (uploadErr) {
+              console.warn('Doc upload fallback error:', uploadErr);
+            }
+          }
+        }
+
         Toast.show({
           type: 'success',
           text1: 'Success',
           text2: isEdit ? 'Agent updated successfully' : 'Agent onboarded successfully',
         });
         router.back();
+      } else {
+        Alert.alert('Error', res?.message || 'Failed to save agent details.');
       }
     } catch (err: any) {
       console.error('Submit Failed:', err);
-      const msg = err.response?.data?.message || 'Onboarding failed. Please try again.';
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.Message ||
+        err?.message ||
+        'Onboarding failed. Please try again.';
       Alert.alert('Error', msg);
     }
   };

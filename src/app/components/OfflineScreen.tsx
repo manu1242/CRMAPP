@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 340,
-    borderRadius: 24,
+    borderRadius:10,
     borderWidth: 1,
     padding: 28,
     alignItems: 'center',

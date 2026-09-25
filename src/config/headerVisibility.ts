@@ -45,7 +45,12 @@ export const HEADER_CONFIG: HeaderConfig = {
         '/admin/finance/expenses',
         '/admin/finance/revenue',
         '/admin/finance/profit',
-        '/admin/usemanagement/ManageUsers'
+        '/admin/usemanagement/ManageUsers',
+        '/admin/usemanagement/RolePermissions',
+        '/admin/usemanagement/RolesManagement',
+        '/admin/usemanagement/UsersRole',
+        
+        
     ],
     hiddenPaths: [
         '/login',

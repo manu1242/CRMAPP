@@ -3,7 +3,7 @@ import { User } from '../models/User';
 export const authHelpers = {
   getFullName: (user: User | null): string => {
     if (!user) return '';
-    return user.username || user.email;
+    return user.username || user.email || '';
   },
 
   getInitials: (user: User | null): string => {

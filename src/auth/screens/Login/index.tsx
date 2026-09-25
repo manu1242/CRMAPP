@@ -11,11 +11,17 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isLoading = useAuthStore((state) => state.isLoading);
+  const user = useAuthStore((state) => state.user);
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace('/superadmin/dashboard');
+      const role = user?.role?.toLowerCase();
+      if (role === 'superadmin') {
+        router.replace('/superadmin/dashboard');
+      } else {
+        router.replace('/admin/dashboard');
+      }
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, user, router]);
 
   return (
     <SafeAreaView className="flex-1 bg-[#f3f4f6]" style={{ flex: 1 }}

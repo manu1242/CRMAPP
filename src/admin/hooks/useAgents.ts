@@ -51,7 +51,12 @@ export const useAgentDropdowns = () => {
 export const useOnboardAgent = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (formData: FormData) => AgentsService.onboardAgent(formData),
+    mutationFn: (data: { payload?: any; formData?: FormData } | FormData) => {
+      if (data instanceof FormData) {
+        return AgentsService.onboardAgent(data);
+      }
+      return AgentsService.onboardAgent(data.payload, data.formData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agents'] });
     },
@@ -64,8 +69,15 @@ export const useOnboardAgent = () => {
 export const useUpdateAgent = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, formData }: { id: number | string; formData: FormData }) =>
-      AgentsService.updateAgent(id, formData),
+    mutationFn: ({
+      id,
+      formData,
+      payload,
+    }: {
+      id: number | string;
+      formData?: FormData;
+      payload?: any;
+    }) => AgentsService.updateAgent(id, payload || formData, formData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agents'] });
     },
@@ -137,6 +149,37 @@ export const useDeleteAgentDocument = () => {
   return useMutation({
     mutationFn: ({ agentId, documentId }: { agentId: number | string; documentId: number | string }) =>
       AgentsService.deleteDocument(documentId),
+    onSuccess: (_, { agentId }) => {
+      queryClient.invalidateQueries({ queryKey: ['agent', String(agentId)] });
+      queryClient.invalidateQueries({ queryKey: ['agent', Number(agentId)] });
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
+    },
+  });
+};
+
+/**
+ * Hook to approve an agent.
+ */
+export const useApproveAgent = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (agentId: number | string) => AgentsService.approveAgent(agentId),
+    onSuccess: (_, agentId) => {
+      queryClient.invalidateQueries({ queryKey: ['agent', String(agentId)] });
+      queryClient.invalidateQueries({ queryKey: ['agent', Number(agentId)] });
+      queryClient.invalidateQueries({ queryKey: ['agents'] });
+    },
+  });
+};
+
+/**
+ * Hook to reject an agent.
+ */
+export const useRejectAgent = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ agentId, reason }: { agentId: number | string; reason?: string }) =>
+      AgentsService.rejectAgent(agentId, reason),
     onSuccess: (_, { agentId }) => {
       queryClient.invalidateQueries({ queryKey: ['agent', String(agentId)] });
       queryClient.invalidateQueries({ queryKey: ['agent', Number(agentId)] });

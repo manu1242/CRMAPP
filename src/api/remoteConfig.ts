@@ -92,6 +92,7 @@ function setupAppStateListener(): void {
   isListenerAdded = true;
 
   AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+    if (__DEV__) return; // In dev, always use .env — never fetch from GitHub
     if (nextAppState === 'active') {
       fetchRemoteConfig().then((fresh) => {
         if (fresh) {
@@ -117,11 +118,14 @@ function setupAppStateListener(): void {
  */
 export function initRemoteConfig(forceRefresh = false): Promise<void> {
   if (__DEV__) {
-    // In development mode, prioritize the local build-time/env API URL.
-    // This allows developers to edit .env / config.json locally without committing to GitHub.
+    // In development mode, always use the local .env URL.
+    // Also wipe any stale AsyncStorage cache so it never leaks into dev requests.
     const localUrl = process.env.EXPO_PUBLIC_API_URL;
     if (localUrl) {
       setApiUrl(localUrl);
+      // Clear cached remote config so a stale production URL (e.g. uproptech.com)
+      // from a previous run never overrides the .env value.
+      AsyncStorage.removeItem(CACHE_KEY).catch(() => {});
       return Promise.resolve();
     }
   }

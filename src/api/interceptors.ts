@@ -12,9 +12,7 @@ export const setupInterceptors = () => {
       const token = await TokenStorage.getAccessToken();
 
       const isAuthEndpoint = config.url && (
-        config.url.includes('/api/login') ||
-        config.url.includes('/account/login') ||
-
+        config.url.includes('/api/v1/auth/login') ||
         config.url.includes('/account/forgotpassword') ||
         config.url.includes('/account/resetpasswordwithtoken')
       );

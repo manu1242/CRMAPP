@@ -14,8 +14,10 @@ export default function LoginForm() {
 
   const handleSubmit = async () => {
     if (!username || !password) return;
-    const success = await login({ username, password, rememberMe });
-    if (success) {
+    const result = await login({ username, password, rememberMe });
+    if (result === 'pick_workspace') {
+      router.replace('/select-workspace');
+    } else if (result === 'success') {
       const user = useAuthStore.getState().user;
       const role = user?.role?.toLowerCase();
       if (role === 'superadmin') {
@@ -23,9 +25,10 @@ export default function LoginForm() {
       } else if (role === 'admin') {
         router.replace('/admin/dashboard');
       } else {
-        router.replace('/select-workspace');
+        router.replace('/admin/dashboard');
       }
     }
+    // 'error' is handled by the error state in the store (shows toast + inline error)
   };
 
   return (
@@ -35,8 +38,11 @@ export default function LoginForm() {
         className="h-12 border border-slate-200 rounded-custom px-3 mb-4 text-base bg-white"
         value={username}
         onChangeText={setUsername}
-        placeholder="Enter username"
+        placeholder="Enter username or email"
         autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        textContentType="username"
       />
 
       <Text className="text-sm font-semibold mb-1.5 text-secondary-text">Password</Text>
