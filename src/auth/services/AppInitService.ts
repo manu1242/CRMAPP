@@ -106,10 +106,10 @@ export const AppInitService = {
    * Calls `onStatus(message)` before each step so the splash screen can show live feedback.
    * Returns a structured AppInitResult for routing decisions.
    */
-  run: async (onStatus: OnStatusUpdate, forceRefresh = false): Promise<AppInitResult> => {
-    // ── 0. Fetch latest remote configuration ──────────────────────────────────
+  run: async (onStatus: OnStatusUpdate): Promise<AppInitResult> => {
+    // ── 0. Resolve API URL ────────────────────────────────────────────────────
     onStatus('Connecting to server…');
-    await initRemoteConfig(forceRefresh).catch((err) => {
+    await initRemoteConfig().catch((err) => {
       console.warn('initRemoteConfig failed in AppInitService:', err);
     });
 

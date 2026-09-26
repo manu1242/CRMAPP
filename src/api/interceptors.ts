@@ -3,7 +3,6 @@ import Toast from 'react-native-toast-message';
 import { axiosInstance } from './axios';
 import { TokenStorage } from '../auth/storage/TokenStorage';
 import { AuthService } from '../auth/services/AuthService';
-import { initRemoteConfig } from './remoteConfig';
 
 export const setupInterceptors = () => {
   // Request Interceptor: Attach bearer token
@@ -34,11 +33,6 @@ export const setupInterceptors = () => {
       return response;
     },
     async (error: any) => {
-      // Handle the short-circuit mock response
-      if (error && error.__isMockResponse__ && error.response) {
-        return error.response;
-      }
-
       // 1. Session Expired (401) — clear token and redirect to login
       if (error?.response && error.response.status === 401) {
         // Clear the stale token — auth guard in _layout.tsx will redirect to login
@@ -54,9 +48,6 @@ export const setupInterceptors = () => {
 
       // 2. Timeout Error
       else if (error?.code === 'ECONNABORTED' || (error?.message && error.message.toLowerCase().includes('timeout'))) {
-        // Trigger background refresh of the remote config in case the URL changed
-        initRemoteConfig(true).catch(() => { });
-
         Toast.show({
           type: 'error',
           text1: 'Request Timeout',
@@ -66,9 +57,6 @@ export const setupInterceptors = () => {
 
       // 3. Network Offline / DNS Failure
       else if (error?.message === 'Network Error') {
-        // Trigger background refresh of the remote config in case the URL changed
-        initRemoteConfig(true).catch(() => { });
-
         Toast.show({
           type: 'error',
           text1: 'Network Error',

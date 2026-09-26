@@ -256,7 +256,7 @@ export default function OnboardingView({ isDark, onComplete }: OnboardingViewPro
                 style={[
                   styles.getStartedButton,
                   {
-                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 4)',
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.7)' : 'rgba(16, 185, 129, 4)',
                     borderColor: isDark ? 'rgba(16, 185, 129, 0.5)' : 'rgba(16, 185, 129, 0.8)',
                     borderWidth: 1,
                   }

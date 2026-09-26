@@ -1,11 +1,8 @@
 import React from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Text } from 'react-native';
 import { useSegments } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
-
-const expoBadge = require('../../../../assets/images/expo-badge.png');
-const expoBadgeWhite = require('../../../../assets/images/expo-badge-white.png');
 
 export default function AppFooter() {
   const { isDark } = useTheme();

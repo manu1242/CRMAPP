@@ -72,7 +72,7 @@ export default function EntryScreen() {
 
     const result: AppInitResult = await AppInitService.run(() => {
       // status updates intentionally suppressed — splash shows no text
-    }, forceRefresh);
+    });
 
     // Short pause so user can read the last status message
     await new Promise((r) => setTimeout(r, 400));

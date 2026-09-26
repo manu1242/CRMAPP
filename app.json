@@ -5,11 +5,6 @@
     "version": "1.5.1",
     "orientation": "portrait",
     "icon": "./assets/images/ios/iTunesArtwork@2x.png",
-    "splash": {
-      "image": "./assets/images/splashscreen.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
-    },
     "scheme": "crm",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -22,15 +17,11 @@
     },
     "android": {
       "softwareKeyboardLayoutMode": "pan",
+      "icon": "./assets/images/android/ic_launcher-web.png",
       "adaptiveIcon": {
-        "backgroundColor": "#000000",
-        "foregroundImage": "./assets/images/AdaptiveIcon.png",
-        "monochromeImage": "./assets/images/android/mipmap-xxxhdpi/icon_monochrome.png"
-      },
-      "splash": {
-        "backgroundColor": "#000000",
-        "image": "./assets/images/splashscreen.png",
-        "resizeMode": "contain"
+        "foregroundImage": "./assets/images/android/mipmap-xxxhdpi/icon_foreground.png",
+        "monochromeImage": "./assets/images/android/mipmap-xxxhdpi/icon_monochrome.png",
+        "backgroundColor": "#000000"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.ultrakey.crm"
@@ -61,7 +52,18 @@
           }
         }
       ],
-      "expo-video"
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/images/splashscreen.png",
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#000000",
+            "image": "./assets/images/splashscreen.png"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
@@ -77,10 +79,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "enabled": true,
-      "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/77acddcb-ef08-4cb4-8559-6a9b7b986d36"
+      "enabled": false
     }
   }
 }
