@@ -10,8 +10,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
-import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import { EXTERNAL_LINKS, openExternalLink } from '../../../config/externalLinks';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.78, 300);
@@ -182,12 +183,45 @@ export default function SidebarDrawer({ isOpen, onClose, activeRoute }: SidebarD
           <Text className="text-slate-500 text-xxs font-bold uppercase tracking-wider px-3 mb-2" style={{ fontSize: 9.5 }}>Account</Text>
           <TouchableOpacity 
             onPress={() => handleNavigation('/profile')}
-            className={`flex-row items-center gap-3 px-3 py-3 rounded-lg mb-8 ${
+            className={`flex-row items-center gap-3 px-3 py-3 rounded-lg mb-4 ${
               activeRoute === 'profile' ? 'bg-sky-500/10 border border-sky-500/20' : ''
             }`}
           >
             <FontAwesome name="user" size={18} color={activeRoute === 'profile' ? '#38bdf8' : '#64748b'} />
             <Text className={`font-semibold text-sm ${activeRoute === 'profile' ? 'text-white' : 'text-slate-300'}`}>My Profile</Text>
+          </TouchableOpacity>
+
+          {/* Legal & Support */}
+          <Text className="text-slate-500 text-xxs font-bold uppercase tracking-wider px-3 mb-2" style={{ fontSize: 9.5 }}>Support & Legal</Text>
+          <TouchableOpacity 
+            onPress={() => {
+              onClose();
+              openExternalLink(EXTERNAL_LINKS.PRIVACY_POLICY);
+            }}
+            className="flex-row items-center gap-3 px-3 py-2.5 rounded-lg mb-1"
+          >
+            <Ionicons name="shield-checkmark-outline" size={18} color="#10b981" />
+            <Text className="font-medium text-sm text-slate-300">Privacy Policy</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => {
+              onClose();
+              openExternalLink(EXTERNAL_LINKS.TERMS_AND_CONDITIONS);
+            }}
+            className="flex-row items-center gap-3 px-3 py-2.5 rounded-lg mb-1"
+          >
+            <Ionicons name="document-text-outline" size={18} color="#06b6d4" />
+            <Text className="font-medium text-sm text-slate-300">Terms & Conditions</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => {
+              onClose();
+              openExternalLink(EXTERNAL_LINKS.CONTACT_US);
+            }}
+            className="flex-row items-center gap-3 px-3 py-2.5 rounded-lg mb-6"
+          >
+            <Ionicons name="help-circle-outline" size={18} color="#f59e0b" />
+            <Text className="font-medium text-sm text-slate-300">Contact & Support</Text>
           </TouchableOpacity>
         </ScrollView>
 

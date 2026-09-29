@@ -35,6 +35,7 @@ import {
   partnerDashboardService,
   PartnerDashboardData,
 } from '../services/PartnerDashboardService';
+import AppFooter from '../../auth/components/AppFooter';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -677,6 +678,7 @@ export default function PartnerDashboardContent() {
           </View>
         )}
       </View>
+      <AppFooter />
     </ScrollView>
   );
 }

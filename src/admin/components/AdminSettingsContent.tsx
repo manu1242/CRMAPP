@@ -15,15 +15,17 @@ import {
   ChevronRight,
   Settings,
   CreditCard,
-
-
   Mail,
   Landmark,
   ArrowUpCircle,
+  Shield,
+  FileText,
+  HelpCircle,
 } from 'lucide-react-native';
 import { getAdminTheme } from '../../theme/adminTheme';
-// import AppFooter from '../../auth/components/AppFooter';
 import { useUpdateStore } from '../../hooks/useUpdateStore';
+import { EXTERNAL_LINKS, openExternalLink } from '../../config/externalLinks';
+import AppFooter from '../../auth/components/AppFooter';
 
 export default function AdminSettingsContent() {
   const { isDark } = useTheme();
@@ -68,6 +70,14 @@ export default function AdminSettingsContent() {
         items: [
           { title: 'Payment Gateways', icon: CreditCard, desc: 'Manage Razorpay, Stripe, and other gateways', route: '/admin/paymentconfig', color: '#ec4899' },
           { title: 'Bank Accounts', icon: Landmark, desc: 'Organization bank details & payouts setup', route: '/admin/bankaccountconfig', color: '#8b5cf6' },
+        ],
+      },
+      {
+        title: 'Legal & Support',
+        items: [
+          { title: 'Privacy Policy', icon: Shield, desc: 'Read how your privacy and data are protected', externalUrl: EXTERNAL_LINKS.PRIVACY_POLICY, color: '#10b981' },
+          { title: 'Terms & Conditions', icon: FileText, desc: 'View terms of service and agreement', externalUrl: EXTERNAL_LINKS.TERMS_AND_CONDITIONS, color: '#06b6d4' },
+          { title: 'Contact & Inquiry', icon: HelpCircle, desc: 'Get in touch for support and inquiries', externalUrl: EXTERNAL_LINKS.CONTACT_US, color: '#f59e0b' },
         ],
       },
     ],
@@ -118,7 +128,13 @@ export default function AdminSettingsContent() {
               return (
                 <TouchableOpacity
                   key={itemIdx}
-                  onPress={() => router.push(item.route as any)}
+                  onPress={() => {
+                    if ((item as any).externalUrl) {
+                      openExternalLink((item as any).externalUrl);
+                    } else if (item.route) {
+                      router.push(item.route as any);
+                    }
+                  }}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -176,7 +192,7 @@ export default function AdminSettingsContent() {
 
 
       {/* Footer */}
-      {/* <AppFooter /> */}
+      <AppFooter />
     </ScrollView>
   );
 }

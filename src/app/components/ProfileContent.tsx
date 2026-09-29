@@ -42,11 +42,14 @@ import {
   MoreVertical,
   Shield,
   Palette,
+  FileText,
+  HelpCircle,
 } from 'lucide-react-native';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { profileService, UserProfileData } from '../../admin/services/profileService';
 import AppFooter from '../../auth/components/AppFooter';
 import { NotificationService } from '../../Services/NotificationService';
+import { EXTERNAL_LINKS, openExternalLink } from '../../config/externalLinks';
 
 export default function ProfileContent() {
   const router = useRouter();
@@ -66,6 +69,7 @@ export default function ProfileContent() {
   const [activeTab, setActiveTab] = useState<'info' | 'settings'>('info');
   const [appearanceExpanded, setAppearanceExpanded] = useState(true);
   const [accountExpanded, setAccountExpanded] = useState(false);
+  const [legalExpanded, setLegalExpanded] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchUnreadCount = useCallback(async () => {
@@ -683,6 +687,158 @@ export default function ProfileContent() {
                         </Text>
                       </View>
                       <ChevronRight size={16} color={isDark ? 'rgba(239, 68, 68, 0.5)' : '#EF4444'} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Hairline separator */}
+                <View style={{ height: 1, backgroundColor: isDark ? borderCol : '#f0f0f0', marginTop: 8 }} />
+              </View>
+
+              {/* ── Legal & Support Accordion ── */}
+              <View>
+                <TouchableOpacity
+                  activeOpacity={0.6}
+                  onPress={() => {
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    const nextVal = !legalExpanded;
+                    setLegalExpanded(nextVal);
+                    if (nextVal) {
+                      setAppearanceExpanded(false);
+                      setAccountExpanded(false);
+                    }
+                  }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 14,
+                    paddingHorizontal: 4,
+                  }}
+                >
+                  <HelpCircle size={18} color={isDark ? '#38BDF8' : '#0284C7'} />
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontSize: 15,
+                      fontWeight: '600',
+                      color: textColor,
+                      marginLeft: 10,
+                      letterSpacing: -0.2,
+                    }}
+                  >
+                    Legal & Support
+                  </Text>
+                  <View style={{ transform: [{ rotate: legalExpanded ? '180deg' : '0deg' }] }}>
+                    <ChevronDown size={18} color={subTextColor} />
+                  </View>
+                </TouchableOpacity>
+
+                {legalExpanded && (
+                  <View style={{ gap: 2, paddingTop: 4 }}>
+                    {/* Privacy Policy */}
+                    <TouchableOpacity
+                      activeOpacity={0.6}
+                      onPress={() => openExternalLink(EXTERNAL_LINKS.PRIVACY_POLICY)}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 13,
+                        paddingHorizontal: 4,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#ECFDF5',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Shield size={16} color="#10B981" />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: textColor }}>
+                          Privacy Policy
+                        </Text>
+                        <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                          View how your personal information is protected
+                        </Text>
+                      </View>
+                      <ChevronRight size={16} color={subTextColor} />
+                    </TouchableOpacity>
+
+                    <View style={{ height: 1, backgroundColor: isDark ? borderCol : '#f0f0f0', marginLeft: 52 }} />
+
+                    {/* Terms & Conditions */}
+                    <TouchableOpacity
+                      activeOpacity={0.6}
+                      onPress={() => openExternalLink(EXTERNAL_LINKS.TERMS_AND_CONDITIONS)}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 13,
+                        paddingHorizontal: 4,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: isDark ? 'rgba(6, 182, 212, 0.1)' : '#ECFEFF',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <FileText size={16} color="#06B6D4" />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: textColor }}>
+                          Terms & Conditions
+                        </Text>
+                        <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                          Read terms of service and agreement
+                        </Text>
+                      </View>
+                      <ChevronRight size={16} color={subTextColor} />
+                    </TouchableOpacity>
+
+                    <View style={{ height: 1, backgroundColor: isDark ? borderCol : '#f0f0f0', marginLeft: 52 }} />
+
+                    {/* Contact & Support */}
+                    <TouchableOpacity
+                      activeOpacity={0.6}
+                      onPress={() => openExternalLink(EXTERNAL_LINKS.CONTACT_US)}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 13,
+                        paddingHorizontal: 4,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : '#FFFBEB',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <HelpCircle size={16} color="#F59E0B" />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: textColor }}>
+                          Contact & Support
+                        </Text>
+                        <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                          Reach out for inquiries, questions, and support
+                        </Text>
+                      </View>
+                      <ChevronRight size={16} color={subTextColor} />
                     </TouchableOpacity>
                   </View>
                 )}
