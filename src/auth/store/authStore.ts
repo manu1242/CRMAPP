@@ -10,7 +10,7 @@ import { TokenStorage } from '../storage/TokenStorage';
 import { SessionStorage } from '../storage/SessionStorage';
 import { profileApi } from '../api/profile.api';
 import { apiClient } from '../../api/apiClient';
-import { API_ENDPOINTS } from '../../api/endpoints';
+import { resetSessionExpiryGuard } from '../../api/interceptors';
 
 interface AuthState {
   user: User | null;
@@ -28,6 +28,7 @@ interface AuthState {
   login: (credentials: LoginRequest) => Promise<'success' | 'pick_workspace' | 'error'>;
   loginWithWorkspace: (tenantId: number) => Promise<'success' | 'error'>;
   logout: () => Promise<void>;
+  handleSessionExpired: () => void;
   initializeSession: () => Promise<void>;
   impersonate: (token: string, targetUser: any) => Promise<void>;
   stopImpersonation: () => Promise<void>;
@@ -54,7 +55,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       const response = await AuthService.login(credentials);
 
       if (isLoginSuccess(response)) {
+        resetSessionExpiryGuard();
         const u = response.data.user;
+        if (__DEV__) {
+          console.log('[AUTH] Login successful');
+          console.log('[AUTH] Token stored');
+        }
         set({
           user: {
             username: u.username,
@@ -93,14 +99,22 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const response = await AuthService.loginWithWorkspace(pendingCredentials, tenantId);
       if (isLoginSuccess(response)) {
+        resetSessionExpiryGuard();
         const u = response.data.user;
+        if (__DEV__) {
+          console.log('[AUTH] Login successful (workspace)');
+          console.log('[AUTH] Token stored');
+        }
         set({
           user: {
-            username:   u.username,
-            role:       u.role,
-            tenantId:   u.tenantId,
-            tenantName: u.companyName,
-            subdomain:  u.subdomain,
+            username:         u.username,
+            role:             u.role,
+            tenantId:         u.tenantId,
+            tenantName:       u.companyName,
+            subdomain:        u.subdomain,
+            userId:           u.userId,
+            email:            u.email,
+            channelPartnerId: u.channelPartnerId,
           },
           isAuthenticated: true,
           isLoading: false,
@@ -118,9 +132,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-
   logout: async () => {
     set({ isLoading: true });
+    if (__DEV__) {
+      console.log('[AUTH] Logging out...');
+    }
     try {
       await AuthService.logout();
       // Clear impersonation settings as well
@@ -128,13 +144,17 @@ export const useAuthStore = create<AuthState>((set) => ({
       await SecureStorage.removeItem('crm_is_impersonating');
       await SecureStorage.removeItem('crm_impersonated_username');
 
+      if (__DEV__) {
+        console.log('[AUTH] Session cleared');
+      }
+
       Toast.show({
         type: 'success',
         text1: 'Logged Out',
         text2: 'Session closed successfully.',
       });
     } catch (err) {
-      console.error('Logout error:', err);
+      console.error('[AUTH] Logout error:', err);
     } finally {
       set({
         user: null,
@@ -143,8 +163,22 @@ export const useAuthStore = create<AuthState>((set) => ({
         error: null,
         isImpersonating: false,
         impersonatedUsername: null,
+        pendingCredentials: null,
+        pendingWorkspaces: [],
       });
     }
+  },
+
+  handleSessionExpired: () => {
+    set({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      isImpersonating: false,
+      impersonatedUsername: null,
+      pendingCredentials: null,
+      pendingWorkspaces: [],
+    });
   },
 
   initializeSession: async () => {
@@ -155,6 +189,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const impUser = await SecureStorage.getItem('crm_impersonated_username');
 
       if (user) {
+        resetSessionExpiryGuard();
         set({
           user,
           isAuthenticated: true,

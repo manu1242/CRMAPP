@@ -185,75 +185,7 @@ function InnerLayout() {
   const [isStopping, setIsStopping] = React.useState(false);
   const mainContainerRef = useRef<View>(null);
 
-  const isSuperAdminFlow = (segments[0] as string) === 'superadmin' ||
-    (['profile', 'change-password', 'select-workspace'].includes(segments[0] as string) && userRole === 'superadmin');
-
-  const isAdminFlow = (segments[0] as string) === 'admin' ||
-    (['profile', 'change-password', 'select-workspace'].includes(segments[0] as string) && userRole !== 'superadmin');
-
-  // Sync Android System Navigation Bar & Root Background Color to match Active Login Theme
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      const activeNavBg = isSuperAdminFlow
-        ? (isDark ? '#0f172a' : '#ffffff')
-        : adminTheme.cardBg;
-
-      SystemUI.setBackgroundColorAsync(activeNavBg).catch(() => { });
-    }
-  }, [isDark, isSuperAdminFlow, adminTheme.cardBg]);
-
-  // Track when impersonation stops and navigate back to correct dashboard
-  // Uses isLoading as a gate: navigates as soon as loading finishes after impersonation ends
-  const wasImpersonatingRef = useRef(isImpersonating);
-  useEffect(() => {
-    // Wait until isLoading settles, then check if impersonation just ended
-    if (!isLoading && wasImpersonatingRef.current === true && isImpersonating === false) {
-      // Impersonation just ended — go back to correct dashboard
-      if (userRole === 'superadmin') {
-        router.replace('/superadmin/dashboard');
-      } else if (userRole === 'partner') {
-        router.replace('/admin/PartnerDashboard');
-      } else {
-        router.replace('/admin/dashboard');
-      }
-    }
-    // Only update the ref when NOT loading (avoid false transitions mid-load)
-    if (!isLoading) {
-      wasImpersonatingRef.current = isImpersonating;
-    }
-  }, [isImpersonating, isLoading, userRole]);
-
-  const isPublicRoute = ['login', 'main-login', 'register', 'forgot-password', 'reset-password', 'index', ''].includes(segments[0] as string) || segments[0] === undefined;
-
-  let activeTab: 'dashboard' | 'tenants' | 'inquiries' | 'subscriptions' | 'profile' = 'dashboard';
-  let adminActiveTab: 'dashboard' | 'users' | 'settings' | 'profile' = 'dashboard';
   const path = segments.join('/');
-
-  if (path.includes('superadmin/dashboard')) {
-    activeTab = 'dashboard';
-  } else if (path.includes('superadmin/tenants') || path.includes('superadmin/create-tenant') || path.includes('superadmin/edit-tenant')) {
-    activeTab = 'tenants';
-  } else if (path.includes('superadmin/inquiries')) {
-    activeTab = 'inquiries';
-  } else if (path.includes('superadmin/subscriptions') || path.includes('superadmin/plans') || path.includes('superadmin/create-plan')) {
-    activeTab = 'subscriptions';
-  } else if (path.includes('profile') || path.includes('change-password') || path.includes('superadmin/payment-config') || path.includes('superadmin/settings') || path.includes('superadmin/transactions')) {
-    activeTab = 'profile';
-  }
-
-  if (path.includes('admin/dashboard')) {
-    adminActiveTab = 'dashboard';
-  } else if (path.includes('admin/users') || path.includes('admin/usemanagement')) {
-    adminActiveTab = 'users';
-  } else if (path.includes('admin/settings') || path.includes('admin/paymentconfig') || path.includes('admin/bankaccountconfig')) {
-    adminActiveTab = 'settings';
-  } else if (path.includes('profile') || path.includes('change-password')) {
-    adminActiveTab = 'profile';
-
-  }
-
-
-  const themeClass = isSuperAdminFlow ? 'superadmin-theme' : isAdminFlow ? 'admin-theme' : '';
 
   // Determine header visibility using centralized configuration
   let isHeaderVisible = checkHeaderVisibility(path);
@@ -302,7 +234,80 @@ function InnerLayout() {
 
   const hideHeader = !isHeaderVisible;
 
-  console.log('[DEBUG LAYOUT] segments:', segments, 'path:', path, 'isHeaderVisible:', isHeaderVisible, 'isAdminFlow:', isAdminFlow);
+  const isSuperAdminFlow = (segments[0] as string) === 'superadmin' ||
+    (['profile', 'change-password', 'select-workspace'].includes(segments[0] as string) && userRole === 'superadmin');
+
+  const isAdminFlow = (segments[0] as string) === 'admin' ||
+    (['profile', 'change-password', 'select-workspace'].includes(segments[0] as string) && userRole !== 'superadmin');
+
+  const activeBg = isSuperAdminFlow
+    ? (isDark ? '#0f172a' : '#ffffff')
+    : isAdminFlow
+    ? (!hideHeader ? adminTheme.secondaryBg : adminTheme.primaryBg)
+    : (isDark ? '#0f172a' : '#f8fafc');
+
+  const isProfilePage = normalizedPath === '/profile' && userRole !== 'superadmin';
+
+  const safeAreaEdges: ('top' | 'bottom' | 'left' | 'right')[] = isProfilePage
+    ? ['bottom', 'left', 'right']
+    : ['top', 'bottom', 'left', 'right'];
+
+  // Sync Android System Navigation Bar & Root Background Color to match Active Theme
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      SystemUI.setBackgroundColorAsync(activeBg).catch(() => { });
+    }
+  }, [activeBg]);
+
+  // Track when impersonation stops and navigate back to correct dashboard
+  // Uses isLoading as a gate: navigates as soon as loading finishes after impersonation ends
+  const wasImpersonatingRef = useRef(isImpersonating);
+  useEffect(() => {
+    // Wait until isLoading settles, then check if impersonation just ended
+    if (!isLoading && wasImpersonatingRef.current === true && isImpersonating === false) {
+      // Impersonation just ended — go back to correct dashboard
+      if (userRole === 'superadmin') {
+        router.replace('/superadmin/dashboard');
+      } else if (userRole === 'partner') {
+        router.replace('/admin/PartnerDashboard');
+      } else {
+        router.replace('/admin/dashboard');
+      }
+    }
+    // Only update the ref when NOT loading (avoid false transitions mid-load)
+    if (!isLoading) {
+      wasImpersonatingRef.current = isImpersonating;
+    }
+  }, [isImpersonating, isLoading, userRole]);
+
+  const isPublicRoute = ['login', 'main-login', 'register', 'forgot-password', 'reset-password', 'index', ''].includes(segments[0] as string) || segments[0] === undefined;
+
+  let activeTab: 'dashboard' | 'tenants' | 'inquiries' | 'subscriptions' | 'profile' = 'dashboard';
+  let adminActiveTab: 'dashboard' | 'users' | 'settings' | 'profile' = 'dashboard';
+
+  if (path.includes('superadmin/dashboard')) {
+    activeTab = 'dashboard';
+  } else if (path.includes('superadmin/tenants') || path.includes('superadmin/create-tenant') || path.includes('superadmin/edit-tenant')) {
+    activeTab = 'tenants';
+  } else if (path.includes('superadmin/inquiries')) {
+    activeTab = 'inquiries';
+  } else if (path.includes('superadmin/subscriptions') || path.includes('superadmin/plans') || path.includes('superadmin/create-plan')) {
+    activeTab = 'subscriptions';
+  } else if (path.includes('profile') || path.includes('change-password') || path.includes('superadmin/payment-config') || path.includes('superadmin/settings') || path.includes('superadmin/transactions')) {
+    activeTab = 'profile';
+  }
+
+  if (path.includes('admin/dashboard')) {
+    adminActiveTab = 'dashboard';
+  } else if (path.includes('admin/users') || path.includes('admin/usemanagement')) {
+    adminActiveTab = 'users';
+  } else if (path.includes('admin/settings') || path.includes('admin/paymentconfig') || path.includes('admin/bankaccountconfig')) {
+    adminActiveTab = 'settings';
+  } else if (path.includes('profile') || path.includes('change-password')) {
+    adminActiveTab = 'profile';
+  }
+
+  const themeClass = isSuperAdminFlow ? 'superadmin-theme' : isAdminFlow ? 'admin-theme' : '';
 
   let headerComponent = null;
   let bottomNavComponent = null;
@@ -366,7 +371,13 @@ function InnerLayout() {
   if (isPublicRoute) {
     return (
       <ExpoThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-        <View className="flex-1 bg-primary-bg">
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          translucent={true}
+          backgroundColor="transparent"
+        />
+        <NavigationBar style={isDark ? 'light' : 'dark'} />
+        <View className="flex-1 bg-primary-bg" style={{ backgroundColor: activeBg }}>
           {stackComponent}
         </View>
 
@@ -378,12 +389,16 @@ function InnerLayout() {
 
   return (
     <ExpoThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-      <StatusBar barStyle={(isDark || hideHeader) ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
+      <StatusBar
+        barStyle={(isDark || isSuperAdminFlow || hideHeader) ? 'light-content' : 'dark-content'}
+        translucent={true}
+        backgroundColor="transparent"
+      />
       <NavigationBar style={isDark ? 'light' : 'dark'} />
       <SafeAreaView
         className={`flex-1 bg-primary-bg ${themeClass}`}
-        style={{ backgroundColor: isAdminFlow ? adminTheme.primaryBg : undefined }}
-        edges={['top', 'bottom', 'left', 'right']}
+        style={{ backgroundColor: activeBg }}
+        edges={safeAreaEdges}
       >
         <BlurTargetView ref={mainContainerRef} style={{ flex: 1 }}>
           {headerComponent}

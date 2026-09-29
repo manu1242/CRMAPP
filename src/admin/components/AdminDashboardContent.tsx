@@ -962,7 +962,7 @@ export default function AdminDashboardContent() {
           {is401 ? 'Session Expired' : 'Failed to Load'}
         </Text>
         <Text style={{ color: subTextColor, fontSize: 13, textAlign: 'center', marginBottom: 24 }}>
-          {is401 ? 'Your session token has expired or is invalid. Please log in again.' : error}
+          {is401 ? 'Your session has expired. Please log in again.' : error}
         </Text>
         <TouchableOpacity
           onPress={() => {

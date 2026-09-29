@@ -68,7 +68,7 @@ export default function ForgotPasswordScreen() {
             backgroundColor={bgColor}
             contentContainerStyle={{ flexGrow: 1 }}
         >
-            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={bgColor} />
+            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
 
             {/* Decorative gradient orbs */}
             <View style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, borderRadius: 100, backgroundColor: '#10b98118', }} pointerEvents="none" />

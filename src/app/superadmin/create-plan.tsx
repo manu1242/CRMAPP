@@ -228,7 +228,7 @@ export default function CreateEditPlanScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }} edges={['bottom', 'left', 'right']}>
       <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={bgColor} />
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
         {/* Title Block */}
         <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
           <Text style={{ fontSize: 20, fontWeight: '700', color: textColor }}>

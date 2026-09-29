@@ -78,7 +78,7 @@ const MainLogin = () => {
                 overflow: 'hidden',
             }}
         >
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={bgColor} />
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
 
             {/* Static Background Amoeba / Bubble Design Elements */}
             {/* Top-Right Soft Teal Amoeba Blob */}

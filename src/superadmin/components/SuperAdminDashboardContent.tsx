@@ -140,16 +140,16 @@ export default function SuperAdminDashboardContent() {
         setError('Failed to retrieve dashboard data from server');
       }
     } catch (err: any) {
-      const is401 = err?.status === 401 || err?.response?.status === 401 || err?.message?.includes('401');
-      const msg = is401
-        ? 'Session expired (401). Please log in again.'
-        : (err.response?.data?.message || err.message || 'An error occurred while fetching dashboard statistics');
-      setError(msg);
-      Toast.show({
-        type: 'error',
-        text1: is401 ? 'Session Expired' : 'Dashboard Error',
-        text2: msg,
-      });
+      const is401 = err?.status === 401 || err?.response?.status === 401;
+      if (!is401) {
+        const msg = err.response?.data?.message || err.message || 'An error occurred while fetching dashboard statistics';
+        setError(msg);
+        Toast.show({
+          type: 'error',
+          text1: 'Dashboard Error',
+          text2: msg,
+        });
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

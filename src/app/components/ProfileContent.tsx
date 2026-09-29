@@ -11,6 +11,7 @@ import {
   Image,
   LayoutAnimation,
   UIManager,
+  StatusBar,
 } from 'react-native';
 
 // Enable LayoutAnimation on Android
@@ -148,6 +149,7 @@ export default function ProfileContent() {
 
   return (
     <View style={{ flex: 1, backgroundColor: isDark ? bgColor : '#ffffff' }}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}

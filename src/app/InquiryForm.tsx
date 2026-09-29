@@ -181,7 +181,7 @@ const InquiryForm = () => {
         flexGrow: 1,
       }}
     >
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={bgColor} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
 
       {/* Header with Back Button */}
       <View style={styles.header}>
