@@ -1,6 +1,6 @@
 export const API_ENDPOINTS = {
   AUTH: {
-    LOGIN: '/api/login',
+    LOGIN: '/api/v1/auth/login',
     LOGIN_WORKSPACE: '/api/v1/auth/login-workspace',
     LOGOUT: '/api/v1/auth/logout',
     PROFILE: '/api/v1/auth/profile',
