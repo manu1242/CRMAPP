@@ -40,12 +40,15 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatCurrency(val: number | undefined | null): string {
-  const v = val ?? 0;
-  if (v >= 10_000_000) return `₹${(v / 10_000_000).toFixed(1)}Cr`;
-  if (v >= 100_000) return `₹${(v / 100_000).toFixed(1)}L`;
-  if (v >= 1000) return `₹${(v / 1000).toFixed(1)}K`;
-  return `₹${v.toFixed(0)}`;
+function formatCurrency(val: number | string | undefined | null): string {
+  const num = typeof val === 'string' ? parseFloat(val) : (val ?? 0);
+  const v = isNaN(num) ? 0 : num;
+  const sign = v < 0 ? '-' : '';
+  const abs = Math.abs(v);
+  if (abs >= 10_000_000) return `${sign}₹${Math.round(abs / 10_000_000)}Cr`;
+  if (abs >= 100_000) return `${sign}₹${Math.round(abs / 100_000)}L`;
+  if (abs >= 1000) return `${sign}₹${Math.round(abs / 1000)}K`;
+  return `${sign}₹${Math.round(abs)}`;
 }
 
 function getStatusColor(status: string): string {
