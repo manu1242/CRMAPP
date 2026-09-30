@@ -222,7 +222,7 @@ export default function AgentPayout() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: adminTheme.primaryBg }]}>
+    <View style={[styles.container, { backgroundColor: adminTheme.primaryBg,marginBottom:60 }]}>
       {/* Header Bar */}
       <View
         style={[

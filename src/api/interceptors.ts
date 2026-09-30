@@ -5,27 +5,23 @@ import { TokenStorage } from '../auth/storage/TokenStorage';
 import { SessionStorage } from '../auth/storage/SessionStorage';
 import { SecureStorage } from '../auth/storage/SecureStorage';
 import { useAuthStore } from '../auth/store/authStore';
+import {
+  getIsHandlingSessionExpiry,
+  setIsHandlingSessionExpiry,
+  resetSessionExpiryGuard,
+} from './sessionExpiryGuard';
 
-// Concurrency guard to ensure session expiry flow executes only once per expired session
-let isHandlingSessionExpiry = false;
-
-/**
- * Resets the session expiration guard.
- * Call this upon a successful login or session initialization.
- */
-export const resetSessionExpiryGuard = () => {
-  isHandlingSessionExpiry = false;
-};
+export { resetSessionExpiryGuard };
 
 /**
  * Global handler for HTTP 401 Unauthorized responses.
  * Guarantees single alert, clean storage clearance, and auth state reset.
  */
 export const triggerSessionExpired = async () => {
-  if (isHandlingSessionExpiry) {
+  if (getIsHandlingSessionExpiry()) {
     return;
   }
-  isHandlingSessionExpiry = true;
+  setIsHandlingSessionExpiry(true);
 
   if (__DEV__) {
     console.warn('[AUTH] Session expired');
@@ -81,12 +77,11 @@ export const setupInterceptors = () => {
       );
 
       if (token && !isAuthEndpoint) {
-        if (config.headers?.set) {
+        config.headers = config.headers || {};
+        if (config.headers.set) {
           config.headers.set('Authorization', `Bearer ${token}`);
-        }
-        if (config.headers) {
-          config.headers['Authorization'] = `Bearer ${token}`;
-          config.headers.Authorization = `Bearer ${token}`;
+        } else {
+          (config.headers as any)['Authorization'] = `Bearer ${token}`;
         }
       }
       return config;

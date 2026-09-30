@@ -10,7 +10,7 @@ import { TokenStorage } from '../storage/TokenStorage';
 import { SessionStorage } from '../storage/SessionStorage';
 import { profileApi } from '../api/profile.api';
 import { apiClient } from '../../api/apiClient';
-import { resetSessionExpiryGuard } from '../../api/interceptors';
+import { resetSessionExpiryGuard } from '../../api/sessionExpiryGuard';
 
 interface AuthState {
   user: User | null;
