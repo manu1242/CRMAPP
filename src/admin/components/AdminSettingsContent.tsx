@@ -129,9 +129,9 @@ export default function AdminSettingsContent() {
                 <TouchableOpacity
                   key={itemIdx}
                   onPress={() => {
-                    if ((item as any).externalUrl) {
-                      openExternalLink((item as any).externalUrl);
-                    } else if (item.route) {
+                    if ('externalUrl' in item && item.externalUrl) {
+                      openExternalLink(item.externalUrl);
+                    } else if ('route' in item && item.route) {
                       router.push(item.route as any);
                     }
                   }}

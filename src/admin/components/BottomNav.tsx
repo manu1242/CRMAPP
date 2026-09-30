@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { LayoutDashboard, Users, Settings, User } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUpdateStore } from '../../hooks/useUpdateStore';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { NotificationService } from '../../Services/NotificationService';
@@ -21,6 +22,7 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const insets = useSafeAreaInsets();
   const isUpdateAvailable = useUpdateStore((state) => state.isUpdateAvailable);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -106,10 +108,10 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
         backgroundColor: adminTheme.cardBg,
         borderColor: adminTheme.border,
         shadowOpacity: isDark ? 0.35 : 0.06,
-        bottom: 8,
+        bottom: insets.bottom > 0 ? insets.bottom + 4 : 12,
       },
     ],
-    [isDark, adminTheme.cardBg, adminTheme.border]
+    [isDark, insets.bottom, adminTheme.cardBg, adminTheme.border]
   );
 
   return (

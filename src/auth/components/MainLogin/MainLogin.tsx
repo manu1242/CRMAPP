@@ -209,6 +209,7 @@ const MainLogin = () => {
                             onChangeText={setLoginEmail}
                             placeholder="uproptech@gmail.com"
                             placeholderTextColor={placeholderColor}
+                            keyboardAppearance={isDark ? 'dark' : 'light'}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             autoCorrect={false}
@@ -263,6 +264,7 @@ const MainLogin = () => {
                             onChangeText={setLoginPassword}
                             placeholder="••••••••"
                             placeholderTextColor={placeholderColor}
+                            keyboardAppearance={isDark ? 'dark' : 'light'}
                             secureTextEntry={!showLoginPassword}
                             autoCapitalize="none"
                             autoCorrect={false}

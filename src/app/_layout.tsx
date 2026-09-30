@@ -11,6 +11,8 @@ import { useAuthStore } from '../auth/store/authStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { NetworkProvider, useNetwork } from '../contexts/NetworkContext';
+import { CustomAlertProvider } from '../components/CustomAlertProvider';
+import { DeviceNotificationService } from '../Services/DeviceNotificationService';
 
 import { WifiOff, X } from 'lucide-react-native';
 import '../styles/globals.css';
@@ -362,6 +364,7 @@ function InnerLayout() {
       <Stack.Screen name="superadmin/payment-config" />
       <Stack.Screen name="superadmin/settings" />
       <Stack.Screen name="superadmin/profile" />
+      <Stack.Screen name="superadmin/notifications" />
       <Stack.Screen name="admin/SalesUnit/quotation/[id]" />
       <Stack.Screen name="admin/SalesUnit/invoice/[id]" />
       <Stack.Screen name="admin/SalesUnit/invoice/GenerateInvoice" />
@@ -567,11 +570,10 @@ function InnerLayout() {
     </ExpoThemeProvider>
   );
 }
-
+ 
 function RootLayout() {
   useEffect(() => {
-    // Fetch remote config (API URL), then hide the splash screen.
-    // initRemoteConfig applies cached config instantly and refreshes from network.
+    // 1. Initialize remote config and hide splash screen
     initRemoteConfig()
       .catch((err) => {
         console.warn('Remote config fetch failed, using fallback URL:', err);
@@ -581,6 +583,11 @@ function RootLayout() {
           console.warn('Failed to hide splash screen:', err);
         });
       });
+
+    // 2. Initialize device lock screen and notification panel system
+    DeviceNotificationService.init().catch((err) => {
+      console.warn('Failed to initialize device notifications:', err);
+    });
   }, []);
 
   return (
@@ -588,7 +595,9 @@ function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider>
           <NetworkProvider>
-            <InnerLayout />
+            <CustomAlertProvider>
+              <InnerLayout />
+            </CustomAlertProvider>
           </NetworkProvider>
         </ThemeProvider>
       </SafeAreaProvider>

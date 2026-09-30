@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   stageTag: {
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(192, 132, 252, 0.12)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,

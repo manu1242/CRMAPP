@@ -937,7 +937,6 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f8fafc',
     },
     emptyContainer: {
         borderRadius: 16,

@@ -4,8 +4,13 @@ import { useRouter } from 'expo-router';
 import AuthHeader from '../../components/AuthHeader';
 import KeyboardSafeArea from '../../components/KeyboardSafeArea';
 
+import { useTheme } from '../../../contexts/ThemeContext';
+import { getAdminTheme } from '../../../theme/adminTheme';
+
 export default function RegisterScreen() {
   const router = useRouter();
+  const { isDark } = useTheme();
+  const theme = getAdminTheme(isDark);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -30,57 +35,105 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardSafeArea contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 24 }}>
+    <KeyboardSafeArea backgroundColor={theme.primaryBg} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 24 }}>
       <AuthHeader 
         title="Create Account" 
         subtitle="Sign up to start managing your CRM" 
       />
       <View style={{ width: '100%', padding: 16 }}>
-        <Text className="text-sm font-semibold mb-1.5 text-secondary-text">First Name</Text>
+        <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 6, color: theme.textSecondary }}>First Name</Text>
         <TextInput 
-          className="h-12 border border-slate-200 rounded-custom px-3 mb-4 text-base bg-white" 
+          style={{
+            height: 48,
+            borderWidth: 1,
+            borderColor: theme.border,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            marginBottom: 16,
+            fontSize: 16,
+            backgroundColor: theme.cardBg,
+            color: theme.textPrimary,
+          }}
           value={firstName} 
           onChangeText={setFirstName} 
           placeholder="First name"
+          placeholderTextColor={theme.textMuted}
+          keyboardAppearance={isDark ? 'dark' : 'light'}
           autoCorrect={false}
           returnKeyType="next"
         />
 
-        <Text className="text-sm font-semibold mb-1.5 text-secondary-text">Last Name</Text>
+        <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 6, color: theme.textSecondary }}>Last Name</Text>
         <TextInput 
-          className="h-12 border border-slate-200 rounded-custom px-3 mb-4 text-base bg-white" 
+          style={{
+            height: 48,
+            borderWidth: 1,
+            borderColor: theme.border,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            marginBottom: 16,
+            fontSize: 16,
+            backgroundColor: theme.cardBg,
+            color: theme.textPrimary,
+          }}
           value={lastName} 
           onChangeText={setLastName} 
           placeholder="Last name"
+          placeholderTextColor={theme.textMuted}
+          keyboardAppearance={isDark ? 'dark' : 'light'}
           autoCorrect={false}
           returnKeyType="next"
         />
 
-        <Text className="text-sm font-semibold mb-1.5 text-secondary-text">Email</Text>
+        <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 6, color: theme.textSecondary }}>Email</Text>
         <TextInput 
-          className="h-12 border border-slate-200 rounded-custom px-3 mb-4 text-base bg-white" 
+          style={{
+            height: 48,
+            borderWidth: 1,
+            borderColor: theme.border,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            marginBottom: 16,
+            fontSize: 16,
+            backgroundColor: theme.cardBg,
+            color: theme.textPrimary,
+          }}
           value={email} 
           onChangeText={setEmail} 
           placeholder="Email" 
+          placeholderTextColor={theme.textMuted}
+          keyboardAppearance={isDark ? 'dark' : 'light'}
           keyboardType="email-address" 
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="next"
         />
 
-        <Text className="text-sm font-semibold mb-1.5 text-secondary-text">Password</Text>
+        <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 6, color: theme.textSecondary }}>Password</Text>
         <TextInput 
-          className="h-12 border border-slate-200 rounded-custom px-3 mb-4 text-base bg-white" 
+          style={{
+            height: 48,
+            borderWidth: 1,
+            borderColor: theme.border,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            marginBottom: 16,
+            fontSize: 16,
+            backgroundColor: theme.cardBg,
+            color: theme.textPrimary,
+          }}
           value={password} 
           onChangeText={setPassword} 
           placeholder="Password" 
+          placeholderTextColor={theme.textMuted}
+          keyboardAppearance={isDark ? 'dark' : 'light'}
           secureTextEntry
           autoCorrect={false}
           returnKeyType="done"
           onSubmitEditing={handleRegister}
         />
 
-        {error ? <Text className="text-red-500 mb-3">{error}</Text> : null}
+        {error ? <Text style={{ color: '#ef4444', marginBottom: 12 }}>{error}</Text> : null}
 
         <TouchableOpacity 
           className="btn-primary mt-2 h-12 flex-row" 

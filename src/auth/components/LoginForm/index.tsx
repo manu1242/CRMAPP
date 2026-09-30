@@ -4,10 +4,15 @@ import { useRouter } from 'expo-router';
 import { useLogin } from '../../hooks/useLogin';
 import { useAuthStore } from '../../store/authStore';
 
+import { useTheme } from '../../../contexts/ThemeContext';
+import { getAdminTheme } from '../../../theme/adminTheme';
+
 export default function LoginForm() {
   const router = useRouter();
   const store = useAuthStore();
   const { login, isLoading, error } = useLogin();
+  const { isDark } = useTheme();
+  const theme = getAdminTheme(isDark);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -32,25 +37,49 @@ export default function LoginForm() {
   };
 
   return (
-    <View className="w-full p-4">
-      <Text className="text-sm font-semibold mb-1.5 text-secondary-text">Username</Text>
+    <View style={{ width: '100%', padding: 16 }}>
+      <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 6, color: theme.textSecondary }}>Username</Text>
       <TextInput
-        className="h-12 border border-slate-200 rounded-custom px-3 mb-4 text-base bg-white"
+        style={{
+          height: 48,
+          borderWidth: 1,
+          borderColor: theme.border,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          marginBottom: 16,
+          fontSize: 16,
+          backgroundColor: theme.cardBg,
+          color: theme.textPrimary,
+        }}
         value={username}
         onChangeText={setUsername}
         placeholder="Enter username or email"
+        placeholderTextColor={theme.textMuted}
+        keyboardAppearance={isDark ? 'dark' : 'light'}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
         textContentType="username"
       />
 
-      <Text className="text-sm font-semibold mb-1.5 text-secondary-text">Password</Text>
+      <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 6, color: theme.textSecondary }}>Password</Text>
       <TextInput
-        className="h-12 border border-slate-200 rounded-custom px-3 mb-4 text-base bg-white"
+        style={{
+          height: 48,
+          borderWidth: 1,
+          borderColor: theme.border,
+          borderRadius: 10,
+          paddingHorizontal: 12,
+          marginBottom: 16,
+          fontSize: 16,
+          backgroundColor: theme.cardBg,
+          color: theme.textPrimary,
+        }}
         value={password}
         onChangeText={setPassword}
         placeholder="Enter password"
+        placeholderTextColor={theme.textMuted}
+        keyboardAppearance={isDark ? 'dark' : 'light'}
         secureTextEntry
       />
 

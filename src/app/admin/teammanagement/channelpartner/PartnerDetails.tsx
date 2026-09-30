@@ -514,14 +514,14 @@ export default function PartnerDetailsScreen() {
               </Text>
             </View>
             <View style={{
-              backgroundColor: '#ffffff', // White badge matching screenshot
+              backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : '#ffffff',
               paddingHorizontal: 12,
               paddingVertical: 4,
               borderRadius: 6,
               borderWidth: 1,
-              borderColor: '#0d9488a0'
+              borderColor: isDark ? 'rgba(255,255,255,0.3)' : '#0d9488a0'
             }}>
-              <Text style={{ color: '#111827', fontSize: 10, fontWeight: '700' }}>
+              <Text style={{ color: isDark ? '#ffffff' : '#111827', fontSize: 10, fontWeight: '700' }}>
                 {(partner.subscriptionPlan || 'Basic')} Plan
               </Text>
             </View>

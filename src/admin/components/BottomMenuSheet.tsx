@@ -625,8 +625,8 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
             style={[
               styles.sheetContainer,
               {
-                backgroundColor: isDark ? 'rgba(12, 12, 12, 0.55)' : '#ffffff',
-                borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)',
+                backgroundColor: adminTheme.cardBg,
+                borderColor: adminTheme.border,
                 borderTopWidth: 1.5,
                 borderLeftWidth: 1.5,
                 borderRightWidth: 1.5,
@@ -637,14 +637,14 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
             {/* Glass blur — dark mode only */}
             {isDark && (
               <BlurView
-                intensity={30}
+                intensity={20}
                 tint="dark"
-                style={[StyleSheet.absoluteFill, { borderTopLeftRadius: 50, borderTopRightRadius: 50 }]}
+                style={[StyleSheet.absoluteFill, { borderTopLeftRadius: 28, borderTopRightRadius: 28 }]}
               />
             )}
             {/* Drag Handle — always interactive */}
             <View style={styles.dragHandleContainer} {...panResponder.panHandlers}>
-              <View style={styles.dragHandle} />
+              <View style={[styles.dragHandle, { backgroundColor: isDark ? '#3f3f46' : '#cbd5e1' }]} />
             </View>
 
             {/* Animating overall content opacity */}
@@ -683,6 +683,7 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
                     placeholderTextColor={subTextColor}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
                     style={[styles.searchInput, { color: textColor }]}
                   />
                   {searchQuery !== '' && (

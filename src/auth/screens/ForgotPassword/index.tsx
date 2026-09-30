@@ -194,6 +194,7 @@ export default function ForgotPasswordScreen() {
                                 onChangeText={setEmail}
                                 placeholder="your@email.com"
                                 placeholderTextColor={t.textMuted}
+                                keyboardAppearance={isDark ? 'dark' : 'light'}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 autoCorrect={false}

@@ -26,11 +26,12 @@ export const API_ENDPOINTS = {
     UPDATE_INQUIRY_STATUS: (id: string | number) => `/api/v1/superadmin/inquiries/${id}/status`,
   },
   NOTIFICATION: {
-    GET_NOTIFICATIONS: '/notification/getnotifications',
-    MARK_ALL_READ: '/Notification/MarkAllAsRead',
-    MARK_AS_READ: (notificationId: number | string) => `/Notification/MarkAsRead?notificationId=${notificationId}`,
-    API_SAVE_TOKEN: '/api/Notification/save-token',
-    API_TEST_NOTIFICATION: '/api/Notification/test-notification',
+    GET_NOTIFICATIONS: '/api/v1/notifications',
+    GET_UNREAD_COUNT: '/api/v1/notifications/unread-count',
+    MARK_ALL_READ: '/api/v1/notifications/read-all',
+    MARK_AS_READ: (notificationId: number | string) => `/api/v1/notifications/${notificationId}/read`,
+    API_SAVE_TOKEN: '/api/v1/notifications/save-token',
+    API_TEST_NOTIFICATION: '/api/v1/notifications/test-notification',
   },
   TENANTS: {
     BASE: '/api/v1/superadmin/tenants',

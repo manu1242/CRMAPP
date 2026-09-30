@@ -45,6 +45,7 @@ import {
   PendingCorrectionRequest,
   DateIntervalsData,
 } from '../../../Services/attendanceService';
+import { DeviceNotificationService } from '../../../Services/DeviceNotificationService';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -248,6 +249,10 @@ export default function AgentCalender() {
       });
 
       if (res.success) {
+        DeviceNotificationService.triggerSystemNotification({
+          title: 'Attendance Correction Submitted',
+          body: res.message || `Your correction request for ${correctionTargetDay.date} was submitted successfully.`,
+        });
         Alert.alert('Success', res.message || 'Correction request submitted successfully');
         setShowCorrectionModal(false);
         setCorrectionReason('');

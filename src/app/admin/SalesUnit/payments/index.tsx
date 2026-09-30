@@ -801,57 +801,57 @@ export default function PaymentsScreen() {
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12 }}>
 
                 {/* Paper Receipt Frame */}
-                <View style={{ backgroundColor: '#ffffff', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }}>
+                <View style={{ backgroundColor: theme.cardBg, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: theme.border, shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0.2 : 0.05, shadowRadius: 4, elevation: 1 }}>
 
                   {/* Company Header */}
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 2, borderBottomColor: theme.brand, paddingBottom: 10, marginBottom: 12 }}>
                     <View style={{ flex: 1.2 }}>
                       <Text style={{ fontSize: 14, fontWeight: '800', color: theme.brand }}>{receiptResponse.data.company.companyName}</Text>
-                      <Text style={{ fontSize: 9, color: '#475569', marginTop: 3 }}>{receiptResponse.data.company.companyAddress}</Text>
-                      <Text style={{ fontSize: 9, color: '#475569', marginTop: 1 }}>Phone: {receiptResponse.data.company.companyPhone} · Email: {receiptResponse.data.company.companyEmail}</Text>
-                      <Text style={{ fontSize: 9, color: '#475569', marginTop: 1, fontWeight: '700' }}>GST: {receiptResponse.data.company.companyGST}</Text>
+                      <Text style={{ fontSize: 9, color: theme.textSecondary, marginTop: 3 }}>{receiptResponse.data.company.companyAddress}</Text>
+                      <Text style={{ fontSize: 9, color: theme.textSecondary, marginTop: 1 }}>Phone: {receiptResponse.data.company.companyPhone} · Email: {receiptResponse.data.company.companyEmail}</Text>
+                      <Text style={{ fontSize: 9, color: theme.textSecondary, marginTop: 1, fontWeight: '700' }}>GST: {receiptResponse.data.company.companyGST}</Text>
                     </View>
                     <View style={{ flex: 0.8, alignItems: 'flex-end' }}>
                       <View style={{ backgroundColor: theme.brand, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginBottom: 4 }}>
                         <Text style={{ color: '#ffffff', fontSize: 8, fontWeight: '700' }}>PAYMENT RECEIPT</Text>
                       </View>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#1e293b' }}>{receiptResponse.data.payment.receiptNumber}</Text>
-                      <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>Date: {formatDate(receiptResponse.data.payment.paymentDate)}</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textPrimary }}>{receiptResponse.data.payment.receiptNumber}</Text>
+                      <Text style={{ fontSize: 9, color: theme.textSecondary, marginTop: 2 }}>Date: {formatDate(receiptResponse.data.payment.paymentDate)}</Text>
                     </View>
                   </View>
 
                   {/* Bill To & Property Side-by-Side */}
                   <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
-                    <View style={{ flex: 1, backgroundColor: '#f8fafc', padding: 8, borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0' }}>
-                      <Text style={{ fontSize: 9, fontWeight: '700', color: '#b45309', marginBottom: 4 }}>RECEIVED FROM</Text>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#1e293b' }}>{receiptResponse.data.payment.leadName}</Text>
-                      {receiptResponse.data.payment.leadContact && <Text style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>Mob: {receiptResponse.data.payment.leadContact}</Text>}
-                      {receiptResponse.data.payment.leadEmail && <Text style={{ fontSize: 9, color: '#475569' }}>Email: {receiptResponse.data.payment.leadEmail}</Text>}
-                      <Text style={{ fontSize: 9, color: '#1e293b', fontWeight: '600', marginTop: 2 }}>Booking: {receiptResponse.data.payment.bookingNumber}</Text>
+                    <View style={{ flex: 1, backgroundColor: theme.inputBg, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: theme.border }}>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: isDark ? '#fbbf24' : '#b45309', marginBottom: 4 }}>RECEIVED FROM</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textPrimary }}>{receiptResponse.data.payment.leadName}</Text>
+                      {receiptResponse.data.payment.leadContact && <Text style={{ fontSize: 9, color: theme.textSecondary, marginTop: 2 }}>Mob: {receiptResponse.data.payment.leadContact}</Text>}
+                      {receiptResponse.data.payment.leadEmail && <Text style={{ fontSize: 9, color: theme.textSecondary }}>Email: {receiptResponse.data.payment.leadEmail}</Text>}
+                      <Text style={{ fontSize: 9, color: theme.textPrimary, fontWeight: '600', marginTop: 2 }}>Booking: {receiptResponse.data.payment.bookingNumber}</Text>
                     </View>
 
-                    <View style={{ flex: 1, backgroundColor: '#f8fafc', padding: 8, borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0' }}>
-                      <Text style={{ fontSize: 9, fontWeight: '700', color: '#b45309', marginBottom: 4 }}>PROPERTY DETAILS</Text>
-                      <Text style={{ fontSize: 10, fontWeight: '600', color: '#1e293b' }}>{receiptResponse.data.payment.propertyName}</Text>
-                      <Text style={{ fontSize: 10, color: '#475569', marginTop: 1 }}>Unit: {receiptResponse.data.payment.flatName}</Text>
+                    <View style={{ flex: 1, backgroundColor: theme.inputBg, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: theme.border }}>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: isDark ? '#fbbf24' : '#b45309', marginBottom: 4 }}>PROPERTY DETAILS</Text>
+                      <Text style={{ fontSize: 10, fontWeight: '600', color: theme.textPrimary }}>{receiptResponse.data.payment.propertyName}</Text>
+                      <Text style={{ fontSize: 10, color: theme.textSecondary, marginTop: 1 }}>Unit: {receiptResponse.data.payment.flatName}</Text>
                       {receiptResponse.data.payment.milestoneName && (
-                        <Text style={{ fontSize: 9, color: '#64748b', marginTop: 2 }} numberOfLines={1}>Component: {receiptResponse.data.payment.milestoneName}</Text>
+                        <Text style={{ fontSize: 9, color: theme.textSecondary, marginTop: 2 }} numberOfLines={1}>Component: {receiptResponse.data.payment.milestoneName}</Text>
                       )}
                     </View>
                   </View>
 
                   {/* Payment Details Table */}
-                  <View style={{ borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 6, overflow: 'hidden', marginBottom: 12 }}>
-                    <View style={{ flexDirection: 'row', backgroundColor: '#f1f5f9', paddingVertical: 6, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#cbd5e1' }}>
-                      <Text style={{ flex: 2, fontSize: 9, fontWeight: '700', color: '#475569' }}>Payment Item Description</Text>
-                      <Text style={{ flex: 1, fontSize: 9, fontWeight: '700', color: '#475569', textAlign: 'right' }}>Amount Paid</Text>
+                  <View style={{ borderWidth: 1, borderColor: theme.border, borderRadius: 6, overflow: 'hidden', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', backgroundColor: theme.inputBg, paddingVertical: 6, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                      <Text style={{ flex: 2, fontSize: 9, fontWeight: '700', color: theme.textSecondary }}>Payment Item Description</Text>
+                      <Text style={{ flex: 1, fontSize: 9, fontWeight: '700', color: theme.textSecondary, textAlign: 'right' }}>Amount Paid</Text>
                     </View>
-                    <View style={{ flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' }}>
-                      <Text style={{ flex: 2, fontSize: 10, color: '#334155' }}>
+                    <View style={{ flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                      <Text style={{ flex: 2, fontSize: 10, color: theme.textPrimary }}>
                         Receipt against Invoice {receiptResponse.data.payment.invoiceNumber}
                         {receiptResponse.data.payment.milestoneName ? ` (${receiptResponse.data.payment.milestoneName} Milestone)` : ''}
                       </Text>
-                      <Text style={{ flex: 1, fontSize: 10, color: '#334155', fontWeight: '700', textAlign: 'right' }}>
+                      <Text style={{ flex: 1, fontSize: 10, color: theme.textPrimary, fontWeight: '700', textAlign: 'right' }}>
                         {formatCurrency(receiptResponse.data.payment.amount)}
                       </Text>
                     </View>
@@ -860,42 +860,42 @@ export default function PaymentsScreen() {
                   {/* Transaction Metadata & Bank Accounts */}
                   <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
                     <View style={{ flex: 1.1 }}>
-                      <Text style={{ fontSize: 9, fontWeight: '700', color: '#475569', marginBottom: 2 }}>TRANSACTION INFO</Text>
-                      <Text style={{ fontSize: 9, color: '#334155' }}>Method: <Text style={{ fontWeight: '600' }}>{receiptResponse.data.payment.paymentMethod}</Text></Text>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: theme.textSecondary, marginBottom: 2 }}>TRANSACTION INFO</Text>
+                      <Text style={{ fontSize: 9, color: theme.textPrimary }}>Method: <Text style={{ fontWeight: '600' }}>{receiptResponse.data.payment.paymentMethod}</Text></Text>
                       {receiptResponse.data.payment.transactionReference && (
-                        <Text style={{ fontSize: 9, color: '#334155', marginTop: 1 }}>Txn Ref: <Text style={{ fontWeight: '600' }}>{receiptResponse.data.payment.transactionReference}</Text></Text>
+                        <Text style={{ fontSize: 9, color: theme.textPrimary, marginTop: 1 }}>Txn Ref: <Text style={{ fontWeight: '600' }}>{receiptResponse.data.payment.transactionReference}</Text></Text>
                       )}
                       {receiptResponse.data.payment.bankName && (
-                        <Text style={{ fontSize: 9, color: '#334155', marginTop: 1 }}>Bank: {receiptResponse.data.payment.bankName}</Text>
+                        <Text style={{ fontSize: 9, color: theme.textPrimary, marginTop: 1 }}>Bank: {receiptResponse.data.payment.bankName}</Text>
                       )}
                       {receiptResponse.data.payment.chequeNumber && (
-                        <Text style={{ fontSize: 9, color: '#334155', marginTop: 1 }}>Cheque: #{receiptResponse.data.payment.chequeNumber}</Text>
+                        <Text style={{ fontSize: 9, color: theme.textPrimary, marginTop: 1 }}>Cheque: #{receiptResponse.data.payment.chequeNumber}</Text>
                       )}
                     </View>
 
-                    <View style={{ flex: 0.9, backgroundColor: '#f8fafc', padding: 6, borderRadius: 4, borderWidth: 1, borderColor: '#e2e8f0' }}>
-                      <Text style={{ fontSize: 8, fontWeight: '700', color: '#475569', marginBottom: 2 }}>COMPANY BANK ACCOUNT</Text>
+                    <View style={{ flex: 0.9, backgroundColor: theme.inputBg, padding: 6, borderRadius: 4, borderWidth: 1, borderColor: theme.border }}>
+                      <Text style={{ fontSize: 8, fontWeight: '700', color: theme.textSecondary, marginBottom: 2 }}>COMPANY BANK ACCOUNT</Text>
                       {receiptResponse.data.company.bankAccount ? (
                         <>
-                          <Text style={{ fontSize: 8, color: '#334155', fontWeight: '600' }}>{receiptResponse.data.company.bankAccount.bankName}</Text>
-                          <Text style={{ fontSize: 8, color: '#475569' }}>Acc: {receiptResponse.data.company.bankAccount.accountNumber}</Text>
-                          <Text style={{ fontSize: 8, color: '#475569' }}>IFSC: {receiptResponse.data.company.bankAccount.ifscCode}</Text>
+                          <Text style={{ fontSize: 8, color: theme.textPrimary, fontWeight: '600' }}>{receiptResponse.data.company.bankAccount.bankName}</Text>
+                          <Text style={{ fontSize: 8, color: theme.textSecondary }}>Acc: {receiptResponse.data.company.bankAccount.accountNumber}</Text>
+                          <Text style={{ fontSize: 8, color: theme.textSecondary }}>IFSC: {receiptResponse.data.company.bankAccount.ifscCode}</Text>
                         </>
                       ) : (
-                        <Text style={{ fontSize: 8, color: '#64748b' }}>No bank account details configured</Text>
+                        <Text style={{ fontSize: 8, color: theme.textMuted }}>No bank account details configured</Text>
                       )}
                     </View>
                   </View>
 
                   {/* Notes & Footer signature */}
                   {receiptResponse.data.payment.notes && (
-                    <View style={{ marginBottom: 12, padding: 6, backgroundColor: '#f8fafc', borderRadius: 4 }}>
-                      <Text style={{ fontSize: 8, fontWeight: '700', color: '#64748b' }}>Notes: <Text style={{ fontWeight: '400', color: '#475569' }}>{receiptResponse.data.payment.notes}</Text></Text>
+                    <View style={{ marginBottom: 12, padding: 6, backgroundColor: theme.inputBg, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 8, fontWeight: '700', color: theme.textSecondary }}>Notes: <Text style={{ fontWeight: '400', color: theme.textPrimary }}>{receiptResponse.data.payment.notes}</Text></Text>
                     </View>
                   )}
 
-                  <View style={{ borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 8, marginTop: 4, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 9, color: '#94a3b8', fontStyle: 'italic' }}>This is a system generated digital payment receipt.</Text>
+                  <View style={{ borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 8, marginTop: 4, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 9, color: theme.textMuted, fontStyle: 'italic' }}>This is a system generated digital payment receipt.</Text>
                   </View>
                 </View>
 

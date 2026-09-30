@@ -3,7 +3,12 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { useTenantFilterStore } from '../store/tenantStore';
 
+import { useTheme } from '../../../contexts/ThemeContext';
+import { getSuperAdminTheme } from '../../../theme/adminTheme';
+
 export const TenantFilterBar = React.memo(() => {
+  const { isDark } = useTheme();
+  const superTheme = getSuperAdminTheme(isDark);
   const {
     search,
     status,
@@ -60,57 +65,108 @@ export const TenantFilterBar = React.memo(() => {
   );
 
   return (
-    <View className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 mb-4">
+    <View
+      style={{
+        backgroundColor: superTheme.cardBg,
+        borderColor: superTheme.border,
+        borderWidth: 1,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDark ? 0.2 : 0.02,
+        shadowRadius: 4,
+        elevation: 1,
+      }}
+    >
       {/* Search Row */}
-      <View className="flex-row items-center gap-2">
-        <View className="flex-1 bg-slate-50 border border-slate-150 rounded-xl px-3 py-1 flex-row items-center">
-          <Ionicons name="search-outline" size={16} color="#64748b" />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: superTheme.inputBg,
+            borderColor: superTheme.border,
+            borderWidth: 1,
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 4,
+            flexDirection: 'row',
+            alignItems: 'center',
+          }}
+        >
+          <Ionicons name="search-outline" size={16} color={superTheme.textMuted} />
           <TextInput
             placeholder="Search company, contact, email..."
-            placeholderTextColor="#94a3b8"
-            className="flex-1 h-9 text-slate-800 ml-2 text-sm bg-transparent"
+            placeholderTextColor={superTheme.textMuted}
+            keyboardAppearance={isDark ? 'dark' : 'light'}
+            style={{
+              flex: 1,
+              height: 36,
+              color: superTheme.textPrimary,
+              marginLeft: 8,
+              fontSize: 14,
+            }}
             value={search}
             onChangeText={setSearch}
           />
           {search ? (
             <TouchableOpacity onPress={handleClearSearch}>
-              <Ionicons name="close-circle" size={16} color="#94a3b8" />
+              <Ionicons name="close-circle" size={16} color={superTheme.textMuted} />
             </TouchableOpacity>
           ) : null}
         </View>
         <TouchableOpacity
           onPress={toggleExpanded}
-          className={`p-2 rounded-xl border ${
-            isExpanded ? 'bg-sky-50 border-sky-200' : 'bg-white border-slate-200'
-          }`}
+          style={{
+            padding: 10,
+            borderRadius: 12,
+            borderWidth: 1,
+            backgroundColor: isExpanded
+              ? (isDark ? 'rgba(56, 189, 248, 0.15)' : '#e0f2fe')
+              : superTheme.inputBg,
+            borderColor: isExpanded
+              ? (isDark ? 'rgba(56, 189, 248, 0.4)' : '#bae6fd')
+              : superTheme.border,
+          }}
         >
           <Ionicons
             name="funnel-outline"
             size={18}
-            color={isExpanded ? '#0284c7' : '#64748b'}
+            color={isExpanded ? superTheme.brand : superTheme.textSecondary}
           />
         </TouchableOpacity>
       </View>
 
       {/* Quick Status Pills */}
-      <View className="mt-3">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
+      <View style={{ marginTop: 12 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
           {statuses.map((item) => {
             const isSelected = status === item.value;
             return (
               <TouchableOpacity
                 key={item.value}
                 onPress={() => setStatus(item.value)}
-                className={`px-4 py-1.5 rounded-full border ${
-                  isSelected
-                    ? 'bg-[#1e73be] border-[#1e73be]'
-                    : 'bg-slate-50 border-slate-250'
-                } mr-2`}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 6,
+                  borderRadius: 9999,
+                  borderWidth: 1,
+                  marginRight: 8,
+                  backgroundColor: isSelected
+                    ? superTheme.brand
+                    : superTheme.inputBg,
+                  borderColor: isSelected
+                    ? superTheme.brand
+                    : superTheme.border,
+                }}
               >
                 <Text
-                  className={`text-xs font-semibold ${
-                    isSelected ? 'text-white' : 'text-slate-600'
-                  }`}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: isSelected ? '#ffffff' : superTheme.textSecondary,
+                  }}
                 >
                   {item.label}
                 </Text>
@@ -122,21 +178,28 @@ export const TenantFilterBar = React.memo(() => {
 
       {/* Expanded Filters Drawer */}
       {isExpanded && (
-        <View className="mt-4 pt-4 border-t border-slate-100 gap-4">
+        <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: superTheme.border, gap: 16 }}>
           {/* Plan Section */}
           <View>
-            <Text className="text-slate-500 text-xxs font-bold uppercase tracking-wider mb-2">
+            <Text style={{ color: superTheme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
               Filter by Plan
             </Text>
-            <View className="flex-row flex-wrap gap-2">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {plans.map((item) => {
                 return (
                   <TouchableOpacity
                     key={item.value}
-                    className="bg-slate-50 border border-slate-250 px-3 py-1 rounded-lg"
+                    style={{
+                      backgroundColor: superTheme.inputBg,
+                      borderColor: superTheme.border,
+                      borderWidth: 1,
+                      paddingHorizontal: 12,
+                      paddingVertical: 4,
+                      borderRadius: 8,
+                    }}
                     onPress={() => setSearch(item.value === 'all' ? '' : item.value)}
                   >
-                    <Text className="text-slate-600 text-xxs font-semibold">
+                    <Text style={{ color: superTheme.textSecondary, fontSize: 11, fontWeight: '600' }}>
                       {item.label}
                     </Text>
                   </TouchableOpacity>
@@ -147,24 +210,35 @@ export const TenantFilterBar = React.memo(() => {
 
           {/* Sort By Section */}
           <View>
-            <Text className="text-slate-500 text-xxs font-bold uppercase tracking-wider mb-2">
+            <Text style={{ color: superTheme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
               Sort By
             </Text>
-            <View className="flex-row flex-wrap gap-2">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {sortFields.map((item) => {
                 const isSelected = sortBy === item.value;
                 return (
                   <TouchableOpacity
                     key={item.value}
                     onPress={() => setSortBy(item.value)}
-                    className={`px-3 py-1 rounded-lg border ${
-                      isSelected ? 'bg-sky-50 border-sky-200' : 'bg-slate-50 border-slate-200'
-                    }`}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 4,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      backgroundColor: isSelected
+                        ? (isDark ? 'rgba(56, 189, 248, 0.15)' : '#e0f2fe')
+                        : superTheme.inputBg,
+                      borderColor: isSelected
+                        ? (isDark ? 'rgba(56, 189, 248, 0.4)' : '#bae6fd')
+                        : superTheme.border,
+                    }}
                   >
                     <Text
-                      className={`text-xxs font-semibold ${
-                        isSelected ? 'text-sky-700' : 'text-slate-600'
-                      }`}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: '600',
+                        color: isSelected ? (isDark ? '#38bdf8' : '#0369a1') : superTheme.textSecondary,
+                      }}
                     >
                       {item.label}
                     </Text>
@@ -175,21 +249,31 @@ export const TenantFilterBar = React.memo(() => {
           </View>
 
           {/* Sort Order Toggle */}
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2">
-              <Text className="text-slate-500 text-xxs font-bold uppercase tracking-wider">
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ color: superTheme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 Sort Order
               </Text>
               <TouchableOpacity
                 onPress={toggleSortOrder}
-                className="flex-row items-center gap-1 bg-slate-50 border border-slate-200 px-3 py-1 rounded-lg"
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  backgroundColor: superTheme.inputBg,
+                  borderColor: superTheme.border,
+                  borderWidth: 1,
+                  paddingHorizontal: 12,
+                  paddingVertical: 4,
+                  borderRadius: 8,
+                }}
               >
                 <Ionicons
                   name={sortOrder === 'asc' ? 'arrow-up-outline' : 'arrow-down-outline'}
                   size={14}
-                  color="#64748b"
+                  color={superTheme.textSecondary}
                 />
-                <Text className="text-slate-600 text-xxs font-semibold">
+                <Text style={{ color: superTheme.textSecondary, fontSize: 11, fontWeight: '600' }}>
                   {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
                 </Text>
               </TouchableOpacity>
@@ -197,10 +281,10 @@ export const TenantFilterBar = React.memo(() => {
 
             <TouchableOpacity
               onPress={resetFilters}
-              className="flex-row items-center gap-1"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
             >
               <Ionicons name="refresh-outline" size={14} color="#ef4444" />
-              <Text className="text-red-500 font-semibold text-xxs">Reset</Text>
+              <Text style={{ color: '#ef4444', fontWeight: '600', fontSize: 11 }}>Reset</Text>
             </TouchableOpacity>
           </View>
         </View>

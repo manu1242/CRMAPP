@@ -8,36 +8,44 @@ interface TenantCardProps {
   tenant: Tenant;
 }
 
+import { useTheme } from '../../../contexts/ThemeContext';
+import { getSuperAdminTheme } from '../../../theme/adminTheme';
+
 export const TenantCard = React.memo(({ tenant }: TenantCardProps) => {
   const router = useRouter();
+  const { isDark } = useTheme();
+  const superTheme = getSuperAdminTheme(isDark);
 
   const statusTheme = useMemo(() => {
     if (tenant.isSuspended) {
       return {
-        bg: 'bg-red-50 border-red-200/50',
-        text: 'text-red-600',
+        bg: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
+        border: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca',
+        text: isDark ? '#f87171' : '#dc2626',
         label: 'Suspended',
-        avatarBg: 'bg-red-50',
-        avatarText: 'text-red-600',
+        avatarBg: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2',
+        avatarText: isDark ? '#f87171' : '#dc2626',
       };
     }
     if (!tenant.isActive) {
       return {
-        bg: 'bg-amber-50 border-amber-200/50',
-        text: 'text-amber-600',
+        bg: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fffbeb',
+        border: isDark ? 'rgba(245, 158, 11, 0.3)' : '#fde68a',
+        text: isDark ? '#fbbf24' : '#d97706',
         label: 'Locked',
-        avatarBg: 'bg-amber-50',
-        avatarText: 'text-amber-600',
+        avatarBg: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
+        avatarText: isDark ? '#fbbf24' : '#d97706',
       };
     }
     return {
-      bg: 'bg-emerald-50 border-emerald-200/50',
-      text: 'text-emerald-600',
+      bg: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+      border: isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0',
+      text: isDark ? '#34d399' : '#059669',
       label: 'Active',
-      avatarBg: 'bg-emerald-50',
-      avatarText: 'text-emerald-600',
+      avatarBg: isDark ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5',
+      avatarText: isDark ? '#34d399' : '#059669',
     };
-  }, [tenant.isSuspended, tenant.isActive]);
+  }, [tenant.isSuspended, tenant.isActive, isDark]);
 
   const initials = useMemo(() => {
     return tenant.companyName
@@ -69,30 +77,72 @@ export const TenantCard = React.memo(({ tenant }: TenantCardProps) => {
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.7}
-      className="bg-white rounded-[16px] border border-slate-100 shadow-sm p-4 mb-3 flex-row items-center"
       style={{
+        backgroundColor: superTheme.cardBg,
+        borderColor: superTheme.border,
+        borderWidth: 1,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.015,
+        shadowOpacity: isDark ? 0.2 : 0.02,
         shadowRadius: 4,
         elevation: 1,
       }}
     >
       {/* Left Avatar Badge */}
-      <View className={`w-12 h-12 rounded-full ${statusTheme.avatarBg} items-center justify-center mr-4 shrink-0`}>
-        <Text className={`text-base font-bold ${statusTheme.avatarText}`}>
+      <View
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: 24,
+          backgroundColor: statusTheme.avatarBg,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 16,
+        }}
+      >
+        <Text style={{ fontSize: 16, fontWeight: '700', color: statusTheme.avatarText }}>
           {initials}
         </Text>
       </View>
 
       {/* Middle side: Main details */}
-      <View className="flex-1 min-w-0">
-        <View className="flex-row items-center flex-wrap mb-1 gap-2">
-          <Text className="font-bold text-slate-800 text-[15px] leading-tight truncate max-w-[70%]" numberOfLines={1}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginBottom: 4, gap: 8 }}>
+          <Text
+            style={{
+              fontWeight: '700',
+              color: superTheme.textPrimary,
+              fontSize: 15,
+              maxWidth: '70%',
+            }}
+            numberOfLines={1}
+          >
             {tenant.companyName}
           </Text>
-          <View className={`px-2 py-0.5 rounded-full border ${statusTheme.bg}`}>
-            <Text className={`text-[8px] font-bold uppercase tracking-wider ${statusTheme.text}`}>
+          <View
+            style={{
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 9999,
+              backgroundColor: statusTheme.bg,
+              borderColor: statusTheme.border,
+              borderWidth: 1,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 8,
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                color: statusTheme.text,
+              }}
+            >
               {statusTheme.label}
             </Text>
           </View>
@@ -101,50 +151,50 @@ export const TenantCard = React.memo(({ tenant }: TenantCardProps) => {
         <TouchableOpacity
           onPress={handleOpenLink}
           activeOpacity={0.6}
-          className="flex-row items-center mb-2"
+          style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
         >
-          <Text className="text-sky-600 text-[11px] font-medium tracking-wide mr-1">
+          <Text style={{ color: superTheme.brand, fontSize: 11, fontWeight: '500', marginRight: 4 }}>
             {tenant.subdomain}.uproptech.com
           </Text>
-          <Ionicons name="open-outline" size={10} color="#0284c7" />
+          <Ionicons name="open-outline" size={10} color={superTheme.brand} />
         </TouchableOpacity>
 
         {/* Metadata info */}
-        <View className="flex-row items-center gap-3 flex-wrap">
-          <View className="flex-row items-center gap-1">
-            <Ionicons name="person-outline" size={11} color="#94a3b8" />
-            <Text className="text-slate-500 text-[10px] font-medium">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Ionicons name="person-outline" size={11} color={superTheme.textMuted} />
+            <Text style={{ color: superTheme.textSecondary, fontSize: 10, fontWeight: '500' }}>
               {tenant.contactPerson}
             </Text>
           </View>
 
-          <View className="flex-row items-center gap-1">
-            <Ionicons name="people-outline" size={11} color="#94a3b8" />
-            <Text className="text-slate-500 text-[10px] font-medium">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Ionicons name="people-outline" size={11} color={superTheme.textMuted} />
+            <Text style={{ color: superTheme.textSecondary, fontSize: 10, fontWeight: '500' }}>
               {tenant.maxUsers} Users
             </Text>
           </View>
 
-          <View className="flex-row items-center gap-1">
-            <Ionicons name="pricetag-outline" size={11} color="#94a3b8" />
-            <Text className="text-slate-500 text-[10px] font-medium capitalize">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Ionicons name="pricetag-outline" size={11} color={superTheme.textMuted} />
+            <Text style={{ color: superTheme.textSecondary, fontSize: 10, fontWeight: '500', textTransform: 'capitalize' }}>
               {tenant.plan || 'Basic'}
             </Text>
           </View>
         </View>
 
         {/* Muted footer info */}
-        <View className="flex-row items-center gap-2 mt-2 pt-2 border-t border-slate-50">
-          <View className="flex-row items-center gap-1 flex-1 mr-2">
-            <Ionicons name="mail-outline" size={10} color="#94a3b8" />
-            <Text className="text-slate-400 text-[9px] truncate" numberOfLines={1}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: superTheme.border }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, marginRight: 8 }}>
+            <Ionicons name="mail-outline" size={10} color={superTheme.textMuted} />
+            <Text style={{ color: superTheme.textMuted, fontSize: 9 }} numberOfLines={1}>
               {tenant.email}
             </Text>
           </View>
           
-          <View className="flex-row items-center gap-1">
-            <Ionicons name="calendar-outline" size={10} color="#94a3b8" />
-            <Text className="text-slate-400 text-[9px]">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Ionicons name="calendar-outline" size={10} color={superTheme.textMuted} />
+            <Text style={{ color: superTheme.textMuted, fontSize: 9 }}>
               {formattedDate}
             </Text>
           </View>
@@ -152,7 +202,7 @@ export const TenantCard = React.memo(({ tenant }: TenantCardProps) => {
       </View>
 
       {/* Right side: Chevron arrow */}
-      <Ionicons name="chevron-forward-outline" size={16} color="#cbd5e1" style={{ marginLeft: 8 }} />
+      <Ionicons name="chevron-forward-outline" size={16} color={superTheme.textMuted} style={{ marginLeft: 8 }} />
     </TouchableOpacity>
   );
 });

@@ -37,6 +37,7 @@ import {
   ChevronDown,
   Sun,
   Moon,
+  Smartphone,
   Edit2,
   Bell,
   MoreVertical,
@@ -529,25 +530,27 @@ export default function ProfileContent() {
                     <Text style={{ fontSize: 12, color: subTextColor, paddingHorizontal: 4, marginBottom: 4 }}>
                       Choose your preferred display mode
                     </Text>
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                      {(['light', 'dark'] as const).map((pref) => {
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {(['system', 'light', 'dark'] as const).map((pref) => {
                         const isActive = preference === pref;
-                        const Icon = pref === 'light' ? Sun : Moon;
-                        const label = pref === 'light' ? 'Light' : 'Dark';
+                        const Icon = pref === 'system' ? Smartphone : pref === 'light' ? Sun : Moon;
+                        const label = pref === 'system' ? 'System' : pref === 'light' ? 'Light' : 'Dark';
                         const activeColor = brandColor;
 
                         return (
                           <TouchableOpacity
                             key={pref}
                             onPress={() => setPreference(pref)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Set theme to ${label}`}
                             activeOpacity={0.7}
                             style={{
                               flex: 1,
                               flexDirection: 'row',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              gap: 8,
-                              height: 46,
+                              gap: 6,
+                              height: 44,
                               borderRadius: 14,
                               backgroundColor: isActive
                                 ? (isDark ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.06)')
@@ -558,10 +561,10 @@ export default function ProfileContent() {
                                 : (isDark ? borderCol : '#e5e7eb'),
                             }}
                           >
-                            <Icon size={15} color={isActive ? activeColor : subTextColor} />
+                            <Icon size={14} color={isActive ? activeColor : subTextColor} />
                             <Text
                               style={{
-                                fontSize: 13,
+                                fontSize: 12,
                                 fontWeight: isActive ? '600' : '400',
                                 color: isActive ? (isDark ? adminTheme.accent : brandColor) : subTextColor,
                               }}

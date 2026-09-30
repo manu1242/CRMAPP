@@ -1,20 +1,33 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Menu, Moon, Sun, Bell } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import NotificationModal from '../../app/components/NotififcationModal';
+import UserMenuModal from '../../app/components/UserMenuModal';
 import { NotificationService } from '../../Services/NotificationService';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getSuperAdminTheme } from '../../theme/adminTheme';
+import { useAuthStore } from '../../auth/store/authStore';
 
 interface HeaderProps {
   onMenuPress?: () => void;
 }
 
 const Header = React.memo(({ onMenuPress }: HeaderProps) => {
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const router = useRouter();
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { isDark, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
+  const superTheme = getSuperAdminTheme(isDark);
+  const user = useAuthStore((state) => state.user);
+
+  const usernameInitial = useMemo(() => {
+    if (user?.username && user.username.trim().length > 0) {
+      return user.username.trim().charAt(0).toUpperCase();
+    }
+    return 'S';
+  }, [user?.username]);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -29,17 +42,11 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
     fetchUnreadCount();
   }, [fetchUnreadCount]);
 
-  const handleOpenNotifications = useCallback(() => setIsNotificationOpen(true), []);
-  const handleCloseNotifications = useCallback(() => {
-    setIsNotificationOpen(false);
-    fetchUnreadCount();
-  }, [fetchUnreadCount]);
-
-  const bgColor = isDark ? '#0f172a' : '#ffffff';
-  const borderColor = isDark ? '#1e293b' : '#e2e8f0';
-  const iconColor = isDark ? '#94a3b8' : '#64748b';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
+  const bgColor = superTheme.secondaryBg;
+  const borderColor = superTheme.border;
+  const iconColor = superTheme.textSecondary;
+  const textColor = superTheme.textPrimary;
+  const subTextColor = superTheme.textMuted;
   const containerStyle = useMemo(
     () => ({
       flexDirection: 'row' as const,
@@ -58,39 +65,29 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
 
   return (
     <View style={containerStyle}>
+      {/* Left: Menu and Title */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 12 }}>
-        {/* Menu Icon Button */}
         {onMenuPress && (
           <TouchableOpacity onPress={onMenuPress} style={{ padding: 4, marginRight: 4 }}>
             <Menu size={20} color={iconColor} />
           </TouchableOpacity>
         )}
-        {/* User Avatar */}
-        <View
-          style={{
-            backgroundColor: '#2563eb',
-            borderRadius: 16,
-            width: 32,
-            height: 32,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderWidth: 1,
-            borderColor: isDark ? '#3b82f6' : '#93c5fd',
-          }}
-        >
-          <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>S</Text>
-        </View>
-
         <View style={{ flex: 1 }}>
           <Text style={{ color: textColor, fontWeight: '800', fontSize: 13 }}>Super Admin Panel</Text>
           <Text style={{ color: subTextColor, fontSize: 10 }} numberOfLines={1}>Manage tenants, inquiries & system health</Text>
         </View>
       </View>
 
-      {/* Action Icons */}
+      {/* Right: Action Icons & User Profile */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         {/* Dark/Light Mode Toggle */}
-        <TouchableOpacity onPress={toggleTheme} style={{ padding: 4 }}>
+        <TouchableOpacity
+          onPress={toggleTheme}
+          style={{ padding: 4 }}
+          accessibilityRole="button"
+          accessibilityLabel="Toggle dark/light mode"
+          activeOpacity={0.7}
+        >
           {isDark ? (
             <Sun size={20} color={iconColor} />
           ) : (
@@ -98,10 +95,13 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
           )}
         </TouchableOpacity>
 
-        {/* Notifications Icon */}
+        {/* Notifications Icon (Navigates to dedicated screen) */}
         <TouchableOpacity
-          onPress={handleOpenNotifications}
+          onPress={() => router.push('/superadmin/notifications' as any)}
           style={{ padding: 4, position: 'relative' }}
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
+          activeOpacity={0.7}
         >
           <Bell size={20} color={iconColor} />
           {unreadCount > 0 && (
@@ -125,9 +125,31 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
           )}
         </TouchableOpacity>
 
-        <NotificationModal
-          isOpen={isNotificationOpen}
-          onClose={handleCloseNotifications}
+        {/* User Avatar Button (Right-aligned) */}
+        <TouchableOpacity
+          onPress={() => setIsUserMenuOpen(true)}
+          style={{
+            backgroundColor: superTheme.brand,
+            borderRadius: 16,
+            width: 32,
+            height: 32,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: isDark ? '#3b82f6' : '#93c5fd',
+          }}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="User profile and logout menu"
+        >
+          <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>{usernameInitial}</Text>
+        </TouchableOpacity>
+
+        {/* User Menu Modal with Logout */}
+        <UserMenuModal
+          isOpen={isUserMenuOpen}
+          onClose={() => setIsUserMenuOpen(false)}
+          isSuperAdmin={true}
         />
       </View>
     </View>

@@ -245,15 +245,17 @@ export default function SuperAdminProfileScreen() {
           </Text>
 
           <View style={styles.themeSelectorRow}>
-            {(['light', 'dark'] as const).map((pref) => {
+            {(['system', 'light', 'dark'] as const).map((pref) => {
               const isActive = preference === pref;
-              const Icon = pref === 'light' ? Sun : pref === 'dark' ? Moon : Smartphone;
+              const Icon = pref === 'system' ? Smartphone : pref === 'light' ? Sun : Moon;
               const label = pref.charAt(0).toUpperCase() + pref.slice(1);
 
               return (
                 <TouchableOpacity
                   key={pref}
                   onPress={() => setPreference(pref)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Set theme to ${label}`}
                   style={[
                     styles.themeOption,
                     {

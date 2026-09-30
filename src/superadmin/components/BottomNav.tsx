@@ -3,6 +3,7 @@ import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LayoutDashboard, School, MailCheck, CreditCard, User } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getSuperAdminTheme } from '../../theme/adminTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
@@ -13,9 +14,10 @@ interface BottomNavProps {
 const BottomNav = React.memo(({ active }: BottomNavProps) => {
   const router = useRouter();
   const { isDark } = useTheme();
+  const superTheme = getSuperAdminTheme(isDark);
   const insets = useSafeAreaInsets();
 
-  const activeColor = isDark ? '#ffffff' : '#000000';
+  const activeColor = superTheme.brand;
   const inactiveColor = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.45)';
 
   const navigateToDashboard = useCallback(() => router.replace('/superadmin/dashboard'), [router]);
@@ -55,13 +57,13 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
     () => [
       styles.container,
       {
-        backgroundColor: isDark ? '#0f172a' : '#ffffff',
-        borderColor: isDark ? '#1e293b' : '#e2e8f0',
+        backgroundColor: superTheme.cardBg,
+        borderColor: superTheme.border,
         shadowOpacity: isDark ? 0.35 : 0.06,
         bottom: insets.bottom > 0 ? insets.bottom + 8 : 20,
       },
     ],
-    [isDark, insets.bottom]
+    [isDark, insets.bottom, superTheme.cardBg, superTheme.border]
   );
 
   return (

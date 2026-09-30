@@ -1,94 +1,114 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Appearance } from 'react-native';
+import { useColorScheme as useRNColorScheme } from 'react-native';
 import { useColorScheme as useNativeWindColorScheme } from 'nativewind';
+import { adminThemeTokens, AdminThemeTokens, getAdminTheme } from '../theme/adminTheme';
 
 const THEME_KEY = '@app_theme';
 
-type ThemeMode = 'light' | 'dark';
-type ThemePreference = 'system' | ThemeMode;
+export type ThemeMode = 'system' | 'light' | 'dark';
+export type ThemePreference = ThemeMode;
 
-interface ThemeContextType {
+export interface ThemeContextType {
+  mode: ThemeMode;
+  preference: ThemeMode; // Backward compatibility alias
   isDark: boolean;
-  theme: ThemeMode;
-  preference: ThemePreference;
-  setPreference: (pref: ThemePreference) => void;
+  theme: 'light' | 'dark';
+  colors: AdminThemeTokens;
+  setMode: (mode: ThemeMode) => void;
+  setPreference: (pref: ThemePreference) => void; // Backward compatibility alias
   toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
+  mode: 'system',
+  preference: 'system',
   isDark: false,
   theme: 'light',
-  preference: 'system',
+  colors: adminThemeTokens.light,
+  setMode: () => { },
   setPreference: () => { },
   toggleTheme: () => { },
 });
 
-function getSystemTheme(): ThemeMode {
-  const scheme = Appearance.getColorScheme();
-  return scheme === 'dark' ? 'dark' : 'light';
-}
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  // 1. Direct reactive subscription to the device's native color scheme (iOS & Android)
+  // React Native's useColorScheme automatically triggers a re-render the moment the OS theme toggles
+  const systemScheme = useRNColorScheme();
+  
+  // 2. NativeWind's color scheme controller
   const { setColorScheme } = useNativeWindColorScheme();
-  const [preference, setPreferenceState] = useState<ThemePreference>('system');
-  const [systemTheme, setSystemTheme] = useState<ThemeMode>(getSystemTheme);
+
+  // 3. User selected mode ('system' | 'light' | 'dark')
+  const [mode, setModeState] = useState<ThemeMode>('system');
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load persisted preference on mount
+  // Load saved preference from AsyncStorage on startup
   useEffect(() => {
+    let isMounted = true;
     AsyncStorage.getItem(THEME_KEY)
       .then((saved) => {
-        if (saved === 'dark' || saved === 'light' || saved === 'system') {
-          setPreferenceState(saved as ThemePreference);
+        if (isMounted) {
+          if (saved === 'dark' || saved === 'light' || saved === 'system') {
+            setModeState(saved as ThemeMode);
+          } else {
+            setModeState('system');
+          }
         }
       })
-      .catch(() => { })
+      .catch(() => {
+        if (isMounted) setModeState('system');
+      })
       .finally(() => {
-        setIsLoaded(true);
+        if (isMounted) setIsLoaded(true);
       });
-  }, []);
 
-  // Listen for OS-level theme changes (always active, so system preference works)
-  useEffect(() => {
-    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-      setSystemTheme(colorScheme === 'dark' ? 'dark' : 'light');
-    });
     return () => {
-      subscription?.remove();
+      isMounted = false;
     };
   }, []);
 
-  // Resolve the actual theme from preference + system
-  const theme: ThemeMode = preference === 'system' ? systemTheme : preference;
-  const isDark = theme === 'dark';
+  // Compute active theme state:
+  // - If mode is 'system', react directly to the live systemScheme from the OS.
+  // - If mode is 'dark' or 'light', use the manual choice and ignore OS changes.
+  const isDark = mode === 'system' ? (systemScheme === 'dark') : (mode === 'dark');
+  const theme: 'light' | 'dark' = isDark ? 'dark' : 'light';
+  const colors = useMemo(() => getAdminTheme(isDark), [isDark]);
 
-  // Sync with NativeWind and Appearance
+  // Synchronize NativeWind:
+  // When in 'system' mode, pass 'system' so NativeWind tracks the OS automatically.
+  // When in 'light' or 'dark' mode, pass the manual theme.
   useEffect(() => {
-    if (typeof Appearance.setColorScheme === 'function') {
-      Appearance.setColorScheme(theme);
-    }
-    setColorScheme(theme);
-  }, [theme, setColorScheme]);
+    setColorScheme(mode === 'system' ? 'system' : theme);
+  }, [mode, theme, setColorScheme]);
+
+  const setMode = useCallback((newMode: ThemeMode) => {
+    setModeState(newMode);
+    AsyncStorage.setItem(THEME_KEY, newMode).catch(() => { });
+  }, []);
 
   const setPreference = useCallback((pref: ThemePreference) => {
-    setPreferenceState(pref);
-    AsyncStorage.setItem(THEME_KEY, pref).catch(() => { });
-  }, []);
+    setMode(pref);
+  }, [setMode]);
 
   const toggleTheme = useCallback(() => {
-    setPreferenceState((prev) => {
-      // If on system, toggle to the opposite of current system theme
-      const current = prev === 'system' ? getSystemTheme() : prev;
-      const next: ThemeMode = current === 'dark' ? 'light' : 'dark';
-      AsyncStorage.setItem(THEME_KEY, next).catch(() => { });
-      return next;
-    });
-  }, []);
+    // In-app toggle flips the mode between light and dark
+    const nextMode: ThemeMode = isDark ? 'light' : 'dark';
+    setMode(nextMode);
+  }, [isDark, setMode]);
 
   const contextValue = useMemo(
-    () => ({ isDark, theme, preference, setPreference, toggleTheme }),
-    [isDark, theme, preference, setPreference, toggleTheme]
+    () => ({
+      mode,
+      preference: mode,
+      isDark,
+      theme,
+      colors,
+      setMode,
+      setPreference,
+      toggleTheme,
+    }),
+    [mode, isDark, theme, colors, setMode, setPreference, toggleTheme]
   );
 
   if (!isLoaded) {

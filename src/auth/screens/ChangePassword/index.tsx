@@ -150,6 +150,7 @@ export default function ChangePasswordScreen() {
                     onChangeText={setCurrentPassword}
                     placeholder="Enter current password"
                     placeholderTextColor={subTextColor}
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
                     autoCorrect={false}
                     returnKeyType="next"
                   />
@@ -172,6 +173,7 @@ export default function ChangePasswordScreen() {
                     onChangeText={setNewPassword}
                     placeholder="Enter new password (min. 6 chars)"
                     placeholderTextColor={subTextColor}
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
                     autoCorrect={false}
                     returnKeyType="next"
                   />
@@ -194,6 +196,7 @@ export default function ChangePasswordScreen() {
                     onChangeText={setConfirmPassword}
                     placeholder="Re-enter new password"
                     placeholderTextColor={subTextColor}
+                    keyboardAppearance={isDark ? 'dark' : 'light'}
                     autoCorrect={false}
                     returnKeyType="done"
                     onSubmitEditing={handleChange}

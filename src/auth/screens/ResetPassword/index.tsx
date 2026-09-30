@@ -198,6 +198,7 @@ export default function ResetPasswordScreen() {
                                 onChangeText={setToken}
                                 placeholder="Enter code from email"
                                 placeholderTextColor={t.textMuted}
+                                keyboardAppearance={isDark ? 'dark' : 'light'}
                                 autoCapitalize="none"
                                 autoCorrect={false}
                                 returnKeyType="next"
@@ -232,6 +233,7 @@ export default function ResetPasswordScreen() {
                                 onChangeText={setPassword}
                                 placeholder="Min. 8 characters"
                                 placeholderTextColor={t.textMuted}
+                                keyboardAppearance={isDark ? 'dark' : 'light'}
                                 secureTextEntry={!showPassword}
                                 autoCapitalize="none"
                                 autoCorrect={false}
