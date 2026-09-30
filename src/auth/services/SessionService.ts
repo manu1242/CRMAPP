@@ -16,20 +16,43 @@ export const SessionService = {
         return null;
       }
 
-      // Check if access token is valid and not expired
+      // Check if access token is locally valid and not expired
       if (!JwtService.isTokenExpired(accessToken)) {
         if (__DEV__) {
-          console.log('[AUTH] Token restored');
+          console.log('[AUTH] Token not expired locally, validating with server...');
         }
-        // Retrieve cached user profile
-        const cachedUser = await SessionStorage.getUserSession();
-        if (cachedUser) {
-          return cachedUser;
+
+        // Always validate against the server — local JWT expiry is not enough.
+        // iOS Keychain persists tokens across sessions/reinstalls; the token may be
+        // locally valid but server-invalidated (server restart, re-login on another
+        // device, etc.). This server call catches that before any protected screen loads.
+        try {
+          const freshUser = await profileApi.getCurrentProfile();
+          await SessionStorage.saveUserSession(freshUser);
+          if (__DEV__) {
+            console.log('[AUTH] Token validated with server, session restored');
+          }
+          return freshUser;
+        } catch (serverError: any) {
+          const status = serverError?.response?.status;
+          if (status === 401 || status === 403) {
+            // Token rejected by server — clear everything and force re-login
+            if (__DEV__) {
+              console.warn('[AUTH] Server rejected token during init (status:', status, '), clearing session');
+            }
+            await TokenStorage.clearTokens();
+            await SessionStorage.clearUserSession();
+            return null;
+          }
+
+          // Non-auth error (network offline, 5xx, timeout) — fall back to cached user
+          // so the app stays usable offline
+          if (__DEV__) {
+            console.warn('[AUTH] Server unreachable during init, falling back to cached user:', serverError?.message);
+          }
+          const cachedUser = await SessionStorage.getUserSession();
+          return cachedUser ?? null;
         }
-        // Fetch from API if cache is empty
-        const freshUser = await profileApi.getCurrentProfile();
-        await SessionStorage.saveUserSession(freshUser);
-        return freshUser;
       }
 
       if (__DEV__) {
