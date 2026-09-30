@@ -62,7 +62,11 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
   const activeIconColor = GREEN;
   const inactiveIconColor = isDark ? 'rgba(255, 255, 255, 0.55)' : 'rgba(0, 0, 0, 0.45)';
 
-  const bottomOffset = insets.bottom > 0 ? insets.bottom + 4 : 14;
+  const bottomOffset = Platform.select({
+    ios: 6,
+    android: 12,
+    default: 10,
+  });
 
   const isHomeActive = active === 'dashboard';
   const isUsersActive = active === 'users';

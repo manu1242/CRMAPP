@@ -60,10 +60,10 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
         backgroundColor: superTheme.cardBg,
         borderColor: superTheme.border,
         shadowOpacity: isDark ? 0.35 : 0.06,
-        bottom: insets.bottom > 0 ? insets.bottom + 8 : 20,
+        bottom: Platform.select({ ios: 8, android: 14, default: 12 }),
       },
     ],
-    [isDark, insets.bottom, superTheme.cardBg, superTheme.border]
+    [isDark, superTheme.cardBg, superTheme.border]
   );
 
   return (
