@@ -26,13 +26,18 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchUnreadCount = useCallback(async () => {
+    // Guard: only fetch when user is confirmed authenticated.
+    // The Header mounts briefly during iOS session restore with a stale Keychain
+    // token — firing an API call here before auth is settled causes a 401 that
+    // poisons the session expiry guard, breaking the entire auth flow.
+    if (!user) return;
     try {
-      const res = await NotificationService.getNotifications();
-      setUnreadCount(res.unreadCount || res.count || 0);
+      const res = await NotificationService.getUnreadCount();
+      setUnreadCount(res.unreadCount || 0);
     } catch {
       setUnreadCount(0);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     fetchUnreadCount();
