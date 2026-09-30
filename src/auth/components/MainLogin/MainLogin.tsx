@@ -42,7 +42,7 @@ const MainLogin = () => {
     const iconColor = isDark ? '#94a3b8' : '#64748b';
 
     // State
-    const [loginEmail, setLoginEmail] = useState('');
+    const [loginUsername, setLoginUsername] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
     const [showLoginPassword, setShowLoginPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
@@ -50,15 +50,15 @@ const MainLogin = () => {
     const { login, isLoading: isLoginLoading } = useLogin();
 
     const handleLogin = async () => {
-        if (!loginEmail || !loginPassword) {
+        if (!loginUsername || !loginPassword) {
             Toast.show({
                 type: 'error',
                 text1: 'Required Fields',
-                text2: 'Please enter both email and password.',
+                text2: 'Please enter both username and password.',
             });
             return;
         }
-        await login({ username: loginEmail, password: loginPassword });
+        await login({ username: loginUsername, password: loginPassword });
     };
 
     const handleInquiryForm = () => {
@@ -178,7 +178,7 @@ const MainLogin = () => {
                     Access your real estate portfolio.
                 </Text>
 
-                {/* Email Address Field */}
+                {/* Username Field */}
                 <View style={{ marginBottom: 18 }}>
                     <Text style={{
                         fontSize: 13,
@@ -186,7 +186,7 @@ const MainLogin = () => {
                         color: labelColor,
                         marginBottom: 8,
                     }}>
-                        Email Address
+                        Username
                     </Text>
                     <View style={{
                         flexDirection: 'row',
@@ -198,19 +198,18 @@ const MainLogin = () => {
                         borderRadius: 8,
                         paddingHorizontal: 12,
                     }}>
-                        <Ionicons name="mail-outline" size={18} color={iconColor} style={{ marginRight: 10 }} />
+                        <Ionicons name="person-outline" size={18} color={iconColor} style={{ marginRight: 10 }} />
                         <TextInput
                             style={{
                                 flex: 1,
                                 fontSize: 14,
                                 color: textColor,
                             }}
-                            value={loginEmail}
-                            onChangeText={setLoginEmail}
-                            placeholder="uproptech@gmail.com"
+                            value={loginUsername}
+                            onChangeText={setLoginUsername}
+                            placeholder="Enter username"
                             placeholderTextColor={placeholderColor}
                             keyboardAppearance={isDark ? 'dark' : 'light'}
-                            keyboardType="email-address"
                             autoCapitalize="none"
                             autoCorrect={false}
                         />
