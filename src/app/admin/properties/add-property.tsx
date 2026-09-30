@@ -32,7 +32,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
-import { PropertyService, byteArrayToDataUri } from '../../../admin/services/PropertyService';
+import { PropertyService } from '../../../admin/services/PropertyService';
 import { ExecutiveItem } from '../../../admin/models/PropertyTypes';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -129,9 +129,16 @@ export default function AddPropertyScreen() {
       });
 
       // Load image preview if available
-      const previewUri = byteArrayToDataUri(p.propertyImage);
-      if (previewUri) {
-        setImagePreviewUrl(previewUri);
+      if (p.propertyImage && p.propertyImage.length > 0) {
+        try {
+          const byteArray = p.propertyImage;
+          let binary = '';
+          for (let i = 0; i < byteArray.length; i++) {
+            binary += String.fromCharCode(byteArray[i]);
+          }
+          const base64 = btoa(binary);
+          setImagePreviewUrl(`data:image/png;base64,${base64}`);
+        } catch { /* silent */ }
       }
     }
   }, [property]);

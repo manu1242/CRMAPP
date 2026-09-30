@@ -48,7 +48,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
-import { PropertyService, byteArrayToDataUri } from '../../../admin/services/PropertyService';
+import { PropertyService } from '../../../admin/services/PropertyService';
 import { FlatItem, PropertyDetails, PropertyImageItem } from '../../../admin/models/PropertyTypes';
 import { TokenStorage } from '../../../auth/storage/TokenStorage';
 import { AuthImage } from '../../../components/AuthImage';
@@ -503,23 +503,26 @@ export default function PropertyDetailsScreen() {
             <View style={styles.overviewContainer}>
               {/* Image Banner with Title and Purchase Type Badge */}
               <View style={[styles.imageBanner, { backgroundColor: inputBg, borderColor: borderCol, position: 'relative' }]}>
-                <AuthImage
-                  cacheKey={`cover_${property.propertyId}`}
-                  fetchFn={async () => {
-                    const localUri = byteArrayToDataUri(property.propertyImage);
-                    if (localUri) return localUri;
-                    return PropertyService.getPropertyImageBase64(property.propertyId);
-                  }}
-                  style={StyleSheet.absoluteFill}
-                  resizeMode="cover"
-                  spinnerColor={brandCol}
-                  placeholder={
-                    <View style={styles.bannerPlaceholder}>
-                      <Building size={48} color={subTextColor} />
-                      <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
-                    </View>
-                  }
-                />
+                {property.propertyImage && property.propertyImage.length > 0 ? (
+                  <AuthImage
+                    cacheKey={`cover_${property.propertyId}`}
+                    fetchFn={() => PropertyService.getPropertyImageBase64(property.propertyId)}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                    spinnerColor={brandCol}
+                    placeholder={
+                      <View style={styles.bannerPlaceholder}>
+                        <Building size={48} color={subTextColor} />
+                        <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
+                      </View>
+                    }
+                  />
+                ) : (
+                  <View style={styles.bannerPlaceholder}>
+                    <Building size={48} color={subTextColor} />
+                    <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
+                  </View>
+                )}
 
                 {/* Text Overlay for Name & Builder */}
                 <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: 'rgba(0,0,0,0.5)' }}>
