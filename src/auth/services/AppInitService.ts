@@ -1,7 +1,7 @@
 import { TokenStorage } from '../storage/TokenStorage';
-import { axiosInstance } from '../../api/axios';
 import { Platform } from 'react-native';
-import { initRemoteConfig } from '../../api/remoteConfig';
+import { initRemoteConfig, getApiUrl } from '../../api/remoteConfig';
+import { resetSessionExpiryGuard } from '../../api/sessionExpiryGuard';
  
 // ─── Result type returned by AppInitService.run() ────────────────────────────
 export interface AppInitResult {
@@ -50,28 +50,34 @@ interface HealthResult {
 }
  
 async function checkBackend(): Promise<HealthResult> {
+  // IMPORTANT: Use plain fetch() — NOT axiosInstance — so this request bypasses
+  // the auth response interceptor. Using axiosInstance here would trigger
+  // triggerSessionExpired() if the /api/health endpoint returns 401 (unauthenticated),
+  // which sets isHandlingSessionExpiry=true and silently swallows the 401 that
+  // initSession() later gets from profileApi.getCurrentProfile(), leaving
+  // isAuthenticated=true with a stale/invalid token.
   try {
-    // Try a lightweight HEAD on the login endpoint — avoids needing a dedicated /health route
-    // Falls back to GET /api/health if HEAD is rejected
+    const baseUrl = getApiUrl().replace(/\/$/, '');
     const res = await withTimeout(
-      axiosInstance.get('/api/health', { timeout: 6000 }),
+      fetch(`${baseUrl}/api/health`, { method: 'GET' }),
       7000
     );
- 
-    // Check for maintenance mode via JSON body or response header
-    const data = res.data as Record<string, any> | null;
-    const maintenanceHeader = res.headers?.['x-maintenance-mode'];
-    const maintenanceBody = data?.maintenance === true || data?.status === 'maintenance';
-    const maintenance = maintenanceHeader === 'true' || maintenanceBody;
- 
-    return { reachable: true, maintenance };
-  } catch (err: any) {
-    // If we get a 404 / 401 / 405, the backend IS reachable — /api/health just doesn't exist
-    const status: number | undefined = err?.response?.status;
-    if (status !== undefined && status !== 0) {
-      // Any HTTP response (even 4xx) means the server is up
-      return { reachable: true, maintenance: false };
+
+    if (res.ok) {
+      // Check for maintenance mode via JSON body or response header
+      let maintenance = res.headers.get('x-maintenance-mode') === 'true';
+      try {
+        const data = await res.json() as Record<string, any>;
+        if (data?.maintenance === true || data?.status === 'maintenance') {
+          maintenance = true;
+        }
+      } catch { /* non-JSON body is fine */ }
+      return { reachable: true, maintenance };
     }
+
+    // Any HTTP response (4xx, 5xx) means the server IS reachable
+    return { reachable: true, maintenance: false };
+  } catch {
     // Network error / timeout → backend is truly down
     return { reachable: false, maintenance: false };
   }
@@ -90,6 +96,13 @@ async function loadToken(): Promise<boolean> {
 // ─── Step 5: Initialize session from stored token ────────────────────────────
 async function initSession(): Promise<boolean> {
   try {
+    // Reset the session expiry guard BEFORE calling initializeSession().
+    // The /api/health check above (even via plain fetch) or any prior request
+    // could have set isHandlingSessionExpiry=true. If it's still true when
+    // profileApi.getCurrentProfile() returns 401, triggerSessionExpired() would
+    // silently early-return, leaving isAuthenticated=true with an invalid token.
+    resetSessionExpiryGuard();
+
     // Dynamically import to avoid circular dependency at module load time
     const { useAuthStore } = await import('../store/authStore');
     await useAuthStore.getState().initializeSession();
