@@ -84,6 +84,13 @@ export const setupInterceptors = () => {
           (config.headers as any)['Authorization'] = `Bearer ${token}`;
         }
       }
+
+      // DEV diagnostic: confirm token is present for LeadsApi requests
+      if (__DEV__ && url.includes('LeadsApi')) {
+        const authHeader = (config.headers as any)?.['Authorization'];
+        console.log(`[AUTH DIAGNOSE] LeadsApi request — hasToken: ${!!token} | headerSent: ${!!authHeader} | tokenStart: ${token?.slice(0, 30) ?? 'null'}`);
+      }
+
       return config;
     },
     (error) => {
@@ -117,17 +124,14 @@ export const setupInterceptors = () => {
           return Promise.reject(error);
         }
 
-        const { useAuthStore } = await import('../auth/store/authStore');
-        const isAuth = useAuthStore.getState().isAuthenticated;
-
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
         if (__DEV__) {
-          console.warn(`[AUTH DIAGNOSE] 401 will trigger session expiry — url: ${url} | isAuthenticated: ${isAuth}`);
+          console.warn(`[AUTH DIAGNOSE] Non-optional 401 — url: ${url} | isAuthenticated: ${isAuthenticated}`);
         }
-
-        if (isAuth) {
+        if (isAuthenticated) {
           await triggerSessionExpired();
         } else {
-          if (__DEV__) console.log(`[AUTH] 401 on ${url} but user already unauthenticated — skipping expiry`);
+          if (__DEV__) console.log(`[AUTH] 401 on ${url} — user already unauthenticated, skipping expiry`);
         }
         return Promise.reject(error);
       }
