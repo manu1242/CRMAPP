@@ -28,9 +28,9 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
   const fetchUnreadCount = useCallback(async () => {
     try {
       const res = await NotificationService.getNotifications();
-      setUnreadCount(res.count || 0);
-    } catch (err) {
-      console.error('Failed to get unread count in AdminHeader:', err);
+      setUnreadCount(res.unreadCount || res.count || 0);
+    } catch {
+      setUnreadCount(0);
     }
   }, []);
 

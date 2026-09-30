@@ -1,19 +1,34 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { NotificationService } from './NotificationService';
 
+// Safe dynamic accessor for expo-notifications to prevent crashing in Expo Go on Android SDK 53+
+let NotificationsModule: typeof import('expo-notifications') | null = null;
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  NotificationsModule = require('expo-notifications');
+} catch (err: any) {
+  console.log('[Notifications] expo-notifications native module not available (e.g. Expo Go Android SDK 53+):', err?.message);
+}
+
 // Configure how notifications should behave when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    priority: Notifications.AndroidNotificationPriority.MAX,
-  }),
-});
+if (NotificationsModule && NotificationsModule.setNotificationHandler) {
+  try {
+    NotificationsModule.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        priority: NotificationsModule?.AndroidNotificationPriority?.MAX,
+      }),
+    });
+  } catch (err) {
+    console.log('[Notifications] Could not set notification handler:', err);
+  }
+}
 
 export interface LocalNotificationPayload {
   title: string;
@@ -27,40 +42,47 @@ export const DeviceNotificationService = {
    * Initialize notification channels and register for device push token
    */
   init: async (): Promise<string | null> => {
+    if (!NotificationsModule) {
+      console.log('[Notifications] Skipping device notification init (Running in Expo Go or module unavailable)');
+      return null;
+    }
+
     try {
       // 1. Android Notification Channel setup
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
+      if (Platform.OS === 'android' && NotificationsModule.setNotificationChannelAsync) {
+        await NotificationsModule.setNotificationChannelAsync('default', {
           name: 'General Notifications',
           description: 'CRM updates, leads, payments, and system notifications',
-          importance: Notifications.AndroidImportance.MAX,
+          importance: NotificationsModule.AndroidImportance?.MAX ?? 5,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#10b981',
           sound: 'default',
           enableVibrate: true,
           showBadge: true,
-          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+          lockscreenVisibility: NotificationsModule.AndroidNotificationVisibility?.PUBLIC ?? 1,
         });
       }
 
       // 2. Request Permissions
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
+      if (NotificationsModule.getPermissionsAsync && NotificationsModule.requestPermissionsAsync) {
+        const { status: existingStatus } = await NotificationsModule.getPermissionsAsync();
+        let finalStatus = existingStatus;
 
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync({
-          ios: {
-            allowAlert: true,
-            allowBadge: true,
-            allowSound: true,
-          },
-        });
-        finalStatus = status;
-      }
+        if (existingStatus !== 'granted') {
+          const { status } = await NotificationsModule.requestPermissionsAsync({
+            ios: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+            },
+          });
+          finalStatus = status;
+        }
 
-      if (finalStatus !== 'granted') {
-        console.log('[Notifications] Permission not granted by user');
-        return null;
+        if (finalStatus !== 'granted') {
+          console.log('[Notifications] Permission not granted by user');
+          return null;
+        }
       }
 
       // 3. Get Project ID and Push Token
@@ -69,17 +91,21 @@ export const DeviceNotificationService = {
         Constants?.easConfig?.projectId;
 
       let token: string | null = null;
-      try {
-        const tokenData = await Notifications.getExpoPushTokenAsync(
-          projectId ? { projectId } : undefined
-        );
-        token = tokenData.data;
-      } catch (tokenErr) {
-        console.log('[Notifications] Could not get Expo Push Token, fallback to device token:', tokenErr);
+      if (NotificationsModule.getExpoPushTokenAsync) {
         try {
-          const deviceTokenData = await Notifications.getDevicePushTokenAsync();
-          token = deviceTokenData.data;
-        } catch { }
+          const tokenData = await NotificationsModule.getExpoPushTokenAsync(
+            projectId ? { projectId } : undefined
+          );
+          token = tokenData.data;
+        } catch (tokenErr) {
+          console.log('[Notifications] Could not get Expo Push Token, attempting device token fallback:', tokenErr);
+          try {
+            if (NotificationsModule.getDevicePushTokenAsync) {
+              const deviceTokenData = await NotificationsModule.getDevicePushTokenAsync();
+              token = deviceTokenData.data;
+            }
+          } catch { }
+        }
       }
 
       // 4. Save device token with backend API
@@ -92,7 +118,7 @@ export const DeviceNotificationService = {
 
       return token;
     } catch (err: any) {
-      console.warn('[Notifications] Initialization error:', err?.message);
+      console.warn('[Notifications] Initialization notice:', err?.message);
       return null;
     }
   },
@@ -106,21 +132,25 @@ export const DeviceNotificationService = {
     data = {},
     sound = true,
   }: LocalNotificationPayload): Promise<string | null> => {
+    if (!NotificationsModule || !NotificationsModule.scheduleNotificationAsync) {
+      return null;
+    }
+
     try {
-      const notificationId = await Notifications.scheduleNotificationAsync({
+      const notificationId = await NotificationsModule.scheduleNotificationAsync({
         content: {
           title,
           body,
           data,
           sound: sound ? 'default' : undefined,
-          priority: Notifications.AndroidNotificationPriority.MAX,
+          priority: NotificationsModule.AndroidNotificationPriority?.MAX,
           vibrate: [0, 250, 250, 250],
         },
         trigger: null, // trigger immediately
       });
       return notificationId;
     } catch (err: any) {
-      console.warn('[Notifications] Failed to schedule local notification:', err?.message);
+      console.warn('[Notifications] Failed to schedule notification:', err?.message);
       return null;
     }
   },
@@ -129,8 +159,11 @@ export const DeviceNotificationService = {
    * Listen for user tapping a notification in the notification bar / lock screen
    */
   addNotificationResponseListener: (
-    onNotificationClick: (response: Notifications.NotificationResponse) => void
+    onNotificationClick: (response: any) => void
   ) => {
-    return Notifications.addNotificationResponseReceivedListener(onNotificationClick);
+    if (NotificationsModule && NotificationsModule.addNotificationResponseReceivedListener) {
+      return NotificationsModule.addNotificationResponseReceivedListener(onNotificationClick);
+    }
+    return { remove: () => {} };
   },
 };
