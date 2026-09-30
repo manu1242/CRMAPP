@@ -12,14 +12,12 @@ import {
 } from '../models/LeadTypes';
 
 export const LeadService = {
-
   addLead: async (payload: AddLeadPayload): Promise<ApiResponse<LeadItem>> => {
     return apiClient.post<ApiResponse<LeadItem>>(
       API_ENDPOINTS.LEADS.SAVE,
       payload
     );
   },
-
 
   getLeads: async (params?: LeadQueryParams, signal?: AbortSignal): Promise<ApiResponse<LeadListResponseData>> => {
     return apiClient.get<ApiResponse<LeadListResponseData>>(
@@ -104,27 +102,123 @@ export const LeadService = {
     }
   },
 
-  addNote: async (id: number | string, payload: AddNotePayload): Promise<ApiResponse<any>> => {
-    return apiClient.post<ApiResponse<any>>(
-      API_ENDPOINTS.LEADS.SAVE_NOTE,
-      { ...payload, leadId: id }
+  // ── Notes ───────────────────────────────────────────────────
+  getNotes: async (id: number | string): Promise<ApiResponse<any>> => {
+    return apiClient.get<ApiResponse<any>>(API_ENDPOINTS.LEADS.GET_NOTES(id));
+  },
+
+  addNote: async (id: number | string, payload: AddNotePayload | string): Promise<ApiResponse<any>> => {
+    const noteText = typeof payload === 'string' ? payload : payload.noteText;
+    try {
+      return await apiClient.post<ApiResponse<any>>(
+        API_ENDPOINTS.LEADS.ADD_NOTE(id),
+        { noteText, leadId: id }
+      );
+    } catch {
+      return apiClient.post<ApiResponse<any>>(
+        API_ENDPOINTS.LEADS.SAVE_NOTE,
+        { noteText, leadId: id }
+      );
+    }
+  },
+
+  updateNote: async (id: number | string, noteId: number | string, noteText: string): Promise<ApiResponse<any>> => {
+    return apiClient.put<ApiResponse<any>>(
+      API_ENDPOINTS.LEADS.UPDATE_NOTE(id, noteId),
+      { noteText }
     );
+  },
+
+  deleteNote: async (id: number | string, noteId: number | string): Promise<ApiResponse<any>> => {
+    return apiClient.delete<ApiResponse<any>>(API_ENDPOINTS.LEADS.DELETE_NOTE(id, noteId));
+  },
+
+  // ── Follow-ups ──────────────────────────────────────────────
+  getFollowUps: async (id: number | string): Promise<ApiResponse<any>> => {
+    return apiClient.get<ApiResponse<any>>(API_ENDPOINTS.LEADS.GET_FOLLOW_UPS(id));
   },
 
   addFollowUp: async (id: number | string, payload: AddFollowUpPayload): Promise<ApiResponse<any>> => {
-    return apiClient.post<ApiResponse<any>>(
-      API_ENDPOINTS.LEADS.SAVE_FOLLOW_UP,
-      { ...payload, leadId: id }
-    );
+    try {
+      return await apiClient.post<ApiResponse<any>>(
+        API_ENDPOINTS.LEADS.ADD_FOLLOW_UP(id),
+        { ...payload, leadId: id }
+      );
+    } catch {
+      return apiClient.post<ApiResponse<any>>(
+        API_ENDPOINTS.LEADS.SAVE_FOLLOW_UP,
+        { ...payload, leadId: id }
+      );
+    }
   },
 
   editFollowUp: async (id: number | string, followUpId: number | string, payload: any): Promise<ApiResponse<any>> => {
-    return apiClient.post<ApiResponse<any>>(
-      API_ENDPOINTS.LEADS.SAVE_FOLLOW_UP,
-      { ...payload, leadId: id, followUpId }
+    try {
+      return await apiClient.put<ApiResponse<any>>(
+        API_ENDPOINTS.LEADS.EDIT_FOLLOW_UP(id, followUpId),
+        { ...payload, leadId: id, followUpId }
+      );
+    } catch {
+      return apiClient.post<ApiResponse<any>>(
+        API_ENDPOINTS.LEADS.SAVE_FOLLOW_UP,
+        { ...payload, leadId: id, followUpId }
+      );
+    }
+  },
+
+  deleteFollowUp: async (id: number | string, followUpId: number | string): Promise<ApiResponse<any>> => {
+    return apiClient.delete<ApiResponse<any>>(API_ENDPOINTS.LEADS.DELETE_FOLLOW_UP(id, followUpId));
+  },
+
+  // ── Documents ───────────────────────────────────────────────
+  getDocuments: async (id: number | string): Promise<ApiResponse<any>> => {
+    return apiClient.get<ApiResponse<any>>(API_ENDPOINTS.LEADS.GET_DOCUMENTS(id));
+  },
+
+  uploadDocument: async (id: number | string, formData: FormData): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.postForm<ApiResponse<any>>(
+        API_ENDPOINTS.LEADS.UPLOAD_DOC(id),
+        formData
+      );
+    } catch {
+      return apiClient.postForm<ApiResponse<any>>(
+        '/Leads/SaveLeadUpload',
+        formData
+      );
+    }
+  },
+
+  deleteDocument: async (id: number | string, uploadId: number | string): Promise<ApiResponse<any>> => {
+    return apiClient.delete<ApiResponse<any>>(API_ENDPOINTS.LEADS.DELETE_DOC(id, uploadId));
+  },
+
+  // ── Site Visits ─────────────────────────────────────────────
+  getSiteVisits: async (id: number | string): Promise<ApiResponse<any>> => {
+    return apiClient.get<ApiResponse<any>>(API_ENDPOINTS.LEADS.GET_SITE_VISITS(id));
+  },
+
+  scheduleSiteVisit: async (id: number | string, data: any): Promise<ApiResponse<any>> => {
+    return apiClient.post<ApiResponse<any>>(API_ENDPOINTS.LEADS.SCHEDULE_SITE_VISIT(id), data);
+  },
+
+  updateInterestStatus: async (
+    id: number | string,
+    followUpId: number | string,
+    interestStatus: 'Interested' | 'Not Interested' | 'Cold' | string
+  ): Promise<ApiResponse<any>> => {
+    return apiClient.put<ApiResponse<any>>(
+      API_ENDPOINTS.LEADS.UPDATE_INTEREST_STATUS(id, followUpId),
+      { interestStatus }
     );
   },
 
+  // ── Activities ──────────────────────────────────────────────
+  getActivities: async (id: number | string): Promise<ApiResponse<any>> => {
+    return apiClient.get<ApiResponse<any>>(API_ENDPOINTS.LEADS.GET_ACTIVITIES(id));
+  },
+
+  // ── General Lead Management ─────────────────────────────────
   updateLead: async (id: number | string, payload: AddLeadPayload): Promise<ApiResponse<any>> => {
     return apiClient.put<ApiResponse<any>>(
       API_ENDPOINTS.LEADS.BY_ID(id),
@@ -135,13 +229,6 @@ export const LeadService = {
   getFormOptions: async (): Promise<ApiResponse<any>> => {
     return apiClient.get<ApiResponse<any>>(
       API_ENDPOINTS.LEADS.ADD_OPTIONS('')
-    );
-  },
-
-  uploadDocument: async (id: number | string, formData: FormData): Promise<ApiResponse<any>> => {
-    return apiClient.postForm<ApiResponse<any>>(
-      API_ENDPOINTS.LEADS.UPLOAD_DOC,
-      formData
     );
   },
 

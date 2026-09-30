@@ -108,7 +108,9 @@ export interface LeadActivity {
   leadId: number;
   activity: string;
   activityDate: string;
+  activityDateFormatted?: string | null;
   executiveId?: number | null;
+  executiveName?: string | null;
 }
 
 export interface LeadFollowUp {
@@ -120,6 +122,7 @@ export interface LeadFollowUp {
   followUpTime?: string | null;
   comments?: string | null;
   executiveId?: number | null;
+  executiveName?: string | null;
   propertyId?: number | null;
   interestStatus?: string | null;
   rating?: string | null;
@@ -132,6 +135,7 @@ export interface LeadNote {
   leadId: number;
   noteText: string;
   executiveId?: number | null;
+  executiveName?: string | null;
   createdOn?: string | null;
 }
 
@@ -142,6 +146,7 @@ export interface LeadDocument {
   filePath: string;
   fileType?: string | null;
   uploadedBy?: number | null;
+  uploadedByName?: string | null;
   uploadedOn?: string | null;
 }
 
@@ -152,8 +157,13 @@ export interface LeadSiteVisit {
   status?: string | null;
   followUpDate?: string | null;
   followUpTime?: string | null;
+  visitDate?: string | null;
+  visitDateFormatted?: string | null;
+  visitTime?: string | null;
+  propertyName?: string | null;
   comments?: string | null;
   executiveId?: number | null;
+  executiveName?: string | null;
   propertyId?: number | null;
   interestStatus?: string | null;
   rating?: string | null;
@@ -166,7 +176,9 @@ export interface LeadTransition {
   leadId: number;
   activity: string;
   activityDate: string;
+  activityDateFormatted?: string | null;
   executiveId?: number | null;
+  executiveName?: string | null;
 }
 
 export interface LeadFullDetails {

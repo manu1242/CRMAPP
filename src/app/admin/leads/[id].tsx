@@ -45,6 +45,7 @@ import {
   CreditCard,
   FileSpreadsheet,
   ChevronDown,
+  Trash2,
 } from 'lucide-react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
@@ -125,9 +126,11 @@ export default function LeadDetailsScreen() {
     detailsError,
     fetchLeadDetails,
     addLeadNote,
+    deleteLeadNote,
     addLeadFollowUp,
     editLeadFollowUp,
     uploadLeadDocument,
+    deleteLeadDocument,
     updateLeadStatus,
   } = useLeadStore();
 
@@ -423,6 +426,42 @@ export default function LeadDetailsScreen() {
     }
   };
 
+  const handleDeleteNote = async (noteId: number) => {
+    if (!leadId || !noteId) return;
+    const success = await deleteLeadNote(leadId, noteId);
+    if (success) {
+      Toast.show({
+        type: 'success',
+        text1: 'Deleted',
+        text2: 'Note deleted successfully.',
+      });
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to delete note.',
+      });
+    }
+  };
+
+  const handleDeleteDocument = async (uploadId: number) => {
+    if (!leadId || !uploadId) return;
+    const success = await deleteLeadDocument(leadId, uploadId);
+    if (success) {
+      Toast.show({
+        type: 'success',
+        text1: 'Deleted',
+        text2: 'Document deleted successfully.',
+      });
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to delete document.',
+      });
+    }
+  };
+
   const openScheduleModal = (type: 'followup' | 'sitevisit') => {
     setModalType(type);
     setEditingFollowUpId(null);
@@ -608,7 +647,7 @@ export default function LeadDetailsScreen() {
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: bgColor }]}>
+    <View style={[styles.container, { backgroundColor: bgColor ,marginBottom:40}]}>
       {/* Top Header Bar */}
       <View style={{
         flexDirection: 'row',
@@ -951,11 +990,11 @@ export default function LeadDetailsScreen() {
                           <View style={styles.timelineMeta}>
                             <Clock size={12} color={subTextColor} />
                             <Text style={[styles.timelineTime, { color: subTextColor }]}>
-                              {formatDateTime(act.activityDate)}
+                              {act.activityDateFormatted || formatDateTime(act.activityDate)}
                             </Text>
-                            {act.executiveId && (
+                            {(act.executiveName || act.executiveId) && (
                               <Text style={[styles.timelineTime, { color: subTextColor }]}>
-                                · Exec #{act.executiveId}
+                                · {act.executiveName || `Exec #${act.executiveId}`}
                               </Text>
                             )}
                           </View>
@@ -1085,7 +1124,16 @@ export default function LeadDetailsScreen() {
                   <View style={{ gap: 12, marginTop: 14 }}>
                     {notes.map((note) => (
                       <View key={note.noteId} style={[styles.cardItem, { backgroundColor: inputBg, borderColor: borderCol }]}>
-                        <Text style={[styles.cardItemDesc, { color: textColor }]}>{note.noteText}</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <Text style={[styles.cardItemDesc, { color: textColor, flex: 1 }]}>{note.noteText}</Text>
+                          <TouchableOpacity
+                            onPress={() => handleDeleteNote(note.noteId)}
+                            style={{ padding: 4, marginLeft: 8 }}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Trash2 size={15} color="#ef4444" />
+                          </TouchableOpacity>
+                        </View>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
                           <Text style={{ fontSize: 11, color: subTextColor }}>
                             {formatDateTime(note.createdOn)}
@@ -1131,25 +1179,37 @@ export default function LeadDetailsScreen() {
                   ) : (
                     <View style={{ gap: 10, marginTop: 14 }}>
                       {documents.map((doc) => (
-                        <TouchableOpacity
+                        <View
                           key={doc.uploadId}
-                          style={[styles.docItem, { backgroundColor: inputBg, borderColor: borderCol }]}
-                          onPress={() => {
-                            if (doc.filePath) {
-                              openFileUrl(doc.filePath);
-                            }
-                          }}
+                          style={[styles.docItem, { backgroundColor: inputBg, borderColor: borderCol, flexDirection: 'row', alignItems: 'center' }]}
                         >
-                          <Paperclip size={20} color="#3b82f6" />
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.docName, { color: textColor }]} numberOfLines={1}>
-                              {doc.fileName}
-                            </Text>
-                            <Text style={{ fontSize: 11, color: subTextColor }}>
-                              {doc.fileType || 'Document'} · {formatDateTime(doc.uploadedOn)}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
+                          <TouchableOpacity
+                            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                            onPress={() => {
+                              if (doc.filePath) {
+                                openFileUrl(doc.filePath);
+                              }
+                            }}
+                          >
+                            <Paperclip size={20} color="#3b82f6" />
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.docName, { color: textColor }]} numberOfLines={1}>
+                                {doc.fileName}
+                              </Text>
+                              <Text style={{ fontSize: 11, color: subTextColor }}>
+                                {doc.fileType || 'Document'} · {formatDateTime(doc.uploadedOn)}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            onPress={() => handleDeleteDocument(doc.uploadId)}
+                            style={{ padding: 6, marginLeft: 8 }}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Trash2 size={16} color="#ef4444" />
+                          </TouchableOpacity>
+                        </View>
                       ))}
                     </View>
                   )}
@@ -1364,7 +1424,7 @@ export default function LeadDetailsScreen() {
                         </View>
 
                         <Text style={[styles.cardItemSub, { color: subTextColor, marginTop: 6 }]}>
-                          Date: {formatDate(visit.followUpDate)} {visit.followUpTime ? `· ${visit.followUpTime}` : ''}
+                          Date: {visit.visitDateFormatted || formatDate(visit.visitDate || visit.followUpDate)} {visit.visitTime || visit.followUpTime ? `· ${visit.visitTime || visit.followUpTime}` : ''}
                         </Text>
 
                         {visit.comments ? (
@@ -1374,9 +1434,9 @@ export default function LeadDetailsScreen() {
                         ) : null}
 
                         <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
-                          {visit.propertyId && (
+                          {(visit.propertyName || visit.propertyId) && (
                             <Text style={{ fontSize: 12, color: subTextColor }}>
-                              Property ID: <Text style={{ color: textColor, fontWeight: '600' }}>#{visit.propertyId}</Text>
+                              Property: <Text style={{ color: textColor, fontWeight: '600' }}>{visit.propertyName || `#${visit.propertyId}`}</Text>
                             </Text>
                           )}
                           {visit.interestStatus && (
@@ -1387,6 +1447,11 @@ export default function LeadDetailsScreen() {
                           {visit.rating && (
                             <Text style={{ fontSize: 12, color: subTextColor }}>
                               Rating: <Text style={{ color: '#f59e0b', fontWeight: '600' }}>{visit.rating} ★</Text>
+                            </Text>
+                          )}
+                          {visit.executiveName && (
+                            <Text style={{ fontSize: 12, color: subTextColor }}>
+                              Exec: <Text style={{ color: textColor, fontWeight: '600' }}>{visit.executiveName}</Text>
                             </Text>
                           )}
                         </View>

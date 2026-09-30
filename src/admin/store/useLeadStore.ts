@@ -28,9 +28,15 @@ interface LeadState {
   fetchLeadDetails: (id: number | string) => Promise<void>;
   clearLeadDetails: () => void;
   addLeadNote: (id: number | string, noteText: string) => Promise<boolean>;
+  updateLeadNote: (id: number | string, noteId: number | string, noteText: string) => Promise<boolean>;
+  deleteLeadNote: (id: number | string, noteId: number | string) => Promise<boolean>;
   addLeadFollowUp: (id: number | string, payload: any) => Promise<boolean>;
   editLeadFollowUp: (id: number | string, followUpId: number | string, payload: any) => Promise<boolean>;
+  deleteLeadFollowUp: (id: number | string, followUpId: number | string) => Promise<boolean>;
   uploadLeadDocument: (id: number | string, formData: FormData) => Promise<boolean>;
+  deleteLeadDocument: (id: number | string, uploadId: number | string) => Promise<boolean>;
+  scheduleSiteVisit: (id: number | string, data: any) => Promise<boolean>;
+  updateInterestStatus: (id: number | string, followUpId: number | string, status: string) => Promise<boolean>;
   updateLeadStatus: (id: number | string, status: string) => Promise<boolean>;
   setSearch: (search: string) => void;
   setStage: (stage: string) => void;
@@ -148,6 +154,32 @@ export const useLeadStore = create<LeadState>((set, get) => ({
     }
   },
 
+  updateLeadNote: async (id: number | string, noteId: number | string, noteText: string): Promise<boolean> => {
+    try {
+      const response = await LeadService.updateNote(id, noteId, noteText);
+      if (response.success) {
+        await get().fetchLeadDetails(id);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+
+  deleteLeadNote: async (id: number | string, noteId: number | string): Promise<boolean> => {
+    try {
+      const response = await LeadService.deleteNote(id, noteId);
+      if (response.success) {
+        await get().fetchLeadDetails(id);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+
   addLeadFollowUp: async (id: number | string, payload: any): Promise<boolean> => {
     try {
       const response = await LeadService.addFollowUp(id, payload);
@@ -174,6 +206,19 @@ export const useLeadStore = create<LeadState>((set, get) => ({
     }
   },
 
+  deleteLeadFollowUp: async (id: number | string, followUpId: number | string): Promise<boolean> => {
+    try {
+      const response = await LeadService.deleteFollowUp(id, followUpId);
+      if (response.success) {
+        await get().fetchLeadDetails(id);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+
   uploadLeadDocument: async (id: number | string, formData: FormData): Promise<boolean> => {
     try {
       const response = await LeadService.uploadDocument(id, formData);
@@ -184,6 +229,48 @@ export const useLeadStore = create<LeadState>((set, get) => ({
       return false;
     } catch (err: any) {
       console.error('useLeadStore.uploadLeadDocument error:', err?.response?.data || err?.message || err);
+      return false;
+    }
+  },
+
+  deleteLeadDocument: async (id: number | string, uploadId: number | string): Promise<boolean> => {
+    try {
+      const response = await LeadService.deleteDocument(id, uploadId);
+      if (response.success) {
+        await get().fetchLeadDetails(id);
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error('useLeadStore.deleteLeadDocument error:', err?.response?.data || err?.message || err);
+      return false;
+    }
+  },
+
+  scheduleSiteVisit: async (id: number | string, data: any): Promise<boolean> => {
+    try {
+      const response = await LeadService.scheduleSiteVisit(id, data);
+      if (response.success) {
+        await get().fetchLeadDetails(id);
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error('useLeadStore.scheduleSiteVisit error:', err?.response?.data || err?.message || err);
+      return false;
+    }
+  },
+
+  updateInterestStatus: async (id: number | string, followUpId: number | string, interestStatus: string): Promise<boolean> => {
+    try {
+      const response = await LeadService.updateInterestStatus(id, followUpId, interestStatus);
+      if (response.success) {
+        await get().fetchLeadDetails(id);
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error('useLeadStore.updateInterestStatus error:', err?.response?.data || err?.message || err);
       return false;
     }
   },

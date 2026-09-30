@@ -66,12 +66,33 @@ export const API_ENDPOINTS = {
     ADD_OPTIONS: (id?: number | string) => `/api/v1/leadsapi/form-options`,
     BY_ID: (id: number | string) => `/api/v1/LeadsApi/${id}`,
     DETAILS: (id: number | string) => `/api/v1/LeadsApi/${id}/details`,
-    ADD_NOTE: (id: number | string) => `/api/v1/LeadsApi/${id}/notes`,
+
+    // Notes
+    GET_NOTES: (leadId: number | string) => `/api/v1/leads/${leadId}/notes`,
+    ADD_NOTE: (leadId: number | string) => `/api/v1/leads/${leadId}/notes`,
+    UPDATE_NOTE: (leadId: number | string, noteId: number | string) => `/api/v1/leads/${leadId}/notes/${noteId}`,
+    DELETE_NOTE: (leadId: number | string, noteId: number | string) => `/api/v1/leads/${leadId}/notes/${noteId}`,
     SAVE_NOTE: '/Leads/SaveNote',
-    ADD_FOLLOW_UP: (id: number | string) => `/api/leads/${id}/follow-ups`,
+
+    // Follow-ups
+    GET_FOLLOW_UPS: (leadId: number | string) => `/api/v1/leads/${leadId}/follow-ups`,
+    ADD_FOLLOW_UP: (leadId: number | string) => `/api/v1/leads/${leadId}/follow-ups`,
+    EDIT_FOLLOW_UP: (leadId: number | string, followUpId: number | string) => `/api/v1/leads/${leadId}/follow-ups/${followUpId}`,
+    DELETE_FOLLOW_UP: (leadId: number | string, followUpId: number | string) => `/api/v1/leads/${leadId}/follow-ups/${followUpId}`,
     SAVE_FOLLOW_UP: '/Leads/SaveFollowUp',
-    EDIT_FOLLOW_UP: (id: number | string, followUpId: number | string) => `/api/leads/${id}/follow-ups/${followUpId}`,
-    UPLOAD_DOC: '/Leads/SaveLeadUpload',
+
+    // Documents / Uploads
+    GET_DOCUMENTS: (leadId: number | string) => `/api/v1/leads/${leadId}/documents`,
+    UPLOAD_DOC: (leadId: number | string) => `/api/v1/leads/${leadId}/documents`,
+    DELETE_DOC: (leadId: number | string, uploadId: number | string) => `/api/v1/leads/${leadId}/documents/${uploadId}`,
+
+    // Site Visits
+    GET_SITE_VISITS: (leadId: number | string) => `/api/v1/leads/${leadId}/site-visits`,
+    SCHEDULE_SITE_VISIT: (leadId: number | string) => `/api/v1/leads/${leadId}/site-visits`,
+    UPDATE_INTEREST_STATUS: (leadId: number | string, followUpId: number | string) => `/api/v1/leads/${leadId}/site-visits/${followUpId}/interest-status`,
+
+    // Activities / Timeline
+    GET_ACTIVITIES: (leadId: number | string) => `/api/v1/leads/${leadId}/activities`,
   },
   SALES_PIPELINE: {
     STAGES: '/api/v1/sales-pipeline/stages',
