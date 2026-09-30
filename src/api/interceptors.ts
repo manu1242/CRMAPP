@@ -107,27 +107,27 @@ export const setupInterceptors = () => {
           console.warn(`[API] 401 Unauthorized: ${url}`);
         }
 
-        // Optional background endpoints: a 401 here means a permissions/feature
-        // issue, NOT a session expiry. Never kill the session for these.
-        // The AdminNotification screen calls /api/v1/notifications on mount —
-        // if this endpoint returns 401 (e.g. tenant permission), it must NOT
-        // clear the session or the user gets logged out when viewing notifications.
+        // Optional background endpoints: 401 here is a permissions issue, not session expiry.
         const OPTIONAL_ENDPOINTS = [
-          '/api/v1/notifications',          // covers all /api/v1/notifications/* paths
+          '/api/v1/notifications',
         ];
         const isOptional = OPTIONAL_ENDPOINTS.some((ep) => url.includes(ep));
         if (isOptional) {
-          // Silently reject — the caller's catch block handles empty state
+          if (__DEV__) console.log(`[AUTH] 401 on optional endpoint — silently ignoring: ${url}`);
           return Promise.reject(error);
         }
 
-        // Only trigger session expiry if the user is currently authenticated.
-        // If isAuthenticated is already false, the session is already cleared —
-        // calling triggerSessionExpired() again would needlessly lock the guard,
-        // which then silently swallows subsequent 401s from in-flight requests.
         const { useAuthStore } = await import('../auth/store/authStore');
-        if (useAuthStore.getState().isAuthenticated) {
+        const isAuth = useAuthStore.getState().isAuthenticated;
+
+        if (__DEV__) {
+          console.warn(`[AUTH DIAGNOSE] 401 will trigger session expiry — url: ${url} | isAuthenticated: ${isAuth}`);
+        }
+
+        if (isAuth) {
           await triggerSessionExpired();
+        } else {
+          if (__DEV__) console.log(`[AUTH] 401 on ${url} but user already unauthenticated — skipping expiry`);
         }
         return Promise.reject(error);
       }
