@@ -226,8 +226,7 @@ export default function CreateEditPlanScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }} edges={['bottom', 'left', 'right']}>
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1, marginBottom:80, backgroundColor: bgColor }}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
         {/* Title Block */}
         <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
@@ -398,7 +397,7 @@ export default function CreateEditPlanScreen() {
           </View>
 
           {/* ── Actions ── */}
-          <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 20 }}>
             <TouchableOpacity
               onPress={() => router.replace('/superadmin/plans')}
               style={{
@@ -434,7 +433,6 @@ export default function CreateEditPlanScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </View>
-    </SafeAreaView>
+    </View>
   );
 }

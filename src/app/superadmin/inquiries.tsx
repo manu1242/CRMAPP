@@ -128,10 +128,8 @@ export default function InquiriesScreen() {
   // Status change handled by premium bottom actions sheet modal
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }} edges={['bottom', 'left', 'right']}>
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
-
-        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flex: 1, marginRight: 12 }}>
             <Text style={{ fontSize: 20, fontWeight: '700', color: textColor }}>Inquiries</Text>
             <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2, fontWeight: '500' }}>
@@ -470,6 +468,5 @@ export default function InquiriesScreen() {
 
 
       </View>
-    </SafeAreaView>
   );
 }

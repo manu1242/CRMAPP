@@ -76,7 +76,7 @@ export default function SuperAdminTenantsScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
 
       {/* Dashboard Title & Create Button */}
       <View style={{ paddingHorizontal: 16, paddingTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

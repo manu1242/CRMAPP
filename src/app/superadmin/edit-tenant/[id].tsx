@@ -109,8 +109,7 @@ export default function EditTenantScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }} edges={['bottom', 'left', 'right']}>
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
         {/* Title Block (When loaded) */}
         {!isLoading && !error && (
           <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
@@ -186,7 +185,6 @@ export default function EditTenantScreen() {
         )}
 
         {/* <BottomNav active="tenants" /> */}
-      </View>
-    </SafeAreaView>
+    </View>
   );
 }

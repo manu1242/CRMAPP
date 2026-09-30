@@ -196,8 +196,7 @@ export default function TenantDetailScreen() {
   const statusColors = getStatusColor();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }} edges={['bottom', 'left', 'right']}>
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
         {/* Title Block */}
         <View style={{ paddingHorizontal: 16, paddingTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flex: 1, marginRight: 16 }}>
@@ -494,7 +493,6 @@ export default function TenantDetailScreen() {
         </Modal>
 
         {/* <BottomNav active="tenants" /> */}
-      </View>
-    </SafeAreaView>
+    </View>
   );
 }

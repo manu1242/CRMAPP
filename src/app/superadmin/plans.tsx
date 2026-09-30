@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '../../superadmin/components/Header';
 import SidebarDrawer from '../../auth/components/SidebarDrawer';
 import { usePlansQuery, useDeletePlanMutation } from '../../superadmin/plans/hooks/usePlans';
@@ -36,7 +35,6 @@ function formatPrice(price: number) {
 
 export default function PlansScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Handle Android physical back button override to go to subscriptions hub
@@ -88,10 +86,8 @@ export default function PlansScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }} edges={['bottom', 'left', 'right']}>
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
-
-        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View>
             <Text style={{ fontSize: 20, fontWeight: '700', color: textColor }}>Subscription Plans</Text>
             <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2, fontWeight: '500' }}>
@@ -227,8 +223,7 @@ export default function PlansScreen() {
             })
           )}
         </ScrollView>
-      </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

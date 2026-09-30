@@ -223,8 +223,8 @@ export default function SuperAdminDashboardContent() {
                   style={{
                     marginHorizontal: 0,
                     marginTop: 0,
-                    borderBottomLeftRadius: 40,
-                    borderBottomRightRadius: 40,
+                    borderBottomLeftRadius: 32,
+                    borderBottomRightRadius: 32,
                     overflow: 'hidden',
                     borderBottomWidth: isDark ? 0 : 1,
                     borderBottomColor: '#E2E8F0',
@@ -235,42 +235,34 @@ export default function SuperAdminDashboardContent() {
                     elevation: 5,
                   }}
                 >
-
-
-
-
                   <View
                     style={{
-                      paddingHorizontal: 22,
-                      paddingBottom: 26,
-                      paddingTop: headerHeight + 10,
+                      paddingHorizontal:14,
+                      paddingBottom: 14,
+                      paddingTop: headerHeight + 2,
                     }}
                   >
-
-
                     {/* Main content */}
-                    <View style={{ marginTop: 24 }}>
+                    <View style={{ marginTop: 4 }}>
                       <Text
                         style={{
                           color: isDark ? '#FFFFFF' : '#0F172A',
-                          fontSize: 28,
+                          fontSize: 26,
                           fontWeight: '800',
-                          letterSpacing: -0.8,
+                          letterSpacing: -0.6,
                         }}
                       >
                         Super Admin
                       </Text>
-
-
                     </View>
 
                     <Text
                       style={{
                         color: isDark ? '#CBD5E1' : '#475569',
                         fontSize: 13,
-                        lineHeight: 20,
-                        marginTop: 12,
-                        maxWidth: '90%',
+                        lineHeight: 18,
+                        marginTop: 6,
+                        maxWidth: '92%',
                       }}
                     >
                       Manage tenants, subscriptions, users and monitor the health of your
@@ -282,12 +274,12 @@ export default function SuperAdminDashboardContent() {
                       onPress={() => router.push('/superadmin/create-tenant')}
                       activeOpacity={0.8}
                       style={{
-                        marginTop: 16,
+                        marginTop: 12,
                         alignSelf: 'flex-start',
                         borderRadius: 6,
                         flexDirection: 'row',
                         alignItems: 'center',
-                        paddingVertical: 9,
+                        paddingVertical: 8,
                         paddingHorizontal: 14,
                         backgroundColor: '#2B5AC2',
                       }}

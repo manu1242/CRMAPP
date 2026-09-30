@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useSegments } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { getAdminTheme } from '../../../theme/adminTheme';
+import { getAdminTheme, getSuperAdminTheme } from '../../../theme/adminTheme';
 import { EXTERNAL_LINKS, openExternalLink } from '../../../config/externalLinks';
 
 interface AppFooterProps {
@@ -11,7 +11,11 @@ interface AppFooterProps {
 
 export default function AppFooter({ showLinks = true }: AppFooterProps) {
   const { isDark } = useTheme();
-  const adminTheme = getAdminTheme(isDark);
+  const segments = useSegments();
+  const isSuperAdmin = segments.some(
+    (segment) => typeof segment === 'string' && segment.toLowerCase().includes('superadmin')
+  );
+  const theme = isSuperAdmin ? getSuperAdminTheme(isDark) : getAdminTheme(isDark);
 
   return (
     <View 
@@ -20,7 +24,7 @@ export default function AppFooter({ showLinks = true }: AppFooterProps) {
         alignItems: 'center',
         justifyContent: 'center',
         borderTopWidth: 1,
-        borderTopColor: adminTheme.border,
+        borderTopColor: theme.border,
         backgroundColor: 'transparent',
         marginTop: 'auto',
         width: '100%',
@@ -34,27 +38,27 @@ export default function AppFooter({ showLinks = true }: AppFooterProps) {
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           >
-            <Text style={{ fontSize: 11, fontWeight: '600', color: adminTheme.brand }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.brand }}>
               Privacy Policy
             </Text>
           </TouchableOpacity>
-          <Text style={{ fontSize: 11, color: adminTheme.FooterText }}>•</Text>
+          <Text style={{ fontSize: 11, color: theme.FooterText }}>•</Text>
           <TouchableOpacity 
             onPress={() => openExternalLink(EXTERNAL_LINKS.TERMS_AND_CONDITIONS)}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           >
-            <Text style={{ fontSize: 11, fontWeight: '600', color: adminTheme.brand }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.brand }}>
               Terms & Conditions
             </Text>
           </TouchableOpacity>
-          <Text style={{ fontSize: 11, color: adminTheme.FooterText }}>•</Text>
+          <Text style={{ fontSize: 11, color: theme.FooterText }}>•</Text>
           <TouchableOpacity 
             onPress={() => openExternalLink(EXTERNAL_LINKS.CONTACT_US)}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           >
-            <Text style={{ fontSize: 11, fontWeight: '600', color: adminTheme.brand }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.brand }}>
               Contact Us
             </Text>
           </TouchableOpacity>
@@ -64,7 +68,7 @@ export default function AppFooter({ showLinks = true }: AppFooterProps) {
       <Text 
         style={{ 
           fontSize: 10.5,
-          color: adminTheme.FooterText,
+          color: theme.FooterText,
           textAlign: 'center',
           paddingHorizontal: 16,
           fontWeight: '500',

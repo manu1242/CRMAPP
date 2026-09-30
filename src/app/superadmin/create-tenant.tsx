@@ -117,7 +117,7 @@ export default function CreateTenantScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }}>
+    <View style={{ flex: 1, marginBottom:60, backgroundColor: bgColor }}>
       <View style={{ flex: 1, backgroundColor: bgColor }}>
         {/* Title Block */}
         <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>

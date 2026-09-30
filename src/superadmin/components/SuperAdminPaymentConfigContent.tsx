@@ -110,7 +110,7 @@ export default function SuperAdminPaymentConfigContent() {
     >
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingHorizontal:10, paddingTop:0, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Card */}
