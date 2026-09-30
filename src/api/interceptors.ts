@@ -106,7 +106,28 @@ export const setupInterceptors = () => {
         if (__DEV__) {
           console.warn(`[API] 401 Unauthorized: ${url}`);
         }
-        await triggerSessionExpired();
+
+        // Optional background endpoints: a 401 here means a permissions/feature
+        // issue, NOT a session expiry. Never kill the session for these.
+        const OPTIONAL_ENDPOINTS = [
+          '/api/v1/notifications/unread-count',
+          '/api/v1/notifications/save-token',
+          '/api/v1/notifications/test-notification',
+        ];
+        const isOptional = OPTIONAL_ENDPOINTS.some((ep) => url.includes(ep));
+        if (isOptional) {
+          // Silently reject — the caller's catch block handles empty state
+          return Promise.reject(error);
+        }
+
+        // Only trigger session expiry if the user is currently authenticated.
+        // If isAuthenticated is already false, the session is already cleared —
+        // calling triggerSessionExpired() again would needlessly lock the guard,
+        // which then silently swallows subsequent 401s from in-flight requests.
+        const { useAuthStore } = await import('../auth/store/authStore');
+        if (useAuthStore.getState().isAuthenticated) {
+          await triggerSessionExpired();
+        }
         return Promise.reject(error);
       }
 
