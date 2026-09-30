@@ -109,10 +109,11 @@ export const setupInterceptors = () => {
 
         // Optional background endpoints: a 401 here means a permissions/feature
         // issue, NOT a session expiry. Never kill the session for these.
+        // The AdminNotification screen calls /api/v1/notifications on mount —
+        // if this endpoint returns 401 (e.g. tenant permission), it must NOT
+        // clear the session or the user gets logged out when viewing notifications.
         const OPTIONAL_ENDPOINTS = [
-          '/api/v1/notifications/unread-count',
-          '/api/v1/notifications/save-token',
-          '/api/v1/notifications/test-notification',
+          '/api/v1/notifications',          // covers all /api/v1/notifications/* paths
         ];
         const isOptional = OPTIONAL_ENDPOINTS.some((ep) => url.includes(ep));
         if (isOptional) {
