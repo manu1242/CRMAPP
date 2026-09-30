@@ -313,7 +313,7 @@ export default function CreateAgentScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1, marginBottom:40, backgroundColor: bgColor }}>
       {/* Navbar Title Row */}
       <View style={{
         flexDirection: 'row',

@@ -15,6 +15,7 @@ import {
   Linking,
   Animated,
   Dimensions,
+  BackHandler,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -47,7 +48,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
-import { PropertyService } from '../../../admin/services/PropertyService';
+import { PropertyService, byteArrayToDataUri } from '../../../admin/services/PropertyService';
 import { FlatItem, PropertyDetails, PropertyImageItem } from '../../../admin/models/PropertyTypes';
 import { TokenStorage } from '../../../auth/storage/TokenStorage';
 import { AuthImage } from '../../../components/AuthImage';
@@ -80,6 +81,20 @@ export default function PropertyDetailsScreen() {
 
   // Active Tab — single source of truth, no displayTab needed
   const [activeTab, setActiveTab] = useState<'overview' | 'flats' | 'photos' | 'documents'>('overview');
+
+  useEffect(() => {
+    const handleBack = () => {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/admin/properties' as any);
+      }
+      return true;
+    };
+
+    const backSub = BackHandler.addEventListener('hardwareBackPress', handleBack);
+    return () => backSub.remove();
+  }, [router]);
 
   // Tracks which tab content is currently visible (only changes AFTER fade-out finishes)
   const displayTabRef = React.useRef<'overview' | 'flats' | 'photos' | 'documents'>('overview');
@@ -488,26 +503,23 @@ export default function PropertyDetailsScreen() {
             <View style={styles.overviewContainer}>
               {/* Image Banner with Title and Purchase Type Badge */}
               <View style={[styles.imageBanner, { backgroundColor: inputBg, borderColor: borderCol, position: 'relative' }]}>
-                {property.propertyImage && property.propertyImage.length > 0 ? (
-                  <AuthImage
-                    cacheKey={`cover_${property.propertyId}`}
-                    fetchFn={() => PropertyService.getPropertyImageBase64(property.propertyId)}
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="cover"
-                    spinnerColor={brandCol}
-                    placeholder={
-                      <View style={styles.bannerPlaceholder}>
-                        <Building size={48} color={subTextColor} />
-                        <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
-                      </View>
-                    }
-                  />
-                ) : (
-                  <View style={styles.bannerPlaceholder}>
-                    <Building size={48} color={subTextColor} />
-                    <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
-                  </View>
-                )}
+                <AuthImage
+                  cacheKey={`cover_${property.propertyId}`}
+                  fetchFn={async () => {
+                    const localUri = byteArrayToDataUri(property.propertyImage);
+                    if (localUri) return localUri;
+                    return PropertyService.getPropertyImageBase64(property.propertyId);
+                  }}
+                  style={StyleSheet.absoluteFill}
+                  resizeMode="cover"
+                  spinnerColor={brandCol}
+                  placeholder={
+                    <View style={styles.bannerPlaceholder}>
+                      <Building size={48} color={subTextColor} />
+                      <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
+                    </View>
+                  }
+                />
 
                 {/* Text Overlay for Name & Builder */}
                 <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: 'rgba(0,0,0,0.5)' }}>

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -18,6 +19,7 @@ import {
   Layers,
   Save,
   X,
+  ArrowLeft,
 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 
@@ -48,6 +50,24 @@ export default function AddFlatScreen() {
 
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
+
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/admin/properties' as any);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleGoBack();
+      return true;
+    };
+
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSubscription.remove();
+  }, []);
 
   const [form, setForm] = useState({
     blockName: '',
@@ -152,7 +172,24 @@ export default function AddFlatScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
-      <View style={{ padding: 12, backgroundColor: bgColor }}>
+      <View style={{ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: bgColor, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <TouchableOpacity
+          onPress={handleGoBack}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            backgroundColor: isDark ? '#1e293b' : '#ffffff',
+            borderWidth: 1,
+            borderColor: borderCol,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <ArrowLeft size={18} color={textColor} />
+        </TouchableOpacity>
         <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor }}>
           {isEditMode ? 'Edit Flat Details' : 'Add New Flat'}
         </Text>

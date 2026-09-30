@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Platform,
   Image,
+  BackHandler,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -24,13 +25,14 @@ import {
   ChevronUp,
   Save,
   X,
+  ArrowLeft,
 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
 
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
-import { PropertyService } from '../../../admin/services/PropertyService';
+import { PropertyService, byteArrayToDataUri } from '../../../admin/services/PropertyService';
 import { ExecutiveItem } from '../../../admin/models/PropertyTypes';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -55,6 +57,24 @@ export default function AddPropertyScreen() {
 
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
+
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/admin/properties' as any);
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleGoBack();
+      return true;
+    };
+
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSubscription.remove();
+  }, []);
 
   // Form state
   const [form, setForm] = useState({
@@ -109,16 +129,9 @@ export default function AddPropertyScreen() {
       });
 
       // Load image preview if available
-      if (p.propertyImage && p.propertyImage.length > 0) {
-        try {
-          const byteArray = p.propertyImage;
-          let binary = '';
-          for (let i = 0; i < byteArray.length; i++) {
-            binary += String.fromCharCode(byteArray[i]);
-          }
-          const base64 = btoa(binary);
-          setImagePreviewUrl(`data:image/png;base64,${base64}`);
-        } catch { /* silent */ }
+      const previewUri = byteArrayToDataUri(p.propertyImage);
+      if (previewUri) {
+        setImagePreviewUrl(previewUri);
       }
     }
   }, [property]);
@@ -214,8 +227,27 @@ export default function AddPropertyScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
-      <View style={{ padding: 12, backgroundColor: bgColor }}>
-        <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor }}>Add Property</Text>
+      <View style={{ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: bgColor, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <TouchableOpacity
+          onPress={handleGoBack}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius:100,
+            backgroundColor: isDark ? '#1e293b' : '#ffffff',
+            borderWidth: 1,
+            borderColor: borderCol,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <ArrowLeft size={18} color={textColor} />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor }}>
+          {isEditMode ? 'Edit Property' : 'Add Property'}
+        </Text>
       </View>
 
       <ScrollView
@@ -309,11 +341,20 @@ export default function AddPropertyScreen() {
             <View style={{ flex: 1, zIndex: 20 }}>
               <Text style={[styles.label, { color: subTextColor }]}>Purchase Type</Text>
               <TouchableOpacity
-                style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: isPurchaseTypeOpen ? brandCol : borderCol }]}
+                style={[
+                  styles.inputWrap,
+                  {
+                    backgroundColor: inputBg,
+                    borderColor: isPurchaseTypeOpen ? brandCol : borderCol,
+                  }
+                ]}
                 onPress={() => { setPurchaseTypeOpen(!isPurchaseTypeOpen); setExecOpen(false); }}
+                activeOpacity={0.7}
               >
                 <Home size={16} color={subTextColor} />
-                <Text style={[styles.textInput, { color: textColor }]}>{form.purchaseType}</Text>
+                <Text style={{ color: textColor, fontSize: 14, flex: 1, includeFontPadding: false, textAlignVertical: 'center' }} numberOfLines={1}>
+                  {form.purchaseType}
+                </Text>
                 {isPurchaseTypeOpen ? <ChevronUp size={14} color={subTextColor} /> : <ChevronDown size={14} color={subTextColor} />}
               </TouchableOpacity>
               {isPurchaseTypeOpen && (
@@ -321,11 +362,11 @@ export default function AddPropertyScreen() {
                   {PURCHASE_TYPES.map((pt) => (
                     <TouchableOpacity
                       key={pt}
-                      style={[styles.dropdownItem, { backgroundColor: form.purchaseType === pt ? borderCol : 'transparent' }]}
+                      style={[styles.dropdownItem, { backgroundColor: form.purchaseType === pt ? (isDark ? '#334155' : '#f1f5f9') : 'transparent' }]}
                       onPress={() => { setForm({ ...form, purchaseType: pt }); setPurchaseTypeOpen(false); }}
                     >
-                      <Text style={{ color: textColor, fontSize: 13 }}>{pt}</Text>
-                      {form.purchaseType === pt && <Check size={13} color={brandCol} />}
+                      <Text style={{ color: textColor, fontSize: 13, fontWeight: form.purchaseType === pt ? '600' : '400' }}>{pt}</Text>
+                      {form.purchaseType === pt && <Check size={14} color={brandCol} />}
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -336,31 +377,40 @@ export default function AddPropertyScreen() {
             <View style={{ flex: 1, zIndex: 10 }}>
               <Text style={[styles.label, { color: subTextColor }]}>Assigned Executive</Text>
               <TouchableOpacity
-                style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: isExecOpen ? brandCol : borderCol }]}
+                style={[
+                  styles.inputWrap,
+                  {
+                    backgroundColor: inputBg,
+                    borderColor: isExecOpen ? brandCol : borderCol,
+                  }
+                ]}
                 onPress={() => { setExecOpen(!isExecOpen); setPurchaseTypeOpen(false); }}
+                activeOpacity={0.7}
               >
                 <User size={16} color={subTextColor} />
-                <Text style={[styles.textInput, { color: textColor }]} numberOfLines={1}>{selectedExecName}</Text>
+                <Text style={{ color: textColor, fontSize: 14, flex: 1, includeFontPadding: false, textAlignVertical: 'center' }} numberOfLines={1}>
+                  {selectedExecName}
+                </Text>
                 {isExecOpen ? <ChevronUp size={14} color={subTextColor} /> : <ChevronDown size={14} color={subTextColor} />}
               </TouchableOpacity>
               {isExecOpen && (
                 <View style={[styles.inlineDropdown, { backgroundColor: cardBg, borderColor: borderCol, maxHeight: 200 }]}>
-                  <ScrollView showsVerticalScrollIndicator={false}>
+                  <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
                     <TouchableOpacity
-                      style={[styles.dropdownItem, { backgroundColor: form.assignedTo === '' ? borderCol : 'transparent' }]}
+                      style={[styles.dropdownItem, { backgroundColor: form.assignedTo === '' ? (isDark ? '#334155' : '#f1f5f9') : 'transparent' }]}
                       onPress={() => { setForm({ ...form, assignedTo: '' }); setExecOpen(false); }}
                     >
-                      <Text style={{ color: textColor, fontSize: 13 }}>Unassigned</Text>
-                      {form.assignedTo === '' && <Check size={13} color={brandCol} />}
+                      <Text style={{ color: textColor, fontSize: 13, fontWeight: form.assignedTo === '' ? '600' : '400' }}>Unassigned</Text>
+                      {form.assignedTo === '' && <Check size={14} color={brandCol} />}
                     </TouchableOpacity>
                     {executives.map((exec) => (
                       <TouchableOpacity
                         key={exec.userId}
-                        style={[styles.dropdownItem, { backgroundColor: form.assignedTo === exec.userId.toString() ? borderCol : 'transparent' }]}
+                        style={[styles.dropdownItem, { backgroundColor: form.assignedTo === exec.userId.toString() ? (isDark ? '#334155' : '#f1f5f9') : 'transparent' }]}
                         onPress={() => { setForm({ ...form, assignedTo: exec.userId.toString() }); setExecOpen(false); }}
                       >
-                        <Text style={{ color: textColor, fontSize: 13 }}>{exec.fullName}</Text>
-                        {form.assignedTo === exec.userId.toString() && <Check size={13} color={brandCol} />}
+                        <Text style={{ color: textColor, fontSize: 13, fontWeight: form.assignedTo === exec.userId.toString() ? '600' : '400' }}>{exec.fullName}</Text>
+                        {form.assignedTo === exec.userId.toString() && <Check size={14} color={brandCol} />}
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -469,6 +519,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     height: '100%',
+    paddingVertical: 0,
   },
 
   // Inline Dropdown

@@ -74,6 +74,7 @@ export const HEADER_CONFIG: HeaderConfig = {
         '/admin/SalesUnit/invoice/GenerateInvoice',
         '/admin/SalesUnit/payments',
         '/admin/SalesUnit/quotation',
+        '/admin/teammanagement/CreateAgent',
         '/admin/leads/AddLead',
         '/admin/leads/[id]',
         '/admin/properties/add-property',
