@@ -60,6 +60,10 @@ export const DeviceNotificationService = {
           enableVibrate: true,
           showBadge: true,
           lockscreenVisibility: NotificationsModule.AndroidNotificationVisibility?.PUBLIC ?? 1,
+          audioAttributes: {
+            usage: NotificationsModule.AndroidAudioUsage?.NOTIFICATION ?? 5,
+            contentType: NotificationsModule.AndroidAudioContentType?.SONIFICATION ?? 4,
+          },
         });
       }
 
@@ -146,7 +150,9 @@ export const DeviceNotificationService = {
           priority: NotificationsModule.AndroidNotificationPriority?.MAX,
           vibrate: [0, 250, 250, 250],
         },
-        trigger: null, // trigger immediately
+        trigger: {
+          channelId: 'default',
+        },
       });
       return notificationId;
     } catch (err: any) {
