@@ -40,7 +40,7 @@ export const LeadService = {
 
       try {
         return await apiClient.get<ApiResponse<LeadFullDetails>>(
-          `/api/v1/LeadsApi/${id}/full-details`,
+          `/api/v1/leads/${id}/full-details`,
           undefined,
           { signal }
         );

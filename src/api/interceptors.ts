@@ -85,10 +85,10 @@ export const setupInterceptors = () => {
         }
       }
 
-      // DEV diagnostic: confirm token is present for LeadsApi requests
-      if (__DEV__ && url.includes('LeadsApi')) {
+      // DEV diagnostic: confirm token is present for leads requests
+      if (__DEV__ && (url.includes('/api/v1/leads') || url.includes('LeadsApi'))) {
         const authHeader = (config.headers as any)?.['Authorization'];
-        console.log(`[AUTH DIAGNOSE] LeadsApi request — hasToken: ${!!token} | headerSent: ${!!authHeader} | tokenStart: ${token?.slice(0, 30) ?? 'null'}`);
+        console.log(`[AUTH DIAGNOSE] Leads request — url: ${url} | hasToken: ${!!token} | headerSent: ${!!authHeader} | tokenStart: ${token?.slice(0, 30) ?? 'null'}`);
       }
 
       return config;

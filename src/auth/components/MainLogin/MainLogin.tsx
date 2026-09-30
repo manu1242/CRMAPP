@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import KeyboardSafeArea from '../KeyboardSafeArea';
 import { useLogin } from '../../hooks/useLogin';
+import { useAuthStore } from '../../store/authStore';
 import Toast from 'react-native-toast-message';
 import AppFooter from '../AppFooter';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -47,6 +48,22 @@ const MainLogin = () => {
     const [showLoginPassword, setShowLoginPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
 
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const user = useAuthStore((state) => state.user);
+
+    React.useEffect(() => {
+        if (isAuthenticated && user) {
+            const role = user?.role?.trim()?.toLowerCase();
+            if (role === 'superadmin') {
+                router.replace('/superadmin/dashboard');
+            } else if (role === 'partner') {
+                router.replace('/admin/PartnerDashboard');
+            } else {
+                router.replace('/admin/dashboard');
+            }
+        }
+    }, [isAuthenticated, user, router]);
+
     const { login, isLoading: isLoginLoading } = useLogin();
 
     const handleLogin = async () => {
@@ -58,7 +75,18 @@ const MainLogin = () => {
             });
             return;
         }
-        await login({ username: loginUsername, password: loginPassword });
+        const result = await login({ username: loginUsername, password: loginPassword });
+        if (result === 'success') {
+            const currentUser = useAuthStore.getState().user;
+            const role = currentUser?.role?.trim()?.toLowerCase();
+            if (role === 'superadmin') {
+                router.replace('/superadmin/dashboard');
+            } else if (role === 'partner') {
+                router.replace('/admin/PartnerDashboard');
+            } else {
+                router.replace('/admin/dashboard');
+            }
+        }
     };
 
     const handleInquiryForm = () => {

@@ -60,12 +60,12 @@ export const API_ENDPOINTS = {
     SAVE: '/api/v1/superadmin/payment-config',
   },
   LEADS: {
-    BASE: '/api/v1/LeadsApi',
+    BASE: '/api/v1/leads',
     SAVE: '/Leads/SaveLead',
-    ADD_LEAD: (id?: number | string) => `/api/v1/leadsapi/`,
-    ADD_OPTIONS: (id?: number | string) => `/api/v1/leadsapi/form-options`,
-    BY_ID: (id: number | string) => `/api/v1/LeadsApi/${id}`,
-    DETAILS: (id: number | string) => `/api/v1/LeadsApi/${id}/details`,
+    ADD_LEAD: (id?: number | string) => `/api/v1/leads/`,
+    ADD_OPTIONS: (id?: number | string) => `/api/v1/leads/form-options`,
+    BY_ID: (id: number | string) => `/api/v1/leads/${id}`,
+    DETAILS: (id: number | string) => `/api/v1/leads/${id}/details`,
 
     // Notes
     GET_NOTES: (leadId: number | string) => `/api/v1/leads/${leadId}/notes`,
@@ -110,7 +110,7 @@ export const API_ENDPOINTS = {
   UNASSIGNED_LEADS: {
     ASSIGN_EXECUTIVE: '/WebhookLeads/AssignExecutive',
     DELETE_LEAD: '/WebhookLeads/DeleteLead',
-    GET_UNASSIGNED: '/api/v1/LeadsApi',
+    GET_UNASSIGNED: '/api/v1/leads',
   },
   PROPERTIES: {
     GET_ALL: '/api/v1/properties',
