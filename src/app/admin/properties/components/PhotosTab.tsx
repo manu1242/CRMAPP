@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
+  Image,
 } from 'react-native';
 import { Image as ImageIcon, Trash2, Plus } from 'lucide-react-native';
 import { PropertyImageItem } from '../../../../admin/models/PropertyTypes';
@@ -54,18 +55,32 @@ export default function PhotosTab({
             {/* Image */}
             <View style={styles.imageWrap}>
               <TouchableOpacity onPress={() => setSelectedPreviewImageId(img.uploadId)}>
-                <AuthImage
-                  cacheKey={`upload_${img.uploadId}`}
-                  fetchFn={() => PropertyService.getUploadImageBase64(img.uploadId)}
-                  style={styles.gridImage}
-                  resizeMode="cover"
-                  spinnerColor={brandCol}
-                  placeholder={
-                    <View style={[styles.gridImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: inputBg }]}>
-                      <ImageIcon size={24} color={subTextColor} />
-                    </View>
+                {(() => {
+                  const photoUri = PropertyService.getUploadImageUri(img);
+                  if (photoUri) {
+                    return (
+                      <Image
+                        source={{ uri: photoUri }}
+                        style={styles.gridImage}
+                        resizeMode="cover"
+                      />
+                    );
                   }
-                />
+                  return (
+                    <AuthImage
+                      cacheKey={`upload_${img.uploadId}`}
+                      fetchFn={() => PropertyService.getUploadImageBase64(img.uploadId)}
+                      style={styles.gridImage}
+                      resizeMode="cover"
+                      spinnerColor={brandCol}
+                      placeholder={
+                        <View style={[styles.gridImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: inputBg }]}>
+                          <ImageIcon size={24} color={subTextColor} />
+                        </View>
+                      }
+                    />
+                  );
+                })()}
               </TouchableOpacity>
             </View>
 

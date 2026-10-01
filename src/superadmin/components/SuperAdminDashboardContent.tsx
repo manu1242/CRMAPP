@@ -32,7 +32,6 @@ import {
   Ban,
   MessageSquare,
   Mail,
-  MoreVertical,
   Activity,
 } from 'lucide-react-native';
 
@@ -587,8 +586,10 @@ export default function SuperAdminDashboardContent() {
                       data.recentTenants.map((item, index) => {
                         const initials = item.companyName.substring(0, 2).toUpperCase();
                         return (
-                          <View
+                          <TouchableOpacity
                             key={item.tenantId}
+                            onPress={() => router.push(`/superadmin/tenants/${item.tenantId}`)}
+                            activeOpacity={0.7}
                             style={{
                               flexDirection: 'row',
                               alignItems: 'center',
@@ -662,12 +663,8 @@ export default function SuperAdminDashboardContent() {
                                   {item.isSuspended ? 'Suspended' : item.isActive ? 'Active' : 'Inactive'}
                                 </Text>
                               </View>
-
-                              <TouchableOpacity style={{ padding: 4 }}>
-                                <MoreVertical size={16} color={iconColor} />
-                              </TouchableOpacity>
                             </View>
-                          </View>
+                          </TouchableOpacity>
                         );
                       })
                     )}

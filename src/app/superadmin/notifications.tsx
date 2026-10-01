@@ -17,7 +17,7 @@ import {
   CheckCheck,
   Clock,
   AlertCircle,
-  DollarSign,
+  IndianRupee,
   User,
   Settings,
   Shield,
@@ -83,7 +83,7 @@ export default function SuperAdminNotificationScreen() {
       return <Building2 size={16} color="#3b82f6" />;
     }
     if (combined.includes('payment') || combined.includes('plan') || combined.includes('subscription') || combined.includes('invoice')) {
-      return <DollarSign size={16} color="#10b981" />;
+      return <IndianRupee size={16} color="#10b981" />;
     }
     if (combined.includes('security') || combined.includes('role') || combined.includes('permission')) {
       return <Shield size={16} color="#8b5cf6" />;

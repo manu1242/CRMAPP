@@ -30,7 +30,7 @@ import {
     CheckSquare,
     Receipt,
     Wallet,
-    DollarSign,
+    IndianRupee,
     TrendingUp,
 } from 'lucide-react-native';
 
@@ -42,7 +42,7 @@ const getModuleIcon = (moduleName: string, color: string, size = 16) => {
     if (name.includes('book')) return <Calendar size={size} color={color} />;
     if (name.includes('invoice') || name.includes('receipt') || name.includes('bill')) return <Receipt size={size} color={color} />;
     if (name.includes('expense') || name.includes('payout')) return <Wallet size={size} color={color} />;
-    if (name.includes('revenue') || name.includes('profit') || name.includes('income') || name.includes('earning')) return <DollarSign size={size} color={color} />;
+    if (name.includes('revenue') || name.includes('profit') || name.includes('income') || name.includes('earning')) return <IndianRupee size={size} color={color} />;
     if (name.includes('sale') || name.includes('deal') || name.includes('chart')) return <TrendingUp size={size} color={color} />;
     if (name.includes('user') || name.includes('member') || name.includes('config') || name.includes('manage')) return <Users size={size} color={color} />;
     if (name.includes('chat') || name.includes('bot') || name.includes('support')) return <MessageSquare size={size} color={color} />;

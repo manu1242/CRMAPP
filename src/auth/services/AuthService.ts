@@ -78,15 +78,28 @@ export const AuthService = {
     }
   },
 
-  forgotPassword: async (email: string): Promise<void> => {
-    await authApi.forgotPassword(email);
+  forgotPassword: async (email: string): Promise<any> => {
+    return await authApi.forgotPassword(email);
   },
 
-  resetPassword: async (token: string, password: string): Promise<void> => {
-    await authApi.resetPassword(token, password);
+  verifyResetToken: async (email: string, token: string): Promise<any> => {
+    return await authApi.verifyResetToken(email, token);
   },
 
-  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-    await authApi.changePassword(currentPassword, newPassword);
+  resetPassword: async (
+    email: string,
+    token: string,
+    password: string,
+    confirmPassword?: string
+  ): Promise<any> => {
+    return await authApi.resetPassword(email, token, password, confirmPassword);
+  },
+
+  changePassword: async (
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword?: string
+  ): Promise<any> => {
+    return await authApi.changePassword(currentPassword, newPassword, confirmPassword);
   },
 };

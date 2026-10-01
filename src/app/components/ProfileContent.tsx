@@ -48,6 +48,8 @@ import {
 } from 'lucide-react-native';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { profileService, UserProfileData } from '../../admin/services/profileService';
+import { useBrandingQuery } from '../../admin/hooks/useBranding';
+import { BrandingService } from '../../admin/services/BrandingService';
 import AppFooter from '../../auth/components/AppFooter';
 import { NotificationService } from '../../Services/NotificationService';
 import { EXTERNAL_LINKS, openExternalLink } from '../../config/externalLinks';
@@ -66,6 +68,9 @@ export default function ProfileContent() {
   const textColor = adminTheme.textPrimary;
   const subTextColor = adminTheme.textSecondary;
   const borderCol = adminTheme.border;
+
+  const { data: branding } = useBrandingQuery();
+  const brandingLogoUrl = BrandingService.resolveLogoUri(branding?.companyLogo || branding?.logoPath);
 
   const [activeTab, setActiveTab] = useState<'info' | 'settings'>('info');
   const [appearanceExpanded, setAppearanceExpanded] = useState(true);
@@ -262,9 +267,9 @@ export default function ProfileContent() {
                 elevation: 4,
               }}
             >
-              {activeProfile.avatarUrl ? (
+              {activeProfile.avatarUrl || brandingLogoUrl ? (
                 <ExpoImage
-                  source={{ uri: activeProfile.avatarUrl }}
+                  source={{ uri: (activeProfile.avatarUrl || brandingLogoUrl) ?? undefined }}
                   style={{ width: '100%', height: '100%' }}
                   contentFit="cover"
                 />

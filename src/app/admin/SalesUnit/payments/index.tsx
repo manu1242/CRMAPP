@@ -29,7 +29,7 @@ import {
   X,
   Building,
   User,
-  DollarSign,
+  IndianRupee,
   Clock,
   CheckCircle,
   AlertCircle,
@@ -471,7 +471,7 @@ export default function PaymentsScreen() {
 
             <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
               <View style={[styles.metricIconBox, { backgroundColor: '#6366f115' }]}>
-                <DollarSign size={20} color="#6366f1" />
+                <IndianRupee size={20} color="#6366f1" />
               </View>
               <View style={{ marginTop: 8 }}>
                 <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Total Received</Text>
@@ -1022,7 +1022,7 @@ export default function PaymentsScreen() {
                 {/* Payment Fields Section */}
                 <View style={[styles.detailCard, { backgroundColor: theme.inputBg, borderColor: theme.border, padding: 12, marginBottom: 4 }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                    <DollarSign size={16} color={theme.brand} />
+                    <IndianRupee size={16} color={theme.brand} />
                     <Text style={[styles.inputLabel, { color: theme.textPrimary, fontSize: 13, fontWeight: '700' }]}>Payment Details</Text>
                   </View>
 

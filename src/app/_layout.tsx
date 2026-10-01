@@ -165,7 +165,7 @@ import { BlurTargetView } from 'expo-blur';
 import * as SystemUI from 'expo-system-ui';
 import { NavigationBar } from 'expo-navigation-bar';
 import { LogOut } from 'lucide-react-native';
-import { getAdminTheme } from '../theme/adminTheme';
+import { getAdminTheme, getSuperAdminTheme } from '../theme/adminTheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
@@ -175,6 +175,7 @@ function InnerLayout() {
   const { isDark } = useTheme();
   const { isConnected } = useNetwork();
   const segments = useSegments();
+  const superTheme = getSuperAdminTheme(isDark);
   const adminTheme = getAdminTheme(isDark);
   const user = useAuthStore((state) => state.user);
   const isImpersonating = useAuthStore((state) => state.isImpersonating);
@@ -243,7 +244,7 @@ function InnerLayout() {
     (['profile', 'change-password', 'select-workspace'].includes(segments[0] as string) && userRole !== 'superadmin');
 
   const activeBg = isSuperAdminFlow
-    ? (isDark ? '#0f172a' : '#ffffff')
+    ? (!hideHeader ? superTheme.secondaryBg : superTheme.primaryBg)
     : isAdminFlow
     ? (!hideHeader ? adminTheme.secondaryBg : adminTheme.primaryBg)
     : (isDark ? '#0f172a' : '#f8fafc');
@@ -291,9 +292,9 @@ function InnerLayout() {
     activeTab = 'dashboard';
   } else if (path.includes('superadmin/tenants') || path.includes('superadmin/create-tenant') || path.includes('superadmin/edit-tenant')) {
     activeTab = 'tenants';
-  } else if (path.includes('superadmin/inquiries')) {
+  } else if (path.includes('superadmin/inquiries') || path.includes('superadmin/public-leads')) {
     activeTab = 'inquiries';
-  } else if (path.includes('superadmin/subscriptions') || path.includes('superadmin/plans') || path.includes('superadmin/create-plan')) {
+  } else if (path.includes('superadmin/subscriptions') || path.includes('superadmin/plans') || path.includes('superadmin/create-plan') || path.includes('superadmin/owner-plans') || path.includes('superadmin/owner-subscriptions')) {
     activeTab = 'subscriptions';
   } else if (path.includes('profile') || path.includes('change-password') || path.includes('superadmin/payment-config') || path.includes('superadmin/settings') || path.includes('superadmin/transactions')) {
     activeTab = 'profile';
@@ -357,9 +358,13 @@ function InnerLayout() {
       <Stack.Screen name="superadmin/edit-tenant/[id]" />
       <Stack.Screen name="superadmin/plans" />
       <Stack.Screen name="superadmin/create-plan" />
+      <Stack.Screen name="superadmin/owner-plans" />
+      <Stack.Screen name="superadmin/owner-subscriptions" />
       <Stack.Screen name="superadmin/subscriptions" />
       <Stack.Screen name="superadmin/subscriptions-hub" />
       <Stack.Screen name="superadmin/inquiries" />
+      <Stack.Screen name="superadmin/public-leads/index" />
+      <Stack.Screen name="superadmin/public-leads/[id]" />
       <Stack.Screen name="superadmin/transactions" />
       <Stack.Screen name="superadmin/payment-config" />
       <Stack.Screen name="superadmin/settings" />
@@ -393,7 +398,7 @@ function InnerLayout() {
   return (
     <ExpoThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
       <StatusBar
-        barStyle={(isDark || isSuperAdminFlow || hideHeader) ? 'light-content' : 'dark-content'}
+        barStyle={isDark ? 'light-content' : 'dark-content'}
         translucent={true}
         backgroundColor="transparent"
       />

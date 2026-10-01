@@ -21,7 +21,7 @@ import {
   X,
   Building,
   User,
-  DollarSign,
+  IndianRupee,
   Info,
   CheckCircle,
   AlertCircle,
@@ -126,7 +126,7 @@ export default function InvoicesPage() {
     { title: 'Total', value: summary?.totalInvoices ?? 0, icon: FileText, color: theme.brand, bg: `${theme.brand}15` },
     { title: 'Paid', value: summary?.paid ?? 0, icon: CheckCircle, color: '#10b981', bg: '#10b98115' },
     { title: 'Overdue', value: summary?.overdue ?? 0, icon: AlertCircle, color: '#ef4444', bg: '#ef444415' },
-    { title: 'Outstanding', value: formatCurrency(summary?.outstanding ?? 0), icon: DollarSign, color: '#f59e0b', bg: '#f59e0b15' },
+    { title: 'Outstanding', value: formatCurrency(summary?.outstanding ?? 0), icon: IndianRupee, color: '#f59e0b', bg: '#f59e0b15' },
   ];
 
   const headerHeight = summary ? (STATUS_PILLS_HEIGHT + METRICS_HEIGHT) : STATUS_PILLS_HEIGHT;
@@ -318,7 +318,7 @@ export default function InvoicesPage() {
                       </View>
                     ) : null}
                     <View style={styles.gridRow}>
-                      <DollarSign size={14} color={theme.textMuted} />
+                      <IndianRupee size={14} color={theme.textMuted} />
                       <Text style={[styles.gridText, { color: theme.textPrimary, fontWeight: '600' }]}>
                         <Text style={{ color: theme.textSecondary, fontWeight: '400' }}>Outstanding / Total: </Text>
                         {formatCurrency(inv.outstandingAmount)} / {formatCurrency(inv.totalAmount)}

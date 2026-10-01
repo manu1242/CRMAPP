@@ -22,7 +22,7 @@ import {
   Building,
   MapPin,
   Maximize2,
-  DollarSign,
+  IndianRupee,
   User,
   Calendar,
   Layers,
@@ -503,26 +503,41 @@ export default function PropertyDetailsScreen() {
             <View style={styles.overviewContainer}>
               {/* Image Banner with Title and Purchase Type Badge */}
               <View style={[styles.imageBanner, { backgroundColor: inputBg, borderColor: borderCol, position: 'relative' }]}>
-                {property.propertyImage && property.propertyImage.length > 0 ? (
-                  <AuthImage
-                    cacheKey={`cover_${property.propertyId}`}
-                    fetchFn={() => PropertyService.getPropertyImageBase64(property.propertyId)}
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="cover"
-                    spinnerColor={brandCol}
-                    placeholder={
-                      <View style={styles.bannerPlaceholder}>
-                        <Building size={48} color={subTextColor} />
-                        <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
-                      </View>
-                    }
-                  />
-                ) : (
-                  <View style={styles.bannerPlaceholder}>
-                    <Building size={48} color={subTextColor} />
-                    <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
-                  </View>
-                )}
+                {(() => {
+                  const imageUri = PropertyService.getPropertyImageUri(property);
+                  if (imageUri) {
+                    return (
+                      <Image
+                        source={{ uri: imageUri }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="cover"
+                      />
+                    );
+                  }
+                  if (property.hasImage || (property.propertyImage && property.propertyImage.length > 0)) {
+                    return (
+                      <AuthImage
+                        cacheKey={`cover_${property.propertyId}`}
+                        fetchFn={() => PropertyService.getPropertyImageBase64(property.propertyId)}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="cover"
+                        spinnerColor={brandCol}
+                        placeholder={
+                          <View style={styles.bannerPlaceholder}>
+                            <Building size={48} color={subTextColor} />
+                            <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
+                          </View>
+                        }
+                      />
+                    );
+                  }
+                  return (
+                    <View style={styles.bannerPlaceholder}>
+                      <Building size={48} color={subTextColor} />
+                      <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8 }}>No Cover Photo Uploaded</Text>
+                    </View>
+                  );
+                })()}
 
                 {/* Text Overlay for Name & Builder */}
                 <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -591,7 +606,7 @@ export default function PropertyDetailsScreen() {
 
                   <View style={[styles.detailRow, { flex: 1 }]}>
                     <View style={styles.iconContainer}>
-                      <DollarSign size={16} color={brandCol} />
+                      <IndianRupee size={16} color={brandCol} />
                     </View>
                     <View style={{ flex: 1, marginLeft: 12 }}>
                       <Text style={{ color: subTextColor, fontSize: 11 }}>Pricing</Text>
@@ -741,12 +756,10 @@ export default function PropertyDetailsScreen() {
             <X size={24} color="#fff" />
           </TouchableOpacity>
           {selectedPreviewImageId !== null && (
-            <AuthImage
-              cacheKey={`upload_${selectedPreviewImageId}`}
-              fetchFn={() => PropertyService.getUploadImageBase64(selectedPreviewImageId)}
+            <Image
+              source={{ uri: `${getApiUrl()}/api/v1/properties/images/${selectedPreviewImageId}/file` }}
               style={styles.fullPreviewImage}
               resizeMode="contain"
-              spinnerColor="#fff"
             />
           )}
         </View>

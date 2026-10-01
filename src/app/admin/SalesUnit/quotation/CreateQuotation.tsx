@@ -21,8 +21,7 @@ import {
     Plus,
     Trash2,
     User,
-    Building,
-    DollarSign
+    Building
 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../../../contexts/ThemeContext';

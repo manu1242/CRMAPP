@@ -7,6 +7,9 @@ import {
   TouchableWithoutFeedback,
   StyleSheet,
   ActivityIndicator,
+  Platform,
+  StatusBar,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,6 +17,8 @@ import { User, LogOut, ChevronRight, AlertTriangle } from 'lucide-react-native';
 import { useAuthStore } from '../../auth/store/authStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme, getSuperAdminTheme } from '../../theme/adminTheme';
+import { useBrandingQuery } from '../../admin/hooks/useBranding';
+import { BrandingService } from '../../admin/services/BrandingService';
 
 interface UserMenuModalProps {
   isOpen: boolean;
@@ -32,12 +37,19 @@ export default function UserMenuModal({ isOpen, onClose, isSuperAdmin = false }:
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const themeTokens = isSuperAdmin ? getSuperAdminTheme(isDark) : getAdminTheme(isDark);
-  const topOffset = insets.top + 20;
+  
+  // Header height is 57px (paddingTop 12 + avatar 32 + paddingBottom 12 + border 1).
+  // Modal sits on the screen overlay, so topOffset must include the top status bar/notch inset + header height.
+  const topInset = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 44);
+  const topOffset = topInset + 58;
 
   const username = user?.username || (isSuperAdmin ? 'Super Admin' : 'Admin User');
   const initial = username.trim().charAt(0).toUpperCase() || (isSuperAdmin ? 'S' : 'A');
   const role = user?.role || (isSuperAdmin ? 'superadmin' : 'admin');
   const tenantName = user?.tenantName;
+
+  const { data: branding } = useBrandingQuery();
+  const logoUrl = !isSuperAdmin ? BrandingService.resolveLogoUri(branding?.companyLogo || branding?.logoPath) : null;
 
   const handleProfilePress = () => {
     onClose();
@@ -112,8 +124,16 @@ export default function UserMenuModal({ isOpen, onClose, isSuperAdmin = false }:
 
                 {/* User Info Header */}
                 <View style={[styles.header, { borderBottomColor: themeTokens.border }]}>
-                  <View style={[styles.avatar, { backgroundColor: themeTokens.brand }]}>
-                    <Text style={styles.avatarText}>{initial}</Text>
+                  <View style={[styles.avatar, { backgroundColor: themeTokens.brand, overflow: 'hidden' }]}>
+                    {logoUrl ? (
+                      <Image
+                        source={{ uri: logoUrl }}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text style={styles.avatarText}>{initial}</Text>
+                    )}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.usernameText, { color: themeTokens.textPrimary }]} numberOfLines={1}>
@@ -250,7 +270,7 @@ const styles = StyleSheet.create({
   triangleBorder: {
     position: 'absolute',
     top: -8,
-    right: 8,
+    right: 16,
     width: 0,
     height: 0,
     backgroundColor: 'transparent',
@@ -265,7 +285,7 @@ const styles = StyleSheet.create({
   triangleFill: {
     position: 'absolute',
     top: -6.5,
-    right: 9,
+    right: 17,
     width: 0,
     height: 0,
     backgroundColor: 'transparent',

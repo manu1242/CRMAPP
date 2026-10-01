@@ -11,6 +11,7 @@ import {
   RefreshControl,
   StyleSheet,
   Platform,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -26,7 +27,7 @@ import {
   Download,
   MapPin,
   Building,
-  DollarSign,
+  IndianRupee,
   Maximize2,
   Image as ImageIcon,
   User,
@@ -554,7 +555,7 @@ export default function PropertiesScreen() {
 
             {/* Price Range */}
             <View style={styles.priceRangeRow}>
-              <DollarSign size={14} color={subTextColor} />
+              <IndianRupee size={14} color={subTextColor} />
               <Text style={{ color: subTextColor, fontSize: 12 }}>Price:</Text>
               <TextInput
                 style={[styles.priceInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
@@ -620,25 +621,40 @@ export default function PropertiesScreen() {
                   >
                     {/* Image */}
                     <View style={[styles.cardImageWrap, { backgroundColor: inputBg }]}>
-                      {item.hasImage ? (
-                        <AuthImage
-                          cacheKey={`cover_${item.propertyId}`}
-                          fetchFn={() => PropertyService.getPropertyImageBase64(item.propertyId)}
-                          style={styles.cardImage}
-                          resizeMode="cover"
-                          spinnerColor={brandCol}
-                          placeholder={
-                            <View style={styles.imagePlaceholder}>
-                              <Building size={36} color={subTextColor} />
-                            </View>
-                          }
-                        />
-                      ) : (
-                        <View style={styles.imagePlaceholder}>
-                          <Building size={36} color={subTextColor} />
-                          <Text style={{ color: subTextColor, fontSize: 10, marginTop: 4 }}>No Image</Text>
-                        </View>
-                      )}
+                      {(() => {
+                        const imageUri = PropertyService.getPropertyImageUri(item);
+                        if (imageUri) {
+                          return (
+                            <Image
+                              source={{ uri: imageUri }}
+                              style={styles.cardImage}
+                              resizeMode="cover"
+                            />
+                          );
+                        }
+                        if (item.hasImage) {
+                          return (
+                            <AuthImage
+                              cacheKey={`cover_${item.propertyId}`}
+                              fetchFn={() => PropertyService.getPropertyImageBase64(item.propertyId)}
+                              style={styles.cardImage}
+                              resizeMode="cover"
+                              spinnerColor={brandCol}
+                              placeholder={
+                                <View style={styles.imagePlaceholder}>
+                                  <Building size={36} color={subTextColor} />
+                                </View>
+                              }
+                            />
+                          );
+                        }
+                        return (
+                          <View style={styles.imagePlaceholder}>
+                            <Building size={36} color={subTextColor} />
+                            <Text style={{ color: subTextColor, fontSize: 10, marginTop: 4 }}>No Image</Text>
+                          </View>
+                        );
+                      })()}
                       <View style={[styles.purchaseBadge, { backgroundColor: brandCol }]}>
                         <Text style={styles.purchaseBadgeText}>{item.purchaseType}</Text>
                       </View>
@@ -668,7 +684,7 @@ export default function PropertiesScreen() {
                           </Text>
                         </View>
                         <View style={styles.specItem}>
-                          <DollarSign size={11} color={subTextColor} />
+                          <IndianRupee size={11} color={subTextColor} />
                           <Text style={[styles.specText, { color: brandCol, fontWeight: '700' }]}>
                             {item.price ? `₹${item.price.toLocaleString('en-IN')}` : 'On Request'}
                           </Text>

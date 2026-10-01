@@ -5,9 +5,10 @@ export const API_ENDPOINTS = {
     LOGOUT: '/api/v1/auth/logout',
     PROFILE: '/api/v1/auth/profile',
     REFRESH: '/api/v1/auth/refresh',
-    FORGOT_PASSWORD: '/account/forgotpassword',
-    RESET_PASSWORD_WITH_TOKEN: '/account/resetpasswordwithtoken',
-    CHANGE_PASSWORD: '/account/resetpassword',
+    FORGOT_PASSWORD: '/api/v1/auth/forgot-password',
+    VERIFY_RESET_TOKEN: '/api/v1/auth/verify-reset-token',
+    RESET_PASSWORD: '/api/v1/auth/reset-password',
+    CHANGE_PASSWORD: '/api/v1/auth/change-password',
   },
   PROFILE: {
     ME: '/api/v1/profile',
@@ -24,6 +25,12 @@ export const API_ENDPOINTS = {
     GET_INQUIRIES: '/api/v1/superadmin/inquiries',
     GET_INQUIRY_BY_ID: (id: string | number) => `/api/v1/superadmin/inquiries/${id}`,
     UPDATE_INQUIRY_STATUS: (id: string | number) => `/api/v1/superadmin/inquiries/${id}/status`,
+  },
+  PUBLIC_LEADS: {
+    BASE: '/api/v1/superadmin/public-leads',
+    STATS: '/api/v1/superadmin/public-leads/stats',
+    BY_ID: (id: number | string) => `/api/v1/superadmin/public-leads/${id}`,
+    BULK_DELETE: '/api/v1/superadmin/public-leads/bulk-delete',
   },
   NOTIFICATION: {
     GET_NOTIFICATIONS: '/api/v1/notifications',
@@ -45,6 +52,17 @@ export const API_ENDPOINTS = {
     BASE: '/api/v1/superadmin/plans',
     BY_ID: (id: number) => `/api/v1/superadmin/plans/${id}`,
   },
+  OWNER_PLANS: {
+    BASE: '/api/v1/superadmin/owner-plans',
+    BY_ID: (id: number | string) => `/api/v1/superadmin/owner-plans/${id}`,
+    TOGGLE_STATUS: (id: number | string) => `/api/v1/superadmin/owner-plans/${id}/toggle-status`,
+  },
+  OWNER_SUBSCRIPTIONS: {
+    BASE: '/api/v1/superadmin/owner-subscriptions',
+    BY_ID: (id: number | string) => `/api/v1/superadmin/owner-subscriptions/${id}`,
+    ASSIGN: '/api/v1/superadmin/owner-subscriptions/assign',
+    TOGGLE_STATUS: (id: number | string) => `/api/v1/superadmin/owner-subscriptions/${id}/toggle-status`,
+  },
   SUBSCRIPTIONS: {
     BASE: '/api/v1/superadmin/subscriptions',
     BY_ID: (id: number) => `/api/v1/superadmin/subscriptions/${id}`,
@@ -54,6 +72,7 @@ export const API_ENDPOINTS = {
     BASE: '/api/v1/superadmin/settings',
     GET_SETTINGS: '/api/v1/superadmin/settings',
     SAVE_SETTINGS: '/api/v1/superadmin/settings',
+    BRANDING: '/api/v1/settings/branding',
   },
   PAYMENT_CONFIG: {
     GET: '/api/v1/superadmin/payment-config',
@@ -120,17 +139,24 @@ export const API_ENDPOINTS = {
     SAVE: '/api/v1/properties/SaveProperty',
     DELETE: (id: string | number) => `/api/v1/properties/${id}`,
     GET_BY_ID: (id: string | number) => `/api/v1/properties/${id}`,
+    IMAGE: (id: string | number) => `/api/v1/properties/${id}/image`,
     BULK_UPLOAD: '/Properties/BulkUpload',
     GET_FLATS: (propertyId: string | number, searchBhk?: string) => `/api/v1/properties/${propertyId}/flats${searchBhk ? `?searchBhk=${searchBhk}` : ''}`,
     SAVE_FLAT: '/api/v1/properties/flats',
     DELETE_FLAT: (flatId: string | number) => `/api/v1/properties/flats/${flatId}`,
     GET_IMAGES: (propertyId: string | number) => `/api/v1/properties/${propertyId}/images`,
+    GALLERY_IMAGE_FILE: (uploadId: string | number) => `/api/v1/properties/images/${uploadId}/file`,
     UPLOAD_IMAGE: '/api/v1/properties/UploadImage',
     DELETE_IMAGE: (uploadId?: string | number) => uploadId ? `/api/v1/properties/images/${uploadId}` : '/api/v1/properties/DeleteImage',
     GET_DOCUMENTS: (propertyId: string | number) => `/api/v1/properties/${propertyId}/documents`,
     UPLOAD_DOCUMENT: '/api/v1/properties/UploadDocument',
     DELETE_DOCUMENT: (documentId?: string | number) => documentId ? `/api/v1/properties/documents/${documentId}` : '/api/v1/properties/DeleteDocument',
     DOWNLOAD_DOCUMENT: (documentId: string | number) => `/Properties/DownloadDocument?documentId=${documentId}`,
+  },
+  PORTAL_PROPERTIES: {
+    LIST: '/api/p_Properties',
+    BY_ID: (id: string | number) => `/api/p_Properties/${id}`,
+    FEATURED: '/api/p_Properties/featured',
   },
   QUOTATIONS: {
     GET_QUOATATIONS: '/api/v1/quotations'

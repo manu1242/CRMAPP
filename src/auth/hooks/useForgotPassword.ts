@@ -34,12 +34,17 @@ export const useForgotPassword = () => {
     }
   };
 
-  const resetPassword = async (token: string, password: string) => {
+  const resetPassword = async (
+    email: string,
+    token: string,
+    password: string,
+    confirmPassword?: string
+  ) => {
     setIsLoading(true);
     setError(null);
     setIsSuccess(false);
     try {
-      await AuthService.resetPassword(token, password);
+      await AuthService.resetPassword(email, token, password, confirmPassword);
       setIsSuccess(true);
       Toast.show({
         type: 'success',

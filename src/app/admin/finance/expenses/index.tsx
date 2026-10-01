@@ -35,7 +35,7 @@ import {
     FileText,
     MessageSquare,
     MoreVertical,
-    DollarSign,
+    IndianRupee,
 } from 'lucide-react-native';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
@@ -523,7 +523,7 @@ export default function ExpensesScreen() {
                     {/* Total Expenses */}
                     <View style={[styles.metricCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
                         <View style={[styles.metricIconBox, { backgroundColor: '#fee2e2' }]}>
-                            <DollarSign size={20} color="#ef4444" />
+                            <IndianRupee size={20} color="#ef4444" />
                         </View>
                         <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>TOTAL EXPENSES</Text>
                         <Text style={[styles.metricVal, { color: '#ef4444' }]} numberOfLines={1}>

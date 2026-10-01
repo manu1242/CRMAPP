@@ -120,7 +120,7 @@ export default function ForgotPasswordScreen() {
                         </Text>
 
                         <TouchableOpacity
-                            onPress={() => router.replace('/main-login')}
+                            onPress={() => router.push({ pathname: '/reset-password', params: { email } } as any)}
                             style={{
                                 backgroundColor: brand,
                                 height: 52, borderRadius: 26,
@@ -130,10 +130,25 @@ export default function ForgotPasswordScreen() {
                                 shadowOffset: { width: 0, height: 6 },
                                 shadowOpacity: 0.35, shadowRadius: 14,
                                 elevation: 8,
+                                marginBottom: 12,
                             }}
                             activeOpacity={0.85}
                         >
-                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Back to Login</Text>
+                            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Enter Reset Code</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={() => router.replace('/main-login')}
+                            style={{
+                                height: 48, borderRadius: 24,
+                                width: '100%',
+                                justifyContent: 'center', alignItems: 'center',
+                                borderWidth: 1, borderColor: border,
+                                backgroundColor: cardBg,
+                            }}
+                            activeOpacity={0.85}
+                        >
+                            <Text style={{ color: textColor, fontSize: 14, fontWeight: '600' }}>Back to Login</Text>
                         </TouchableOpacity>
 
                         <Text style={{ color: subText, fontSize: 13, textAlign: 'center', marginTop: 20 }}>

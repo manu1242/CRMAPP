@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Platform,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import {
@@ -204,18 +205,32 @@ export default function ImagesScreen() {
                 <View key={img.uploadId} style={[styles.imageCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
                   {/* Image */}
                   <View style={styles.imageWrap}>
-                    <AuthImage
-                      cacheKey={`upload_${img.uploadId}`}
-                      fetchFn={() => PropertyService.getUploadImageBase64(img.uploadId)}
-                      style={styles.image}
-                      resizeMode="cover"
-                      spinnerColor={brandCol}
-                      placeholder={
-                        <View style={[styles.image, { justifyContent: 'center', alignItems: 'center', backgroundColor: inputBg }]}>
-                          <ImageIcon size={24} color={subTextColor} />
-                        </View>
+                    {(() => {
+                      const photoUri = PropertyService.getUploadImageUri(img);
+                      if (photoUri) {
+                        return (
+                          <Image
+                            source={{ uri: photoUri }}
+                            style={styles.image}
+                            resizeMode="cover"
+                          />
+                        );
                       }
-                    />
+                      return (
+                        <AuthImage
+                          cacheKey={`upload_${img.uploadId}`}
+                          fetchFn={() => PropertyService.getUploadImageBase64(img.uploadId)}
+                          style={styles.image}
+                          resizeMode="cover"
+                          spinnerColor={brandCol}
+                          placeholder={
+                            <View style={[styles.image, { justifyContent: 'center', alignItems: 'center', backgroundColor: inputBg }]}>
+                              <ImageIcon size={24} color={subTextColor} />
+                            </View>
+                          }
+                        />
+                      );
+                    })()}
                     {/* Delete overlay button */}
                     <TouchableOpacity
                       style={styles.deleteOverlay}

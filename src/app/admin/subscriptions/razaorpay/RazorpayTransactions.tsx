@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  DollarSign,
 } from 'lucide-react-native';
 import {
   subscriptionService,

@@ -35,7 +35,7 @@ import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import {
   Users,
   TrendingUp,
-  DollarSign,
+  IndianRupee,
   BarChart3,
   AlertCircle,
   ChevronRight,
@@ -61,6 +61,8 @@ import {
 } from '../services/dashboardService';
 import { useAdminDashboardQuery } from '../hooks/useDashboardQuery';
 import DashboardSkeleton from './DashboardSkeleton';
+import { NotificationService } from '../../Services/NotificationService';
+import { NotificationItem } from '../../authorization/models/Notification';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -820,12 +822,28 @@ export default function AdminDashboardContent() {
   const { markInteractive } = useSafeObserve();
 
   // Bottom Sheets Visibility States
-  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isNotificationSheetOpen, setIsNotificationSheetOpen] = useState(false);
   const [isQuickActionSheetOpen, setIsQuickActionSheetOpen] = useState(false);
 
-  // Time Filter State for Analytics Chart
-  const [chartFilter, setChartFilter] = useState<'today' | 'week' | 'month' | 'year'>('today');
+  // Real Notifications State
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isNotificationSheetOpen) {
+      setNotificationsLoading(true);
+      NotificationService.getNotifications()
+        .then((res) => {
+          if (res && Array.isArray(res.notifications)) {
+            setNotifications(res.notifications);
+          } else {
+            setNotifications([]);
+          }
+        })
+        .catch(() => setNotifications([]))
+        .finally(() => setNotificationsLoading(false));
+    }
+  }, [isNotificationSheetOpen]);
 
   const {
     data: queryData,
@@ -850,52 +868,28 @@ export default function AdminDashboardContent() {
 
   const chartWidth = SCREEN_WIDTH - 48; // Comfortable padding for iOS cards
 
-  // Filtered Chart Data Generation
+  // Real API Chart Data Generation (Monthly Trend)
   const getFilteredChartData = () => {
     if (!data) return [];
-    switch (chartFilter) {
-      case 'today':
-        return [
-          { label: '09:00', value: 2 },
-          { label: '12:00', value: 5 },
-          { label: '15:00', value: 11 },
-          { label: '18:00', value: 14 },
-          { label: '21:00', value: 8 },
-        ];
-      case 'week':
-        return [
-          { label: 'Mon', value: 8 },
-          { label: 'Tue', value: 12 },
-          { label: 'Wed', value: 20 },
-          { label: 'Thu', value: 15 },
-          { label: 'Fri', value: 28 },
-          { label: 'Sat', value: 32 },
-          { label: 'Sun', value: 24 },
-        ];
-      case 'year':
-        return [
-          { label: 'Q1', value: 75 },
-          { label: 'Q2', value: 110 },
-          { label: 'Q3', value: 160 },
-          { label: 'Q4', value: 230 },
-        ];
-      case 'month':
-      default:
-        return data.monthlyLeads.map((m) => ({ label: m.month, value: m.count })) || [];
-    }
+    const monthly = (data.monthlyLeads && data.monthlyLeads.length > 0)
+      ? data.monthlyLeads
+      : (data.monthlyTrend && data.monthlyTrend.length > 0)
+        ? data.monthlyTrend
+        : [];
+    return monthly.map((m) => ({ label: m.month, value: m.count }));
   };
 
   const currentChartData = getFilteredChartData();
-  const currentChartValue = currentChartData.reduce((acc, curr) => acc + curr.value, 0);
+  const currentChartValue = currentChartData.length > 0
+    ? currentChartData.reduce((acc, curr) => acc + curr.value, 0)
+    : (data?.totalLeads ?? 0);
 
   const statCards = data
     ? [
       {
         title: 'Total Leads',
         value: `${data.totalLeads}`,
-        sub: `${data.facebookLeads} Facebook Leads`,
-        trend: '+12%',
-        trendUp: true,
+        sub: data.facebookLeads > 0 ? `${data.facebookLeads} Facebook Leads` : 'Active in Workspace',
         icon: Users,
         color: '#10b981',
       },
@@ -903,17 +897,13 @@ export default function AdminDashboardContent() {
         title: 'Total Revenue',
         value: formatCurrency(data.totalRevenue),
         sub: formatFullCurrency(data.totalRevenue),
-        trend: '+15%',
-        trendUp: true,
-        icon: DollarSign,
+        icon: IndianRupee,
         color: '#3b82f6',
       },
       {
         title: 'Net Profit',
         value: formatCurrency(data.totalProfit),
         sub: data.totalProfit >= 0 ? 'Net Income' : 'Net Loss',
-        trend: data.totalProfit >= 0 ? '+7%' : '-2%',
-        trendUp: data.totalProfit >= 0,
         icon: TrendingUp,
         color: data.totalProfit >= 0 ? '#f59e0b' : '#ef4444',
       },
@@ -1061,7 +1051,9 @@ export default function AdminDashboardContent() {
               CRM Live Overview
             </Text>
             <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 8, lineHeight: 20, fontWeight: '400' }}>
-              Your workspace is running fine. You have new leads waiting for qualification today.
+              {data
+                ? `Tracking ${data.totalLeads} total leads and ${formatCurrency(data.totalRevenue)} revenue recorded in your workspace.`
+                : 'Your workspace analytics are live.'}
             </Text>
 
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
@@ -1118,7 +1110,7 @@ export default function AdminDashboardContent() {
             {data && (
               <View
                 style={{
-                  flex: role === 'admin' ? 1.2 : 1,
+                  flex: 1.2,
                   height: 150,
                   backgroundColor: isDark ? 'transparent' : cardBg,
                   borderRadius: 16,
@@ -1166,7 +1158,7 @@ export default function AdminDashboardContent() {
             )}
 
             {/* Right Column - Stacked Cards */}
-            {data && role === 'admin' && (
+            {data && (
               <View style={{ flex: 1, gap: 12, height: 150 }}>
                 {/* Top Card - Total Revenue */}
                 <View
@@ -1269,7 +1261,7 @@ export default function AdminDashboardContent() {
         </View>
 
         {/* Interactive Analytics Chart Page */}
-        {data && (
+        {data && currentChartData.length > 0 && (
           <View
             style={[
               styles.card,
@@ -1291,40 +1283,16 @@ export default function AdminDashboardContent() {
             )}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <View>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>Lead Growth Stats</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>Lead Growth Trend</Text>
                 <Text style={{ fontSize: 18, fontWeight: '800', color: '#10b981', marginTop: 2 }}>
-                  {currentChartValue} <Text style={{ fontSize: 11, color: subTextColor, fontWeight: '400' }}>total</Text>
+                  {currentChartValue} <Text style={{ fontSize: 11, color: subTextColor, fontWeight: '400' }}>monthly leads</Text>
                 </Text>
               </View>
 
-              {/* Time Filters */}
-              <View style={{ flexDirection: 'row', backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderRadius: 10, padding: 3 }}>
-                {(['today', 'week', 'month', 'year'] as const).map((filter) => {
-                  const isActive = chartFilter === filter;
-                  return (
-                    <TouchableOpacity
-                      key={filter}
-                      onPress={() => setChartFilter(filter)}
-                      style={{
-                        paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderRadius: 8,
-                        backgroundColor: isActive ? (isDark ? 'rgba(255,255,255,0.1)' : '#ffffff') : 'transparent',
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 10,
-                          fontWeight: '700',
-                          color: isActive ? textColor : subTextColor,
-                          textTransform: 'capitalize',
-                        }}
-                      >
-                        {filter}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+              <View style={{ backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.10)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#10b981' }}>
+                  Live Trend
+                </Text>
               </View>
             </View>
 
@@ -1349,12 +1317,12 @@ export default function AdminDashboardContent() {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {[
               { label: 'Leads List', icon: Users, color: '#3b82f6', route: '/admin/leads' },
-              { label: 'User Roles', icon: CheckSquare, color: '#10b981', route: '/admin/usemanagement/RolesManagement', adminOnly: true },
-              { label: 'Manage Users', icon: Users, color: '#8b5cf6', route: '/admin/usemanagement/ManageUsers', adminOnly: true },
-              { label: 'Settings', icon: SlidersHorizontal, color: '#f59e0b', route: '/admin/settings', adminOnly: true },
+              { label: 'User Roles', icon: CheckSquare, color: '#10b981', route: '/admin/usemanagement/RolesManagement' },
+              { label: 'Manage Users', icon: Users, color: '#8b5cf6', route: '/admin/usemanagement/ManageUsers' },
+              { label: 'Settings', icon: SlidersHorizontal, color: '#f59e0b', route: '/admin/settings' },
               { label: 'Log Actions', icon: MessageSquare, color: '#ec4899', sheet: 'quick' },
               { label: 'App Metrics', icon: TrendingUp, color: '#06b6d4', sheet: 'notifications' },
-            ].filter((act) => !act.adminOnly || role === 'admin').map((action, i) => (
+            ].map((action, i) => (
               <TouchableOpacity
                 key={i}
                 onPress={() => {
@@ -1408,7 +1376,7 @@ export default function AdminDashboardContent() {
         </View>
 
         {/* Financial Overview Card */}
-        {data && role === 'admin' && (
+        {data && (
           <FinancialBanner
             totalRevenue={data.totalRevenue}
             totalExpenses={data.totalExpenses}
@@ -1421,7 +1389,7 @@ export default function AdminDashboardContent() {
         )}
 
         {/* Traffic Sources */}
-        {data && data.sources.length > 0 && role === 'admin' && (
+        {data && data.sources.length > 0 && (
           <View
             style={[
               styles.card,
@@ -1710,7 +1678,7 @@ export default function AdminDashboardContent() {
             )}
             <SectionHeader
               title="Revenue vs Expenses"
-              icon={DollarSign}
+              icon={IndianRupee}
               iconColor="#10b981"
               textColor={textColor}
               subTextColor={subTextColor}
@@ -1757,86 +1725,52 @@ export default function AdminDashboardContent() {
         <AppFooter />
       </ScrollView>
 
-      {/* FILTER BOTTOM SHEET SECTION */}
-      <BottomSheet
-        visible={isFilterSheetOpen}
-        onClose={() => setIsFilterSheetOpen(false)}
-        title="Settings & Filter Presets"
-        isDark={isDark}
-      >
-        <View style={{ gap: 12 }}>
-          <Text style={{ fontSize: 12, color: subTextColor, fontWeight: '500' }}>
-            Filter chart timeframes and metric dashboards:
-          </Text>
-          {([
-            { name: 'Show Today Statistics', action: () => setChartFilter('today') },
-            { name: 'Show 7 Days (Weekly)', action: () => setChartFilter('week') },
-            { name: 'Show 6 Months (Default)', action: () => setChartFilter('month') },
-            { name: 'Show 1 Year Overview', action: () => setChartFilter('year') },
-          ] as const).map((opt, i) => (
-            <TouchableOpacity
-              key={i}
-              onPress={() => {
-                opt.action();
-                setIsFilterSheetOpen(false);
-                Toast.show({
-                  type: 'success',
-                  text1: 'Filter Saved',
-                  text2: `Timeframe adjusted successfully`,
-                });
-              }}
-              style={{
-                backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                borderColor: cardBorder,
-                borderWidth: 1,
-                padding: 14,
-                borderRadius: 12,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 13, color: textColor, fontWeight: '600' }}>{opt.name}</Text>
-              <ChevronRight size={16} color={subTextColor} />
-            </TouchableOpacity>
-          ))}
-        </View>
-      </BottomSheet>
-
       {/* NOTIFICATIONS BOTTOM SHEET SECTION */}
       <BottomSheet
         visible={isNotificationSheetOpen}
         onClose={() => setIsNotificationSheetOpen(false)}
-        title="App System Alerts"
+        title="App Notifications"
         isDark={isDark}
       >
-        <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
-          <View style={{ gap: 10 }}>
-            {[
-              { title: 'Server connection live', desc: 'Secure connection established to DB', time: 'Just now', color: '#10b981' },
-              { title: 'Scheduled sync complete', desc: 'Leads database synced with API', time: '10 mins ago', color: '#3b82f6' },
-              { title: 'Billing integration active', desc: 'Stripe webhook running correctly', time: '1 hour ago', color: '#f59e0b' },
-            ].map((n, i) => (
-              <View
-                key={i}
-                style={{
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                  padding: 14,
-                  borderRadius: 12,
-                  flexDirection: 'row',
-                  gap: 12,
-                  alignItems: 'center',
-                }}
-              >
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: n.color }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>{n.title}</Text>
-                  <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>{n.desc}</Text>
-                  <Text style={{ fontSize: 10, color: subTextColor, marginTop: 4 }}>{n.time}</Text>
+        <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+          {notificationsLoading ? (
+            <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator size="small" color="#10b981" />
+            </View>
+          ) : notifications.length === 0 ? (
+            <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 13, color: subTextColor, fontWeight: '500' }}>No notifications available</Text>
+            </View>
+          ) : (
+            <View style={{ gap: 10 }}>
+              {notifications.map((n, i) => (
+                <View
+                  key={n.notificationId ?? n.id ?? i}
+                  style={{
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                    padding: 14,
+                    borderRadius: 12,
+                    flexDirection: 'row',
+                    gap: 12,
+                    alignItems: 'center',
+                  }}
+                >
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: n.isRead ? '#64748b' : '#10b981' }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>{n.title}</Text>
+                    {n.message ? (
+                      <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>{n.message}</Text>
+                    ) : null}
+                    {n.createdOnFormatted || n.createdOn ? (
+                      <Text style={{ fontSize: 10, color: subTextColor, marginTop: 4 }}>
+                        {n.createdOnFormatted || n.createdOn}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
         </ScrollView>
       </BottomSheet>
 

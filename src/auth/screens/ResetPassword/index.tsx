@@ -8,7 +8,7 @@ import {
     Animated,
     StatusBar,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useForgotPassword } from '../../hooks/useForgotPassword';
 import KeyboardSafeArea from '../../components/KeyboardSafeArea';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -17,11 +17,14 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function ResetPasswordScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams<{ email?: string }>();
+    const [email, setEmail] = useState(params.email || '');
     const [token, setToken] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [focusedField, setFocusedField] = useState<'token' | 'password' | null>(null);
+    const [focusedField, setFocusedField] = useState<'email' | 'token' | 'password' | null>(null);
     const { resetPassword, isLoading, error, isSuccess } = useForgotPassword();
+    const [localError, setLocalError] = useState<string | null>(null);
     const { isDark } = useTheme();
     const t = getAdminTheme(isDark);
 
@@ -50,8 +53,20 @@ export default function ResetPasswordScreen() {
     }, [isSuccess]);
 
     const handleReset = async () => {
-        if (!token || !password) return;
-        await resetPassword(token, password);
+        if (!email.trim()) {
+            setLocalError('Please enter your email address');
+            return;
+        }
+        if (!token.trim()) {
+            setLocalError('Please enter the 6-digit reset code');
+            return;
+        }
+        if (!password || password.length < 6) {
+            setLocalError('Password must be at least 6 characters');
+            return;
+        }
+        setLocalError(null);
+        await resetPassword(email.trim(), token.trim(), password, password);
     };
 
     const brand = '#10b981';
@@ -176,9 +191,41 @@ export default function ResetPasswordScreen() {
                             ))}
                         </View>
 
+                        {/* Email Field */}
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: subText, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 8 }}>
+                            Email Address
+                        </Text>
+                        <View style={{
+                            flexDirection: 'row', alignItems: 'center',
+                            height: 54,
+                            borderWidth: focusedField === 'email' ? 1.5 : 1,
+                            borderColor: focusedField === 'email' ? brand : border,
+                            borderRadius: 16,
+                            backgroundColor: cardBg,
+                            paddingHorizontal: 16,
+                            gap: 10,
+                            marginBottom: 20,
+                        }}>
+                            <Ionicons name="mail-outline" size={18} color={focusedField === 'email' ? brand : subText} />
+                            <TextInput
+                                style={{ flex: 1, fontSize: 15, color: textColor, height: '100%' }}
+                                value={email}
+                                onChangeText={setEmail}
+                                placeholder="your@email.com"
+                                placeholderTextColor={t.textMuted}
+                                keyboardAppearance={isDark ? 'dark' : 'light'}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                returnKeyType="next"
+                                onFocus={() => setFocusedField('email')}
+                                onBlur={() => setFocusedField(null)}
+                            />
+                        </View>
+
                         {/* Reset Code Field */}
                         <Text style={{ fontSize: 12, fontWeight: '700', color: subText, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 8 }}>
-                            Reset Code
+                            Reset Code (6-Digit OTP)
                         </Text>
                         <View style={{
                             flexDirection: 'row', alignItems: 'center',
@@ -196,16 +243,17 @@ export default function ResetPasswordScreen() {
                                 style={{ flex: 1, fontSize: 15, color: textColor, height: '100%', letterSpacing: 2 }}
                                 value={token}
                                 onChangeText={setToken}
-                                placeholder="Enter code from email"
+                                placeholder="Enter 6-digit code"
                                 placeholderTextColor={t.textMuted}
                                 keyboardAppearance={isDark ? 'dark' : 'light'}
+                                keyboardType="number-pad"
                                 autoCapitalize="none"
                                 autoCorrect={false}
                                 returnKeyType="next"
                                 onFocus={() => setFocusedField('token')}
                                 onBlur={() => setFocusedField(null)}
                             />
-                            {token.length > 0 && (
+                            {token.length >= 4 && (
                                 <Ionicons name="checkmark-circle" size={18} color={brand} />
                             )}
                         </View>
@@ -268,10 +316,10 @@ export default function ResetPasswordScreen() {
                         )}
 
                         {/* Error */}
-                        {error ? (
+                        {(localError || error) ? (
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
                                 <Ionicons name="alert-circle-outline" size={14} color="#ef4444" />
-                                <Text style={{ color: '#ef4444', fontSize: 13, flex: 1 }}>{error}</Text>
+                                <Text style={{ color: '#ef4444', fontSize: 13, flex: 1 }}>{localError || error}</Text>
                             </View>
                         ) : null}
 

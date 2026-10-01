@@ -45,7 +45,6 @@ import {
   Bot,
   MessageSquare,
   Landmark,
-  DollarSign,
   Home,
   Handshake,
   Wallet,

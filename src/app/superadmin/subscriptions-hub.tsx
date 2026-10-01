@@ -86,6 +86,62 @@ export default function SubscriptionsHubScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color={subTextColor} />
           </TouchableOpacity>
+
+          {/* 3. Owner Packages */}
+          <TouchableOpacity
+            onPress={() => router.push('/superadmin/owner-plans')}
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: borderCol,
+              padding: 20,
+              flexDirection: 'row',
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 3,
+              elevation: 3,
+            }}
+          >
+            <View style={{ backgroundColor: isDark ? '#581c8730' : '#f5f3ff', padding: 12, borderRadius: 12, marginRight: 16 }}>
+              <FontAwesome5 name="crown" size={20} color="#8b5cf6" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Owner Packages</Text>
+              <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4 }}>Manage pricing, validity & lead unlock packages for property owners.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={subTextColor} />
+          </TouchableOpacity>
+
+          {/* 4. Owner Subscriptions */}
+          <TouchableOpacity
+            onPress={() => router.push('/superadmin/owner-subscriptions')}
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: borderCol,
+              padding: 20,
+              flexDirection: 'row',
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 3,
+              elevation: 3,
+            }}
+          >
+            <View style={{ backgroundColor: isDark ? '#0284c730' : '#e0f2fe', padding: 12, borderRadius: 12, marginRight: 16 }}>
+              <Ionicons name="id-card-outline" size={24} color="#0284c7" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Owner Subscriptions</Text>
+              <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4 }}>Track active owner subscriptions, search by mobile, toggle status, and assign access.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={subTextColor} />
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>

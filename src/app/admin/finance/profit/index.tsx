@@ -27,7 +27,6 @@ import {
     TrendingUp,
     FileSpreadsheet,
     FileText,
-    DollarSign,
     ArrowUpRight,
     ArrowDownLeft,
     PieChart,

@@ -32,7 +32,6 @@ import {
     FileText,
     MessageSquare,
     MoreVertical,
-    DollarSign,
     Coins,
 } from 'lucide-react-native';
 import { useTheme } from '../../../../contexts/ThemeContext';

@@ -17,7 +17,7 @@ import {
   Settings,
   Building,
   Save,
-  DollarSign,
+  IndianRupee,
   FileText,
   MapPin,
   Phone,
@@ -383,7 +383,7 @@ export default function SystemSettingsScreen() {
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <DollarSign size={18} color="#10b981" />
+                  <IndianRupee size={18} color="#10b981" />
                   <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
                     Financial & Payment Defaults
                   </Text>

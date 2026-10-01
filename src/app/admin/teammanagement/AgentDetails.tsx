@@ -31,7 +31,7 @@ import {
   XCircle,
   AlertCircle,
   Calendar,
-  DollarSign,
+  IndianRupee,
   Briefcase,
   UserCheck,
   Download,
@@ -502,7 +502,7 @@ export default function AgentDetailsScreen() {
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ padding: 8, borderRadius: 10, backgroundColor: bgColor }}>
-              <DollarSign size={16} color="#10b981" />
+              <IndianRupee size={16} color="#10b981" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 10, color: subTextColor }}>Base Salary</Text>

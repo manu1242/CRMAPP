@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   Users,
   Award,
@@ -281,7 +281,7 @@ export default function AgentPayout() {
             ]}
           >
             <View style={[styles.statIconBadge, { backgroundColor: '#10b98115' }]}>
-              <DollarSign size={16} color="#10b981" />
+              <IndianRupee size={16} color="#10b981" />
             </View>
             <Text style={[styles.statValue, { color: '#10b981' }]}>
               ₹{(summary?.totalPayouts || 0).toLocaleString()}
@@ -545,7 +545,7 @@ export default function AgentPayout() {
           </View>
         ) : (
           <View style={styles.emptyContainer}>
-            <DollarSign size={36} color={adminTheme.textMuted} />
+            <IndianRupee size={36} color={adminTheme.textMuted} />
             <Text style={[styles.emptyTitle, { color: adminTheme.textPrimary }]}>
               No Agent Payouts Found
             </Text>

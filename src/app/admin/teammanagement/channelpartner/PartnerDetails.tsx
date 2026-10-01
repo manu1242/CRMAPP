@@ -37,7 +37,6 @@ import {
   XCircle,
   AlertCircle,
   Calendar,
-  DollarSign,
   Briefcase,
   UserCheck,
   Download,

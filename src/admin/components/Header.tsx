@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Menu, Moon, Sun, Bell, Coins } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -7,6 +7,8 @@ import { getAdminTheme } from '../../theme/adminTheme';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../auth/store/authStore';
 import { NotificationService } from '../../Services/NotificationService';
+import { useBrandingQuery } from '../hooks/useBranding';
+import { BrandingService } from '../services/BrandingService';
 import ReferralWalletSidebar from '../../app/components/ReferralWalletSidebar';
 import UserMenuModal from '../../app/components/UserMenuModal';
 
@@ -81,9 +83,13 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
     [adminTheme.brand]
   );
 
+  const { data: branding } = useBrandingQuery();
+  const logoUrl = BrandingService.resolveLogoUri(branding?.companyLogo || branding?.logoPath);
+  const brandName = branding?.companyName || 'Admin Panel';
+
   return (
     <View style={containerStyle}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         {onMenuPress && (
           <TouchableOpacity onPress={onMenuPress} style={{ padding: 4 }}>
             <Menu size={24} color={adminTheme.textPrimary} />
@@ -158,15 +164,23 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
           onClose={handleCloseRewards}
         />
 
-        {/* User Avatar Button */}
+        {/* User Avatar Button / Branding Image */}
         <TouchableOpacity
           onPress={() => setIsUserMenuOpen(true)}
-          style={avatarStyle}
+          style={[avatarStyle, { overflow: 'hidden' }]}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel="User profile and logout menu"
         >
-          <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>{usernameInitial}</Text>
+          {logoUrl ? (
+            <Image
+              source={{ uri: logoUrl }}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>{usernameInitial}</Text>
+          )}
         </TouchableOpacity>
 
         {/* User Menu Modal with Logout */}

@@ -3,6 +3,7 @@ export interface PropertyItem {
   propertyName: string;
   builderId: number;
   builderName: string;
+  developer?: string;
   location: string;
   areaSqft?: number | null;
   price?: number | null;
@@ -16,6 +17,15 @@ export interface PropertyItem {
   assignedToName?: string | null;
   createdOn?: string;
   hasImage?: boolean;
+  imageUrl?: string | null;
+  image?: string | null;
+  propertyImage?: string | null;
+  directImageUrl?: string | null;
+  imageEndpoint?: string | null;
+  thumbnailUrl?: string | null;
+  totalFlats?: number;
+  availableFlats?: number;
+  isActive?: boolean;
 }
 
 export interface BuilderItem {
@@ -31,7 +41,10 @@ export interface ExecutiveItem {
 export interface PropertyDetails {
   propertyId: number;
   propertyName: string;
+  builderId?: number;
   builderName: string;
+  builderPhone?: string;
+  builderEmail?: string;
   location: string;
   areaSqft: number | null;
   price: number | null;
@@ -42,7 +55,18 @@ export interface PropertyDetails {
   propertyGroup?: string | null;
   inventory?: string | null;
   assignedTo: number | null;
-  propertyImage?: number[] | null; // Byte array
+  assignedToName?: string | null;
+  hasImage?: boolean;
+  imageUrl?: string | null;
+  image?: string | null;
+  propertyImage?: string | number[] | null;
+  directImageUrl?: string | null;
+  imageEndpoint?: string | null;
+  thumbnailUrl?: string | null;
+  createdOn?: string;
+  flats?: FlatItem[];
+  images?: PropertyImageItem[];
+  documents?: any[];
 }
 
 export interface FlatItem {
@@ -70,6 +94,9 @@ export interface PropertyImageItem {
   fileType: string;
   uploadedOn: string;
   uploadedBy?: string | null;
+  imageUrl?: string | null;
+  image?: string | null;
+  url?: string | null;
 }
 
 export interface PropertyListResponse {

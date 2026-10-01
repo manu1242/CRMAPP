@@ -337,8 +337,7 @@ export default function SubscriptionsContent() {
   const [assignCycleDropdownOpen, setAssignCycleDropdownOpen] = useState(false);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }} edges={['bottom', 'left', 'right']}>
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <View style={{ flex: 1, backgroundColor: bgColor,marginBottom:50 }}>
         {/* Title Section */}
         <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ backgroundColor: '#1e73be', padding: 10, borderRadius: 12 }}>
@@ -800,6 +799,5 @@ export default function SubscriptionsContent() {
           onCancel={() => setDatePickerOpen(null)}
         />
       </View>
-    </SafeAreaView>
   );
 }

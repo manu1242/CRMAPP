@@ -19,7 +19,7 @@ import {
   X,
   Building,
   User,
-  DollarSign
+  IndianRupee
 } from 'lucide-react-native';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
@@ -233,7 +233,7 @@ export default function QuotationsPage() {
                     </View>
 
                     <View style={styles.gridRow}>
-                      <DollarSign size={14} color={theme.textMuted} />
+                      <IndianRupee size={14} color={theme.textMuted} />
                       <Text style={[styles.gridText, { color: theme.textPrimary, fontWeight: '600' }]}>
                         <Text style={{ color: theme.textSecondary, fontWeight: '400' }}>Grand Total: </Text>
                         {formatCurrency(q.grandTotal)}

@@ -18,7 +18,6 @@ import {
     Clock,
     AlertCircle,
     MessageSquare,
-    DollarSign,
     User,
     Settings,
     Calendar,

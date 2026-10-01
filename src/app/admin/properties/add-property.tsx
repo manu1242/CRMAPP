@@ -15,7 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Building,
   MapPin,
-  DollarSign,
+  IndianRupee,
   Maximize2,
   User,
   Home,
@@ -129,7 +129,10 @@ export default function AddPropertyScreen() {
       });
 
       // Load image preview if available
-      if (p.propertyImage && p.propertyImage.length > 0) {
+      const preview = PropertyService.getPropertyImageUri(p);
+      if (preview) {
+        setImagePreviewUrl(preview);
+      } else if (p.propertyImage && Array.isArray(p.propertyImage) && p.propertyImage.length > 0) {
         try {
           const byteArray = p.propertyImage;
           let binary = '';
@@ -325,7 +328,7 @@ export default function AddPropertyScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[styles.label, { color: subTextColor }]}>Price (₹)</Text>
               <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: borderCol }]}>
-                <DollarSign size={16} color={subTextColor} />
+                <IndianRupee size={16} color={subTextColor} />
                 <TextInput
                   style={[styles.textInput, { color: textColor }]}
                   value={form.price}

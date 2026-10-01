@@ -85,26 +85,38 @@ export const authApi = {
     return apiClient.get<ProfileResponse>(API_ENDPOINTS.AUTH.PROFILE);
   },
 
-  forgotPassword: async (email: string): Promise<void> => {
-    const formData = new FormData();
-    formData.append('Email', email);
-    return apiClient.post<void>(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, formData);
+  forgotPassword: async (email: string): Promise<any> => {
+    return apiClient.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, { email });
   },
 
-  resetPassword: async (token: string, password: string): Promise<void> => {
-    const formData = new FormData();
-    formData.append('token', token);
-    formData.append('newPassword', password);
-    formData.append('confirmPassword', password);
-    return apiClient.post<void>(API_ENDPOINTS.AUTH.RESET_PASSWORD_WITH_TOKEN, formData);
+  verifyResetToken: async (email: string, token: string): Promise<any> => {
+    return apiClient.post(API_ENDPOINTS.AUTH.VERIFY_RESET_TOKEN, { email, token });
   },
 
-  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-    const formData = new FormData();
-    formData.append('oldPassword', currentPassword);
-    formData.append('NewPassword', newPassword);
-    formData.append('ConfirmPassword', newPassword);
-    return apiClient.post<void>(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, formData);
+  resetPassword: async (
+    email: string,
+    token: string,
+    newPassword: string,
+    confirmPassword?: string
+  ): Promise<any> => {
+    return apiClient.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, {
+      email,
+      token,
+      newPassword,
+      confirmPassword: confirmPassword || newPassword,
+    });
+  },
+
+  changePassword: async (
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword?: string
+  ): Promise<any> => {
+    return apiClient.post(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, {
+      currentPassword,
+      newPassword,
+      confirmPassword: confirmPassword || newPassword,
+    });
   },
 };
 

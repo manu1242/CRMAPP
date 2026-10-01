@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   Building2,
   Award,
@@ -314,7 +314,7 @@ export default function PartnerPayout() {
             ]}
           >
             <View style={[styles.statIconBadge, { backgroundColor: '#10b98115' }]}>
-              <DollarSign size={16} color="#10b981" />
+              <IndianRupee size={16} color="#10b981" />
             </View>
             <Text style={[styles.statValue, { color: '#10b981' }]}>
               ₹{(summary?.totalPayouts || 0).toLocaleString()}

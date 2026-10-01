@@ -66,10 +66,10 @@ export default function ChangePasswordScreen() {
     setError(null);
     setSuccess(false);
     try {
-      await AuthService.changePassword(currentPassword, newPassword);
+      await AuthService.changePassword(currentPassword, newPassword, confirmPassword);
       setSuccess(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to change password');
+      setError(err.response?.data?.message || err.message || 'Failed to change password');
     } finally {
       setIsLoading(false);
     }
