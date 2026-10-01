@@ -13,7 +13,9 @@
       "bundleIdentifier": "com.ultrakey.crm",
       "icon": "./assets/images/ios/iTunesArtwork@2x.png",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
       }
     },
     "android": {
@@ -73,7 +75,8 @@
           "color": "#10b981",
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

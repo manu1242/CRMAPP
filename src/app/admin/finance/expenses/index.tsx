@@ -40,6 +40,7 @@ import {
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
 import Toast from 'react-native-toast-message';
+import { exportToExcel, exportToCSV } from '../../../../Services/exportService';
 import {
     useExpenses,
     useRecordExpense,
@@ -199,6 +200,45 @@ export default function ExpensesScreen() {
             setFromDate(`${fYear}-${fMonth}-01`);
             setToDate(`${tYear}-${tMonth}-${tDay}`);
         }
+    };
+
+    const handleExportCSV = async () => {
+        if (expenseItems.length === 0) {
+            Toast.show({ type: 'info', text1: 'No Data', text2: 'No expenses to export.' });
+            return;
+        }
+        await exportToCSV({
+            data: expenseItems,
+            fileName: `Expenses_Report_${new Date().toISOString().split('T')[0]}`,
+            columns: [
+                { header: 'Expense ID', key: 'expenseId' },
+                { header: 'Category', key: 'type' },
+                { header: 'Description', key: 'description' },
+                { header: 'Amount (INR)', key: 'amount', formatter: (val) => val ?? 0 },
+                { header: 'Date', key: 'date', formatter: (val) => (val ? String(val).split('T')[0] : 'N/A') },
+                { header: 'Channel Partner ID', key: 'channelPartnerId', formatter: (val) => val || 'N/A' },
+            ],
+        });
+    };
+
+    const handleExportExcel = async () => {
+        if (expenseItems.length === 0) {
+            Toast.show({ type: 'info', text1: 'No Data', text2: 'No expenses to export.' });
+            return;
+        }
+        await exportToExcel({
+            data: expenseItems,
+            fileName: `Expenses_Report_${new Date().toISOString().split('T')[0]}`,
+            sheetName: 'Expenses',
+            columns: [
+                { header: 'Expense ID', key: 'expenseId' },
+                { header: 'Category', key: 'type' },
+                { header: 'Description', key: 'description' },
+                { header: 'Amount (INR)', key: 'amount', formatter: (val) => val ?? 0 },
+                { header: 'Date', key: 'date', formatter: (val) => (val ? String(val).split('T')[0] : 'N/A') },
+                { header: 'Channel Partner ID', key: 'channelPartnerId', formatter: (val) => val || 'N/A' },
+            ],
+        });
     };
 
     const handleRecordExpense = () => {
@@ -500,16 +540,22 @@ export default function ExpensesScreen() {
                         </View>
                     )}
 
-                    {/* Export Excel Row */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'flex-start' }}>
+                    {/* Export Row */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-start', gap: 8 }}>
                         <TouchableOpacity
-                            onPress={() => {
-                                Toast.show({ type: 'success', text1: 'Excel Export', text2: 'Expenses sheet exported to Excel successfully!' });
-                            }}
+                            onPress={handleExportExcel}
                             style={[styles.exportExcelBtn, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
                         >
-                            <FileSpreadsheet size={16} color="#2563eb" />
-                            <Text style={[styles.exportExcelText, { color: '#2563eb' }]}>Export Excel</Text>
+                            <FileSpreadsheet size={15} color="#16a34a" />
+                            <Text style={[styles.exportExcelText, { color: '#16a34a' }]}>Export Excel</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={handleExportCSV}
+                            style={[styles.exportExcelBtn, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
+                        >
+                            <FileText size={15} color="#2563eb" />
+                            <Text style={[styles.exportExcelText, { color: '#2563eb' }]}>Export CSV</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

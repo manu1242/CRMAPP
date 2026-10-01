@@ -45,6 +45,7 @@ import {
 import { RevenueItem } from '../../../../admin/models/RevenueTypes';
 import { BlurView } from 'expo-blur';
 import Toast from 'react-native-toast-message';
+import { exportToExcel, exportToCSV } from '../../../../Services/exportService';
 
 const REVENUE_TYPES = [
     { value: 'Sale', label: 'Sale price of property/unit', color: '#b45309', bgColor: '#fef3c7' }, // Gold/Amber
@@ -257,6 +258,45 @@ export default function RevenueScreen() {
             setFromDate('');
             setToDate('');
         }
+    };
+
+    const handleExportCSV = async () => {
+        if (filteredRevenues.length === 0) {
+            Toast.show({ type: 'info', text1: 'No Data', text2: 'No revenue records to export.' });
+            return;
+        }
+        await exportToCSV({
+            data: filteredRevenues,
+            fileName: `Revenue_Report_${new Date().toISOString().split('T')[0]}`,
+            columns: [
+                { header: 'Revenue ID', key: 'revenueId' },
+                { header: 'Type / Source', key: 'type' },
+                { header: 'Description', key: 'description' },
+                { header: 'Amount (INR)', key: 'amount', formatter: (val) => val ?? 0 },
+                { header: 'Date', key: 'date', formatter: (val) => (val ? String(val).split('T')[0] : 'N/A') },
+                { header: 'System Entry', key: 'isSystem', formatter: (val) => (val ? 'Yes' : 'No') },
+            ],
+        });
+    };
+
+    const handleExportExcel = async () => {
+        if (filteredRevenues.length === 0) {
+            Toast.show({ type: 'info', text1: 'No Data', text2: 'No revenue records to export.' });
+            return;
+        }
+        await exportToExcel({
+            data: filteredRevenues,
+            fileName: `Revenue_Report_${new Date().toISOString().split('T')[0]}`,
+            sheetName: 'Revenue',
+            columns: [
+                { header: 'Revenue ID', key: 'revenueId' },
+                { header: 'Type / Source', key: 'type' },
+                { header: 'Description', key: 'description' },
+                { header: 'Amount (INR)', key: 'amount', formatter: (val) => val ?? 0 },
+                { header: 'Date', key: 'date', formatter: (val) => (val ? String(val).split('T')[0] : 'N/A') },
+                { header: 'System Entry', key: 'isSystem', formatter: (val) => (val ? 'Yes' : 'No') },
+            ],
+        });
     };
 
     const handleRecordRevenue = () => {
@@ -544,16 +584,22 @@ export default function RevenueScreen() {
                         </View>
                     )}
 
-                    {/* Export Excel Row */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'flex-start', marginTop: 4 }}>
+                    {/* Export Row */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-start', gap: 8, marginTop: 4 }}>
                         <TouchableOpacity
-                            onPress={() => {
-                                Toast.show({ type: 'success', text1: 'Excel Export', text2: 'Revenue analytics report exported to Excel successfully!' });
-                            }}
+                            onPress={handleExportExcel}
                             style={[styles.exportExcelBtn, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
                         >
-                            <FileSpreadsheet size={16} color="#16a34a" />
+                            <FileSpreadsheet size={15} color="#16a34a" />
                             <Text style={[styles.exportExcelText, { color: '#16a34a' }]}>Export Excel</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={handleExportCSV}
+                            style={[styles.exportExcelBtn, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
+                        >
+                            <FileText size={15} color="#2563eb" />
+                            <Text style={[styles.exportExcelText, { color: '#2563eb' }]}>Export CSV</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

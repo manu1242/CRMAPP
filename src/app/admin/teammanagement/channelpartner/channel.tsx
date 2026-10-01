@@ -16,7 +16,7 @@ import { getAdminTheme } from '../../../../theme/adminTheme';
 import { useChannelPartners } from '../../../../admin/hooks/useChannelPartners';
 import { ChannelPartner } from '../../../../admin/models/ChannelPartnerTypes';
 import Toast from 'react-native-toast-message';
-import XLSX from 'xlsx';
+import { exportToExcel, exportToCSV } from '../../../../Services/exportService';
 import {
   Search,
   Plus,
@@ -93,80 +93,51 @@ export default function ChannelPartnerListScreen() {
     }, [refetch])
   );
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (partners.length === 0) {
       Toast.show({ type: 'info', text1: 'No data', text2: 'No records to export.' });
       return;
     }
-    let csv = 'Partner ID,Company Name,Contact Person,Email,Phone,Address,Plan,Commission,Status,Created Date\n';
-    partners.forEach((p) => {
-      const escapeCSV = (val: any) => {
-        if (val === null || val === undefined) return '';
-        let formatted = String(val).replace(/"/g, '""');
-        if (formatted.includes(',') || formatted.includes('"') || formatted.includes('\n')) {
-          formatted = `"${formatted}"`;
-        }
-        return formatted;
-      };
-
-      csv += [
-        p.partnerId,
-        escapeCSV(p.companyName),
-        escapeCSV(p.contactPerson),
-        escapeCSV(p.email),
-        escapeCSV(p.phone),
-        escapeCSV(p.address),
-        escapeCSV(p.subscriptionPlan || 'N/A'),
-        `${p.commissionPercentage}%`,
-        escapeCSV(p.status),
-        p.createdOn ? p.createdOn.split('T')[0] : 'N/A',
-      ].join(',') + '\n';
+    await exportToCSV({
+      data: partners,
+      fileName: `Partners_Export_${new Date().toISOString().split('T')[0]}`,
+      columns: [
+        { header: 'Partner ID', key: 'partnerId' },
+        { header: 'Company Name', key: 'companyName' },
+        { header: 'Contact Person', key: 'contactPerson' },
+        { header: 'Email', key: 'email' },
+        { header: 'Phone', key: 'phone' },
+        { header: 'Address', key: 'address', formatter: (val) => val || 'N/A' },
+        { header: 'Plan', key: 'subscriptionPlan', formatter: (val) => val || 'N/A' },
+        { header: 'Commission', key: 'commissionPercentage', formatter: (val) => `${val}%` },
+        { header: 'Status', key: 'status' },
+        { header: 'Created Date', key: 'createdOn', formatter: (val) => (val ? val.split('T')[0] : 'N/A') },
+      ],
     });
-
-    if (Platform.OS === 'web') {
-      const a = Object.assign(document.createElement('a'), {
-        href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
-        download: `Partners_Export_${new Date().toISOString().split('T')[0]}.csv`,
-      });
-      a.click();
-      Toast.show({ type: 'success', text1: 'Export Success', text2: 'CSV downloaded' });
-    } else {
-      alert('CSV Export Generated!\nDownload is supported in web mode.');
-    }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (partners.length === 0) {
       Toast.show({ type: 'info', text1: 'No data', text2: 'No records to export.' });
       return;
     }
-    const headers = ['Partner ID', 'Company Name', 'Contact Person', 'Email', 'Phone', 'Address', 'Plan', 'Commission', 'Status', 'Created Date'];
-    const rows = [
-      headers,
-      ...partners.map((p) => [
-        p.partnerId,
-        p.companyName,
-        p.contactPerson,
-        p.email,
-        p.phone,
-        p.address || 'N/A',
-        p.subscriptionPlan || 'N/A',
-        `${p.commissionPercentage}%`,
-        p.status,
-        p.createdOn ? p.createdOn.split('T')[0] : 'N/A',
-      ]),
-    ];
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'ChannelPartners');
-
-    if (Platform.OS === 'web') {
-      XLSX.writeFile(wb, `Partners_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
-      Toast.show({ type: 'success', text1: 'Export Success', text2: 'Excel downloaded' });
-    } else {
-      alert('Excel Export Generated!\nDownload is supported in web mode.');
-    }
+    await exportToExcel({
+      data: partners,
+      fileName: `Partners_Export_${new Date().toISOString().split('T')[0]}`,
+      sheetName: 'ChannelPartners',
+      columns: [
+        { header: 'Partner ID', key: 'partnerId' },
+        { header: 'Company Name', key: 'companyName' },
+        { header: 'Contact Person', key: 'contactPerson' },
+        { header: 'Email', key: 'email' },
+        { header: 'Phone', key: 'phone' },
+        { header: 'Address', key: 'address', formatter: (val) => val || 'N/A' },
+        { header: 'Plan', key: 'subscriptionPlan', formatter: (val) => val || 'N/A' },
+        { header: 'Commission', key: 'commissionPercentage', formatter: (val) => `${val}%` },
+        { header: 'Status', key: 'status' },
+        { header: 'Created Date', key: 'createdOn', formatter: (val) => (val ? val.split('T')[0] : 'N/A') },
+      ],
+    });
   };
 
   const getStatusConfig = (statusStr: string) => {

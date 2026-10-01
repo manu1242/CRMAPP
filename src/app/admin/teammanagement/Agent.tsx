@@ -15,8 +15,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
 import { Agent as AgentType } from '../../../admin/models/AgentTypes';
-import Toast from 'react-native-toast-message';
-import XLSX from 'xlsx';
+import { exportToExcel, exportToCSV } from '../../../Services/exportService';
 import {
   Search,
   Plus,
@@ -39,6 +38,7 @@ import {
 } from 'lucide-react-native';
 
 import { useAgents, useDeleteAgent } from '../../../admin/hooks/useAgents';
+import Toast from 'react-native-toast-message';
 
 export default function AgentListScreen() {
   const router = useRouter();
@@ -133,80 +133,43 @@ export default function AgentListScreen() {
     );
   };
 
-  const handleExportCSV = () => {
-    if (agents.length === 0) {
-      Toast.show({ type: 'info', text1: 'No data', text2: 'No agents to export.' });
-      return;
-    }
-    let csv = 'Agent ID,Full Name,Email,Phone,Address,Type,Salary,Commission Rules,Status,Created Date\n';
-    agents.forEach((a) => {
-      const escapeCSV = (val: any) => {
-        if (val === null || val === undefined) return '';
-        let formatted = String(val).replace(/"/g, '""');
-        if (formatted.includes(',') || formatted.includes('"') || formatted.includes('\n')) {
-          formatted = `"${formatted}"`;
-        }
-        return formatted;
-      };
-
-      csv += [
-        a.agentId,
-        escapeCSV(a.fullName),
-        escapeCSV(a.email),
-        escapeCSV(a.phone),
-        escapeCSV(a.address),
-        escapeCSV(a.agentType),
-        a.salary || 0,
-        escapeCSV(a.commissionRules),
-        escapeCSV(a.status),
-        a.createdOn ? a.createdOn.split('T')[0] : 'N/A',
-      ].join(',') + '\n';
+  const handleExportCSV = async () => {
+    await exportToCSV({
+      data: agents,
+      fileName: `Agents_Export_${new Date().toISOString().split('T')[0]}`,
+      columns: [
+        { header: 'Agent ID', key: 'agentId' },
+        { header: 'Full Name', key: 'fullName' },
+        { header: 'Email', key: 'email' },
+        { header: 'Phone', key: 'phone' },
+        { header: 'Address', key: 'address', formatter: (val) => val || 'N/A' },
+        { header: 'Type', key: 'agentType' },
+        { header: 'Salary', key: 'salary', formatter: (val) => val || 0 },
+        { header: 'Commission Rules', key: 'commissionRules', formatter: (val) => val || 'N/A' },
+        { header: 'Status', key: 'status' },
+        { header: 'Created Date', key: 'createdOn', formatter: (val) => val ? val.split('T')[0] : 'N/A' },
+      ],
     });
-
-    if (Platform.OS === 'web') {
-      const a = Object.assign(document.createElement('a'), {
-        href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
-        download: `Agents_Export_${new Date().toISOString().split('T')[0]}.csv`,
-      });
-      a.click();
-      Toast.show({ type: 'success', text1: 'Export Success', text2: 'CSV downloaded' });
-    } else {
-      alert('CSV Export Generated!\nDownload is supported in web mode.');
-    }
   };
 
-  const handleExportExcel = () => {
-    if (agents.length === 0) {
-      Toast.show({ type: 'info', text1: 'No data', text2: 'No agents to export.' });
-      return;
-    }
-    const headers = ['Agent ID', 'Full Name', 'Email', 'Phone', 'Address', 'Type', 'Salary', 'Commission Rules', 'Status', 'Created Date'];
-    const rows = [
-      headers,
-      ...agents.map((a) => [
-        a.agentId,
-        a.fullName,
-        a.email,
-        a.phone,
-        a.address || 'N/A',
-        a.agentType,
-        a.salary || 0,
-        a.commissionRules,
-        a.status,
-        a.createdOn ? a.createdOn.split('T')[0] : 'N/A',
-      ]),
-    ];
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'Agents');
-
-    if (Platform.OS === 'web') {
-      XLSX.writeFile(wb, `Agents_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
-      Toast.show({ type: 'success', text1: 'Export Success', text2: 'Excel downloaded' });
-    } else {
-      alert('Excel Export Generated!\nDownload is supported in web mode.');
-    }
+  const handleExportExcel = async () => {
+    await exportToExcel({
+      data: agents,
+      fileName: `Agents_Export_${new Date().toISOString().split('T')[0]}`,
+      sheetName: 'Agents',
+      columns: [
+        { header: 'Agent ID', key: 'agentId' },
+        { header: 'Full Name', key: 'fullName' },
+        { header: 'Email', key: 'email' },
+        { header: 'Phone', key: 'phone' },
+        { header: 'Address', key: 'address', formatter: (val) => val || 'N/A' },
+        { header: 'Type', key: 'agentType' },
+        { header: 'Salary', key: 'salary', formatter: (val) => val || 0 },
+        { header: 'Commission Rules', key: 'commissionRules', formatter: (val) => val || 'N/A' },
+        { header: 'Status', key: 'status' },
+        { header: 'Created Date', key: 'createdOn', formatter: (val) => val ? val.split('T')[0] : 'N/A' },
+      ],
+    });
   };
 
   const getStatusConfig = (statusStr: string) => {

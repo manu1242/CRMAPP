@@ -36,7 +36,7 @@ import {
   X,
 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
-import * as XLSX from 'xlsx';
+import { exportToExcel, exportToCSV } from '../../../Services/exportService';
 
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
@@ -79,7 +79,9 @@ export default function PropertiesScreen() {
       const res = await PropertyService.getPropertiesList();
       if (!res.success) throw new Error(res.message || 'Failed to fetch properties list');
       return res.properties || [];
-    }
+    },
+    staleTime: 15 * 60 * 1000, // 15 minutes cache freshness
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours persistence
   });
 
   const { data: buildersData, refetch: refetchBuilders } = useQuery({
@@ -88,7 +90,9 @@ export default function PropertiesScreen() {
       const res = await PropertyService.getBuilders();
       if (!res.success) throw new Error(res.message || 'Failed to fetch builders');
       return res.builders || [];
-    }
+    },
+    staleTime: 30 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
   });
 
   const { data: executivesData, refetch: refetchExecutives } = useQuery({
@@ -97,7 +101,9 @@ export default function PropertiesScreen() {
       const res = await PropertyService.getExecutives();
       if (!res.success) throw new Error(res.message || 'Failed to fetch executives');
       return res.executives || [];
-    }
+    },
+    staleTime: 30 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
   });
 
   const properties = propertiesData || [];
@@ -132,8 +138,18 @@ export default function PropertiesScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['properties'] }),
+        queryClient.invalidateQueries({ queryKey: ['builders'] }),
+        queryClient.invalidateQueries({ queryKey: ['executives'] }),
+      ]);
+      await fetchData();
+    } catch (err: any) {
+      console.warn('Pull-to-refresh error:', err);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const resetFilters = () => {
@@ -179,68 +195,50 @@ export default function PropertiesScreen() {
   });
 
   // CSV Export
-  const exportToCSV = () => {
+  const handleExportCSV = async () => {
     if (filteredProperties.length === 0) {
       Toast.show({ type: 'info', text1: 'No data', text2: 'No properties to export.' });
       return;
     }
-    let csv = 'Property ID,Property Name,Builder,Location,Area (Sqft),Price,Purchase Type,Assigned To,Created Date\n';
-    filteredProperties.forEach((p) => {
-      const escapeCSV = (val: string) => {
-        if (!val) return '';
-        let f = val.replace(/"/g, '""');
-        if (f.includes(',') || f.includes('"') || f.includes('\n')) f = `"${f}"`;
-        return f;
-      };
-      csv += [
-        p.propertyId,
-        escapeCSV(p.propertyName),
-        escapeCSV(p.builderName),
-        escapeCSV(p.location),
-        p.areaSqft || 'N/A',
-        p.price || 'N/A',
-        p.purchaseType,
-        escapeCSV(p.assignedToName || 'Unassigned'),
-        p.createdOn ? p.createdOn.split('T')[0] : 'N/A',
-      ].join(',') + '\n';
+    await exportToCSV({
+      data: filteredProperties,
+      fileName: `Properties_Export_${new Date().toISOString().split('T')[0]}`,
+      columns: [
+        { header: 'Property ID', key: 'propertyId' },
+        { header: 'Property Name', key: 'propertyName' },
+        { header: 'Builder', key: 'builderName', formatter: (val) => val || 'N/A' },
+        { header: 'Location', key: 'location', formatter: (val) => val || 'N/A' },
+        { header: 'Area (Sqft)', key: 'areaSqft', formatter: (val) => val || 'N/A' },
+        { header: 'Price', key: 'price', formatter: (val) => val || 'N/A' },
+        { header: 'Purchase Type', key: 'purchaseType', formatter: (val) => val || 'N/A' },
+        { header: 'Assigned To', key: 'assignedToName', formatter: (val) => val || 'Unassigned' },
+        { header: 'Created Date', key: 'createdOn', formatter: (val) => (val ? val.split('T')[0] : 'N/A') },
+      ],
     });
-    if (Platform.OS === 'web') {
-      const a = Object.assign(document.createElement('a'), {
-        href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
-        download: `Properties_Export_${new Date().toISOString().split('T')[0]}.csv`,
-      });
-      a.click();
-      Toast.show({ type: 'success', text1: 'Exported', text2: 'CSV downloaded' });
-    } else {
-      Toast.show({ type: 'info', text1: 'Export', text2: 'CSV export available on web.' });
-    }
   };
 
   // Excel Export
-  const exportToExcel = () => {
+  const handleExportExcel = async () => {
     if (filteredProperties.length === 0) {
       Toast.show({ type: 'info', text1: 'No data', text2: 'No properties to export.' });
       return;
     }
-    const headers = ['Property ID', 'Property Name', 'Builder', 'Location', 'Area (Sqft)', 'Price', 'Purchase Type', 'Assigned To', 'Created Date'];
-    const rows = [
-      headers,
-      ...filteredProperties.map((p) => [
-        p.propertyId, p.propertyName, p.builderName, p.location,
-        p.areaSqft || 'N/A', p.price || 'N/A', p.purchaseType,
-        p.assignedToName || 'Unassigned',
-        p.createdOn ? p.createdOn.split('T')[0] : 'N/A',
-      ]),
-    ];
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'Properties');
-    if (Platform.OS === 'web') {
-      XLSX.writeFile(wb, `Properties_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
-      Toast.show({ type: 'success', text1: 'Exported', text2: 'Excel downloaded' });
-    } else {
-      Toast.show({ type: 'info', text1: 'Export', text2: 'Excel export available on web.' });
-    }
+    await exportToExcel({
+      data: filteredProperties,
+      fileName: `Properties_Export_${new Date().toISOString().split('T')[0]}`,
+      sheetName: 'Properties',
+      columns: [
+        { header: 'Property ID', key: 'propertyId' },
+        { header: 'Property Name', key: 'propertyName' },
+        { header: 'Builder', key: 'builderName', formatter: (val) => val || 'N/A' },
+        { header: 'Location', key: 'location', formatter: (val) => val || 'N/A' },
+        { header: 'Area (Sqft)', key: 'areaSqft', formatter: (val) => val || 'N/A' },
+        { header: 'Price', key: 'price', formatter: (val) => val || 'N/A' },
+        { header: 'Purchase Type', key: 'purchaseType', formatter: (val) => val || 'N/A' },
+        { header: 'Assigned To', key: 'assignedToName', formatter: (val) => val || 'Unassigned' },
+        { header: 'Created Date', key: 'createdOn', formatter: (val) => (val ? val.split('T')[0] : 'N/A') },
+      ],
+    });
   };
 
   // Bulk Upload
@@ -279,6 +277,7 @@ export default function PropertiesScreen() {
         const res = await PropertyService.deleteProperty(propertyId);
         if (res.success) {
           Toast.show({ type: 'success', text1: 'Deleted', text2: `${propertyName} deleted.` });
+          queryClient.invalidateQueries({ queryKey: ['properties'] });
           fetchData();
         } else {
           Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Could not delete.' });
@@ -356,7 +355,7 @@ export default function PropertiesScreen() {
               <View style={[styles.inlineDropdown, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <TouchableOpacity
                   style={styles.inlineDropdownItem}
-                  onPress={() => { setExportOpen(false); exportToCSV(); }}
+                  onPress={() => { setExportOpen(false); handleExportCSV(); }}
                 >
                   <Download size={14} color={subTextColor} />
                   <Text style={{ color: textColor, fontSize: 13 }}>Export CSV</Text>
@@ -364,7 +363,7 @@ export default function PropertiesScreen() {
                 <View style={[styles.ddivider, { backgroundColor: borderCol }]} />
                 <TouchableOpacity
                   style={styles.inlineDropdownItem}
-                  onPress={() => { setExportOpen(false); exportToExcel(); }}
+                  onPress={() => { setExportOpen(false); handleExportExcel(); }}
                 >
                   <Download size={14} color={subTextColor} />
                   <Text style={{ color: textColor, fontSize: 13 }}>Export Excel</Text>
