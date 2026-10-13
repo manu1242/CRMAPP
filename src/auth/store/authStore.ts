@@ -82,9 +82,25 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       throw new Error('Unexpected login response');
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || err.message || 'Login failed';
+      const status = err.response?.status;
+      const respData = err.response?.data;
+      const errorMsg = respData?.message || err.message || 'Login failed';
+
+      let toastTitle = 'Login Failed';
+      if (status === 404) {
+        if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('deleted')) {
+          toastTitle = 'Account Deleted';
+        } else {
+          toastTitle = 'Account Not Found';
+        }
+      } else if (status === 403) {
+        toastTitle = 'Account Deactivated';
+      } else if (status === 401) {
+        toastTitle = 'Invalid Credentials';
+      }
+
       set({ error: errorMsg, isLoading: false });
-      Toast.show({ type: 'error', text1: 'Login Failed', text2: errorMsg });
+      Toast.show({ type: 'error', text1: toastTitle, text2: errorMsg });
       return 'error';
     }
   },
@@ -125,9 +141,25 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
       throw new Error('Unexpected response after workspace selection');
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || err.message || 'Login failed';
+      const status = err.response?.status;
+      const respData = err.response?.data;
+      const errorMsg = respData?.message || err.message || 'Login failed';
+
+      let toastTitle = 'Login Failed';
+      if (status === 404) {
+        if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('deleted')) {
+          toastTitle = 'Account Deleted';
+        } else {
+          toastTitle = 'Account Not Found';
+        }
+      } else if (status === 403) {
+        toastTitle = 'Account Deactivated';
+      } else if (status === 401) {
+        toastTitle = 'Invalid Credentials';
+      }
+
       set({ error: errorMsg, isLoading: false });
-      Toast.show({ type: 'error', text1: 'Login Failed', text2: errorMsg });
+      Toast.show({ type: 'error', text1: toastTitle, text2: errorMsg });
       return 'error';
     }
   },

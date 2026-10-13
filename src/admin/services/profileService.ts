@@ -60,6 +60,79 @@ export interface ChangePasswordResponse {
   message: string;
 }
 
+export interface DeleteAccountPayload {
+  password?: string;
+  reason?: string;
+  confirm?: boolean;
+}
+
+export interface DeleteAccountResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    userId: number;
+    username: string;
+    email: string;
+    status: string;
+    accountDeletedAt: string;
+  };
+  errorCode?: number;
+}
+
+export interface AccountDetailsData {
+  requestId: string;
+  requestedAt: string;
+  exportStatus: string;
+  account: {
+    userId: number;
+    username: string;
+    email: string;
+    phone: string;
+    role: string;
+    isActive: boolean;
+    createdDate: string;
+    lastActivity: string;
+    tenantId: number;
+    channelPartnerId: number | null;
+  };
+  profile: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber: string;
+    address: string;
+    city: string;
+    state: string;
+    country: string;
+    postalCode: string;
+    location: string;
+    hasAvatar: boolean;
+    avatarUrl: string;
+  };
+  security: {
+    passwordLastChanged: string;
+    accountDeletedAt: string | null;
+    hasPushNotifications: boolean;
+  };
+  preferences: {
+    notifications: string;
+    connectedApps: string;
+  };
+  activitySummary: {
+    agentId?: number;
+    agentStatus?: string;
+    assignedLeads?: number;
+    [key: string]: any;
+  };
+  privacyNotice: string;
+}
+
+export interface AccountDetailsResponse {
+  success: boolean;
+  message: string;
+  data: AccountDetailsData;
+}
+
 export const profileService = {
   /**
    * 5.1 Get User Profile
@@ -94,6 +167,25 @@ export const profileService = {
   changePassword: async (payload: ChangePasswordPayload): Promise<ChangePasswordResponse> => {
     return await apiClient.post<ChangePasswordResponse>(
       API_ENDPOINTS.PROFILE_API.CHANGE_PASSWORD,
+      payload
+    );
+  },
+
+  /**
+   * 5.5 Request Account Details (GDPR / Data Transparency)
+   */
+  getAccountDetails: async (): Promise<AccountDetailsResponse> => {
+    return await apiClient.get<AccountDetailsResponse>(
+      API_ENDPOINTS.PROFILE_API.ACCOUNT_DETAILS
+    );
+  },
+
+  /**
+   * 5.6 Delete Account (Apple App Store Guideline 5.1.1(v) & Google Play compliance)
+   */
+  deleteAccount: async (payload: DeleteAccountPayload): Promise<DeleteAccountResponse> => {
+    return await apiClient.post<DeleteAccountResponse>(
+      API_ENDPOINTS.PROFILE_API.DELETE_ACCOUNT,
       payload
     );
   },

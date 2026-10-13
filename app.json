@@ -24,7 +24,6 @@
       "icon": "./assets/images/android/ic_launcher-web.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android/mipmap-xxxhdpi/icon_foreground.png",
-        "monochromeImage": "./assets/images/android/mipmap-xxxhdpi/icon_monochrome.png",
         "backgroundColor": "#000000"
       },
       "predictiveBackGestureEnabled": false,

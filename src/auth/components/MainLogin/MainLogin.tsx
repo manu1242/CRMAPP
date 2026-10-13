@@ -64,7 +64,7 @@ const MainLogin = () => {
         }
     }, [isAuthenticated, user, router]);
 
-    const { login, isLoading: isLoginLoading } = useLogin();
+    const { login, isLoading: isLoginLoading, error: loginError } = useLogin();
 
     const handleLogin = async () => {
         if (!loginUsername || !loginPassword) {
@@ -337,6 +337,49 @@ const MainLogin = () => {
                     </Text>
                 </TouchableOpacity>
 
+                {/* Inline Error Alert */}
+                {loginError ? (
+                    <View style={{
+                        backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+                        borderColor: isDark ? 'rgba(239, 68, 68, 0.4)' : '#FECACA',
+                        borderWidth: 1,
+                        borderRadius: 8,
+                        padding: 10,
+                        marginBottom: 16,
+                    }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Ionicons name="alert-circle-outline" size={18} color="#EF4444" style={{ marginRight: 8 }} />
+                            <Text style={{
+                                flex: 1,
+                                fontSize: 13,
+                                color: isDark ? '#FCA5A5' : '#B91C1C',
+                                lineHeight: 18,
+                            }}>
+                                {loginError}
+                            </Text>
+                        </View>
+                        {(loginError.toLowerCase().includes('deleted') || loginError.toLowerCase().includes('deactivated') || loginError.toLowerCase().includes('suspended')) ? (
+                            <TouchableOpacity
+                                onPress={() => router.push({ pathname: '/InquiryForm', params: { tab: 'recovery', identifier: loginUsername } })}
+                                style={{
+                                    marginTop: 8,
+                                    paddingTop: 6,
+                                    borderTopWidth: 1,
+                                    borderTopColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FEE2E2',
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                }}
+                            >
+                                <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#93C5FD' : '#2563EB' }}>
+                                    Request Account Recovery / Details
+                                </Text>
+                                <Ionicons name="arrow-forward" size={14} color={isDark ? '#93C5FD' : '#2563EB'} />
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
+                ) : null}
+
                 {/* Sign In Button */}
                 <TouchableOpacity
                     onPress={handleLogin}
@@ -393,11 +436,11 @@ const MainLogin = () => {
                     marginBottom: 20,
                 }}>
                     <Text style={{ fontSize: 13, color: subtitleColor }}>
-                        Don't have an account?
+                        Need an account or recovery?
                     </Text>
                     <TouchableOpacity onPress={handleInquiryForm}>
                         <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
-                            Request access
+                            Request access / Recovery
                         </Text>
                     </TouchableOpacity>
                 </View>

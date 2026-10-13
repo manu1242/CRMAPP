@@ -27,4 +27,12 @@ export const profileApi = {
     const res = await apiClient.put<ProfileApiResponse>(API_ENDPOINTS.PROFILE.UPDATE, profileData);
     return (res as any)?.data ?? (res as any);
   },
+
+  getAccountDetails: async (): Promise<any> => {
+    return await apiClient.get(API_ENDPOINTS.PROFILE.ACCOUNT_DETAILS);
+  },
+
+  deleteAccount: async (payload: { password?: string; reason?: string; confirm?: boolean }): Promise<any> => {
+    return await apiClient.post(API_ENDPOINTS.PROFILE.DELETE_ACCOUNT, payload);
+  },
 };

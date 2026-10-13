@@ -12,6 +12,8 @@ import {
   LayoutAnimation,
   UIManager,
   StatusBar,
+  Modal,
+  TextInput,
 } from 'react-native';
 
 // Enable LayoutAnimation on Android
@@ -23,6 +25,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Image as ExpoImage } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import Toast from 'react-native-toast-message';
 import { useAuthStore } from '../../auth/store/authStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
@@ -45,9 +48,16 @@ import {
   Palette,
   FileText,
   HelpCircle,
+  Trash2,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Check,
+  X,
+  ShieldAlert,
 } from 'lucide-react-native';
 import { getAdminTheme } from '../../theme/adminTheme';
-import { profileService, UserProfileData } from '../../admin/services/profileService';
+import { profileService, UserProfileData, AccountDetailsData } from '../../admin/services/profileService';
 import { useBrandingQuery } from '../../admin/hooks/useBranding';
 import { BrandingService } from '../../admin/services/BrandingService';
 import AppFooter from '../../auth/components/AppFooter';
@@ -138,6 +148,94 @@ export default function ProfileContent() {
   const handleChangePassword = useCallback(() => {
     router.push('/change-password');
   }, [router]);
+
+  // Request Account Details State & Handlers
+  const [accountDetailsModalVisible, setAccountDetailsModalVisible] = useState(false);
+  const [accountDetailsLoading, setAccountDetailsLoading] = useState(false);
+  const [accountDetailsData, setAccountDetailsData] = useState<AccountDetailsData | null>(null);
+
+  const handleRequestAccountDetails = useCallback(async () => {
+    setAccountDetailsLoading(true);
+    setAccountDetailsModalVisible(true);
+    try {
+      const res = await profileService.getAccountDetails();
+      if (res && res.success && res.data) {
+        setAccountDetailsData(res.data);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Failed to Retrieve Details',
+          text2: res?.message || 'Could not fetch account details at this time.',
+        });
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Error fetching account details';
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: msg,
+      });
+    } finally {
+      setAccountDetailsLoading(false);
+    }
+  }, []);
+
+  // Delete Account State & Handlers
+  const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleOpenDeleteModal = useCallback(() => {
+    setDeletePassword('');
+    setShowDeletePassword(false);
+    setDeleteReason('');
+    setDeleteConfirmed(false);
+    setDeleteError(null);
+    setDeleteAccountModalVisible(true);
+  }, []);
+
+  const handleConfirmDeleteAccount = useCallback(async () => {
+    if (!deleteConfirmed) {
+      setDeleteError('Please check the confirmation box to proceed.');
+      return;
+    }
+    setIsDeletingAccount(true);
+    setDeleteError(null);
+    try {
+      const res = await profileService.deleteAccount({
+        password: deletePassword.trim() || undefined,
+        reason: deleteReason.trim() || undefined,
+        confirm: true,
+      });
+
+      if (res && res.success) {
+        setDeleteAccountModalVisible(false);
+        Toast.show({
+          type: 'success',
+          text1: 'Account Deleted',
+          text2: res.message || 'Your account has been deleted successfully.',
+        });
+        await logout();
+        router.replace('/main-login');
+      } else {
+        setDeleteError(res?.message || 'Failed to delete account.');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to delete account.';
+      setDeleteError(msg);
+      Toast.show({
+        type: 'error',
+        text1: 'Deletion Failed',
+        text2: msg,
+      });
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  }, [deleteConfirmed, deletePassword, deleteReason, logout, router]);
 
   const activeProfile: UserProfileData = profileData || getFallbackProfile();
 
@@ -663,6 +761,43 @@ export default function ProfileContent() {
                     {/* Thin divider between items */}
                     <View style={{ height: 1, backgroundColor: isDark ? borderCol : '#f0f0f0', marginLeft: 52 }} />
 
+                    {/* Request Account Details (GDPR / Data Transparency) */}
+                    <TouchableOpacity
+                      activeOpacity={0.6}
+                      onPress={handleRequestAccountDetails}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 13,
+                        paddingHorizontal: 4,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#ECFDF5',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <FileText size={16} color="#10B981" />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: textColor }}>
+                          Request Account Details
+                        </Text>
+                        <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                          Inspect stored personal & activity records (GDPR)
+                        </Text>
+                      </View>
+                      <ChevronRight size={16} color={subTextColor} />
+                    </TouchableOpacity>
+
+                    {/* Thin divider between items */}
+                    <View style={{ height: 1, backgroundColor: isDark ? borderCol : '#f0f0f0', marginLeft: 52 }} />
+
                     {/* Log Out */}
                     <TouchableOpacity
                       activeOpacity={0.6}
@@ -695,6 +830,43 @@ export default function ProfileContent() {
                         </Text>
                       </View>
                       <ChevronRight size={16} color={isDark ? 'rgba(239, 68, 68, 0.5)' : '#EF4444'} />
+                    </TouchableOpacity>
+
+                    {/* Thin divider between items */}
+                    <View style={{ height: 1, backgroundColor: isDark ? borderCol : '#f0f0f0', marginLeft: 52 }} />
+
+                    {/* Delete Account (Apple App Store & Google Play compliance) */}
+                    <TouchableOpacity
+                      activeOpacity={0.6}
+                      onPress={handleOpenDeleteModal}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 13,
+                        paddingHorizontal: 4,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Trash2 size={16} color="#DC2626" />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#DC2626' }}>
+                          Delete Account
+                        </Text>
+                        <Text style={{ fontSize: 11, color: isDark ? '#FCA5A5' : '#B91C1C', marginTop: 2 }}>
+                          Permanently deactivate profile and delete data
+                        </Text>
+                      </View>
+                      <ChevronRight size={16} color="#DC2626" />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -884,6 +1056,483 @@ export default function ProfileContent() {
           <AppFooter />
         </View>
       </ScrollView>
+
+      {/* ── Delete Account Compliance Modal ── */}
+      <Modal
+        visible={deleteAccountModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isDeletingAccount) setDeleteAccountModalVisible(false);
+        }}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}>
+          <View style={{
+            width: '100%',
+            maxWidth: 420,
+            backgroundColor: cardBg,
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5',
+            overflow: 'hidden',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 10,
+            elevation: 8,
+          }}>
+            {/* Modal Header */}
+            <View style={{
+              backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+              paddingVertical: 16,
+              paddingHorizontal: 18,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderBottomWidth: 1,
+              borderBottomColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2',
+            }}>
+              <View style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#FEE2E2',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginRight: 12,
+              }}>
+                <Trash2 size={20} color="#EF4444" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: isDark ? '#FCA5A5' : '#DC2626' }}>
+                  Delete Account
+                </Text>
+            
+              </View>
+              <TouchableOpacity
+                disabled={isDeletingAccount}
+                onPress={() => setDeleteAccountModalVisible(false)}
+                style={{ padding: 4 }}
+              >
+                <X size={20} color={subTextColor} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Body */}
+            <ScrollView style={{ padding: 18, maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+
+
+              {/* Password Confirmation */}
+              <Text style={{ fontSize: 13, fontWeight: '600', color: textColor, marginBottom: 6 }}>
+                Confirm Password
+              </Text>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: borderCol,
+                borderRadius: 8,
+                backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F9FAFB',
+                paddingHorizontal: 12,
+                height: 44,
+                marginBottom: 14,
+              }}>
+                <TextInput
+                  style={{ flex: 1, fontSize: 14, color: textColor }}
+                  placeholder="Enter your current password"
+                  placeholderTextColor={subTextColor}
+                  secureTextEntry={!showDeletePassword}
+                  value={deletePassword}
+                  onChangeText={(text) => {
+                    setDeletePassword(text);
+                    if (deleteError) setDeleteError(null);
+                  }}
+                  editable={!isDeletingAccount}
+                />
+                <TouchableOpacity onPress={() => setShowDeletePassword(!showDeletePassword)} style={{ padding: 4 }}>
+                  {showDeletePassword ? <EyeOff size={16} color={subTextColor} /> : <Eye size={16} color={subTextColor} />}
+                </TouchableOpacity>
+              </View>
+
+              {/* Reason for deletion */}
+              <Text style={{ fontSize: 13, fontWeight: '600', color: textColor, marginBottom: 6 }}>
+                Reason for deletion <Text style={{ color: subTextColor, fontWeight: '400' }}>(Optional)</Text>
+              </Text>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                  borderRadius: 8,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F9FAFB',
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  fontSize: 14,
+                  color: textColor,
+                  marginBottom: 16,
+                  minHeight: 52,
+                  textAlignVertical: 'top',
+                }}
+                placeholder="e.g. I am no longer using this account"
+                placeholderTextColor={subTextColor}
+                multiline
+                numberOfLines={2}
+                value={deleteReason}
+                onChangeText={setDeleteReason}
+                editable={!isDeletingAccount}
+              />
+
+              {/* Confirmation Checkbox */}
+              <TouchableOpacity
+                onPress={() => {
+                  setDeleteConfirmed(!deleteConfirmed);
+                  if (deleteError) setDeleteError(null);
+                }}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  marginBottom: 16,
+                }}
+              >
+                <View style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 4,
+                  borderWidth: 1.5,
+                  borderColor: deleteConfirmed ? '#EF4444' : borderCol,
+                  backgroundColor: deleteConfirmed ? '#EF4444' : 'transparent',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: 10,
+                  marginTop: 2,
+                }}>
+                  {deleteConfirmed && <Check size={14} color="#FFFFFF" />}
+                </View>
+                <Text style={{ flex: 1, fontSize: 12.5, color: textColor, lineHeight: 18 }}>
+                  I confirm that I want to delete my account and understand that this action cannot be undone.
+                </Text>
+              </TouchableOpacity>
+
+              {/* Error Alert */}
+              {deleteError ? (
+                <View style={{
+                  backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(239, 68, 68, 0.4)' : '#FECACA',
+                  borderRadius: 8,
+                  padding: 10,
+                  marginBottom: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}>
+                  <ShieldAlert size={16} color="#EF4444" style={{ marginRight: 8 }} />
+                  <Text style={{ flex: 1, fontSize: 12, color: isDark ? '#FCA5A5' : '#B91C1C' }}>
+                    {deleteError}
+                  </Text>
+                </View>
+              ) : null}
+            </ScrollView>
+
+            {/* Modal Actions */}
+            <View style={{
+              flexDirection: 'row',
+              padding: 14,
+              borderTopWidth: 1,
+              borderTopColor: borderCol,
+              gap: 10,
+            }}>
+              <TouchableOpacity
+                disabled={isDeletingAccount}
+                onPress={() => setDeleteAccountModalVisible(false)}
+                style={{
+                  flex: 1,
+                  height: 42,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                disabled={!deleteConfirmed || isDeletingAccount}
+                onPress={handleConfirmDeleteAccount}
+                style={{
+                  flex: 1,
+                  height: 42,
+                  borderRadius: 8,
+                  backgroundColor: deleteConfirmed && !isDeletingAccount ? '#EF4444' : (isDark ? '#374151' : '#9CA3AF'),
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  gap: 6,
+                }}
+              >
+                {isDeletingAccount ? (
+                  <>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>Deleting...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={15} color="#FFFFFF" />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>Delete Account</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Request Account Details (GDPR) Modal ── */}
+      <Modal
+        visible={accountDetailsModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAccountDetailsModalVisible(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          justifyContent: 'flex-end',
+        }}>
+          <View style={{
+            width: '100%',
+            maxHeight: '88%',
+            backgroundColor: cardBg,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            overflow: 'hidden',
+          }}>
+            {/* Header */}
+            <View style={{
+              paddingHorizontal: 18,
+              paddingVertical: 14,
+              borderBottomWidth: 1,
+              borderBottomColor: borderCol,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <FileText size={18} color="#10B981" />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>
+                    Account Details Export
+                  </Text>
+                  <Text style={{ fontSize: 11, color: subTextColor }}>
+                    GDPR & Data Transparency
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setAccountDetailsModalVisible(false)}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#F3F4F6',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <X size={16} color={subTextColor} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Content */}
+            {accountDetailsLoading ? (
+              <View style={{ padding: 40, alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator size="large" color="#10B981" />
+                <Text style={{ marginTop: 14, fontSize: 13, color: subTextColor, fontWeight: '500' }}>
+                  Retrieving personal & account records...
+                </Text>
+              </View>
+            ) : accountDetailsData ? (
+              <ScrollView style={{ padding: 18 }} showsVerticalScrollIndicator={false}>
+                {/* Meta Header */}
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F9FAFB',
+                  borderRadius: 10,
+                  padding: 12,
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                  marginBottom: 16,
+                }}>
+                  <View>
+                    <Text style={{ fontSize: 11, color: subTextColor }}>Request ID</Text>
+                    <Text style={{ fontSize: 12.5, fontWeight: '600', color: textColor, marginTop: 2 }}>
+                      {accountDetailsData.requestId || 'REQ-ACTIVE'}
+                    </Text>
+                  </View>
+                  <View style={{
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 6,
+                  }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#10B981' }}>
+                      {accountDetailsData.exportStatus || 'Available'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Section: Account Information */}
+                <Text style={{ fontSize: 12, fontWeight: '700', color: textColor, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Account Identifiers & Role
+                </Text>
+                <View style={{
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F9FAFB',
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                  padding: 12,
+                  marginBottom: 14,
+                }}>
+                  <DataRow label="User ID" value={String(accountDetailsData.account?.userId || activeProfile.userId)} textColor={textColor} subTextColor={subTextColor} />
+                  <DataRow label="Username" value={accountDetailsData.account?.username || activeProfile.username} textColor={textColor} subTextColor={subTextColor} />
+                  <DataRow label="Email" value={accountDetailsData.account?.email || activeProfile.email} textColor={textColor} subTextColor={subTextColor} />
+                  <DataRow label="Phone" value={accountDetailsData.account?.phone || activeProfile.phone || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
+                  <DataRow label="Role" value={accountDetailsData.account?.role || activeProfile.role} textColor={textColor} subTextColor={subTextColor} />
+                  <DataRow label="Status" value={accountDetailsData.account?.isActive ? 'Active' : 'Deactivated'} textColor={accountDetailsData.account?.isActive ? '#10B981' : '#EF4444'} subTextColor={subTextColor} />
+                  {accountDetailsData.account?.createdDate ? (
+                    <DataRow label="Created Date" value={new Date(accountDetailsData.account.createdDate).toLocaleDateString()} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                  {accountDetailsData.account?.lastActivity ? (
+                    <DataRow label="Last Activity" value={new Date(accountDetailsData.account.lastActivity).toLocaleString()} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                </View>
+
+                {/* Section: Profile */}
+                <Text style={{ fontSize: 12, fontWeight: '700', color: textColor, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Personal Profile & Address
+                </Text>
+                <View style={{
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F9FAFB',
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                  padding: 12,
+                  marginBottom: 14,
+                }}>
+                  <DataRow label="Name" value={`${accountDetailsData.profile?.firstName || ''} ${accountDetailsData.profile?.lastName || ''}`.trim() || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
+                  <DataRow label="Address" value={accountDetailsData.profile?.address || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
+                  <DataRow label="City / State" value={`${accountDetailsData.profile?.city || ''}${accountDetailsData.profile?.state ? ', ' + accountDetailsData.profile.state : ''}`.trim() || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
+                  <DataRow label="Postal Code" value={accountDetailsData.profile?.postalCode || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
+                  <DataRow label="Country" value={accountDetailsData.profile?.country || 'India'} textColor={textColor} subTextColor={subTextColor} />
+                </View>
+
+                {/* Section: Security & Activity */}
+                <Text style={{ fontSize: 12, fontWeight: '700', color: textColor, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Security & Activity Summary
+                </Text>
+                <View style={{
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F9FAFB',
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                  padding: 12,
+                  marginBottom: 14,
+                }}>
+                  <DataRow label="Push Notifications" value={accountDetailsData.security?.hasPushNotifications ? 'Enabled' : 'Disabled'} textColor={accountDetailsData.security?.hasPushNotifications ? '#10B981' : subTextColor} subTextColor={subTextColor} />
+                  {accountDetailsData.security?.passwordLastChanged ? (
+                    <DataRow label="Password Last Changed" value={new Date(accountDetailsData.security.passwordLastChanged).toLocaleDateString()} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                  {accountDetailsData.activitySummary?.assignedLeads !== undefined ? (
+                    <DataRow label="Assigned Leads" value={String(accountDetailsData.activitySummary.assignedLeads)} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                  {accountDetailsData.activitySummary?.agentStatus ? (
+                    <DataRow label="Agent Status" value={accountDetailsData.activitySummary.agentStatus} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                </View>
+
+                {/* Privacy Notice */}
+                {accountDetailsData.privacyNotice ? (
+                  <View style={{
+                    backgroundColor: isDark ? 'rgba(56, 189, 248, 0.1)' : '#F0F9FF',
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: isDark ? 'rgba(56, 189, 248, 0.25)' : '#BAE6FD',
+                    padding: 12,
+                    marginBottom: 18,
+                  }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: isDark ? '#38BDF8' : '#0284C7', marginBottom: 4 }}>
+                      Privacy & Data Transparency Notice
+                    </Text>
+                    <Text style={{ fontSize: 11, color: isDark ? '#BAE6FD' : '#0369A1', lineHeight: 16 }}>
+                      {accountDetailsData.privacyNotice}
+                    </Text>
+                  </View>
+                ) : null}
+              </ScrollView>
+            ) : (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <Text style={{ color: subTextColor, fontSize: 13 }}>No records found.</Text>
+              </View>
+            )}
+
+            {/* Modal Footer */}
+            <View style={{
+              padding: 14,
+              borderTopWidth: 1,
+              borderTopColor: borderCol,
+            }}>
+              <TouchableOpacity
+                onPress={() => setAccountDetailsModalVisible(false)}
+                style={{
+                  height: 42,
+                  borderRadius: 8,
+                  backgroundColor: brandColor,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>Close Export</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+function DataRow({
+  label,
+  value,
+  textColor,
+  subTextColor,
+}: {
+  label: string;
+  value: string;
+  textColor: string;
+  subTextColor: string;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 4 }}>
+      <Text style={{ fontSize: 12.5, color: subTextColor, flex: 1 }}>{label}</Text>
+      <Text style={{ fontSize: 12.5, fontWeight: '500', color: textColor, flex: 1.2, textAlign: 'right' }}>{value}</Text>
     </View>
   );
 }

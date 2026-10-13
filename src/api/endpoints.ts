@@ -9,10 +9,16 @@ export const API_ENDPOINTS = {
     VERIFY_RESET_TOKEN: '/api/v1/auth/verify-reset-token',
     RESET_PASSWORD: '/api/v1/auth/reset-password',
     CHANGE_PASSWORD: '/api/v1/auth/change-password',
+    DELETE_ACCOUNT: '/api/v1/auth/delete-account',
+    ACCOUNT_DETAILS: '/api/v1/auth/account-details',
+    REQUEST_ACCOUNT_DETAILS: '/api/v1/auth/request-account-details',
   },
   PROFILE: {
     ME: '/api/v1/profile',
     UPDATE: '/api/v1/profile/Edit',
+    DELETE_ACCOUNT: '/api/v1/profile/delete-account',
+    ACCOUNT_DETAILS: '/api/v1/profile/account-details',
+    REQUEST_ACCOUNT_DETAILS: '/api/v1/profile/request-account-details',
   },
   AUTHORIZATION: {
     ROLES: '/manageusers/roles',
@@ -254,6 +260,9 @@ export const API_ENDPOINTS = {
     EDIT: '/api/v1/profile',
     UPLOAD_AVATAR: '/api/v1/profile/UploadAvatar',
     CHANGE_PASSWORD: '/api/v1/profile/ChangePassword',
+    DELETE_ACCOUNT: '/api/v1/profile/delete-account',
+    ACCOUNT_DETAILS: '/api/v1/profile/account-details',
+    REQUEST_ACCOUNT_DETAILS: '/api/v1/profile/request-account-details',
   },
   SYSTEM_SETTINGS_API: {
     GET: '/api/v1/systemsettings',
