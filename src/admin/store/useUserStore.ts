@@ -26,6 +26,8 @@ interface UserState {
     // Actions
     fetchUsers: (isRefresh?: boolean) => Promise<void>;
     deleteUser: (userId: number | string) => Promise<boolean>;
+    activateUser: (userId: number | string) => Promise<boolean>;
+    suspendUser: (userId: number | string, reason?: string) => Promise<boolean>;
     setSearch: (search: string) => void;
     setSelectedRole: (role: string) => void;
     setSelectedStatus: (status: string) => void;
@@ -105,6 +107,34 @@ export const useUserStore = create<UserState>((set, get) => ({
             return false;
         } catch (err) {
             console.error('Error deleting user in store:', err);
+            return false;
+        }
+    },
+
+    activateUser: async (userId: number | string): Promise<boolean> => {
+        try {
+            const res = await userManagementService.activateUser(userId);
+            if (res && res.success) {
+                await get().fetchUsers();
+                return true;
+            }
+            return false;
+        } catch (err) {
+            console.error('Error activating user in store:', err);
+            return false;
+        }
+    },
+
+    suspendUser: async (userId: number | string, reason?: string): Promise<boolean> => {
+        try {
+            const res = await userManagementService.suspendUser(userId, reason ? { reason } : undefined);
+            if (res && res.success) {
+                await get().fetchUsers();
+                return true;
+            }
+            return false;
+        } catch (err) {
+            console.error('Error suspending user in store:', err);
             return false;
         }
     },

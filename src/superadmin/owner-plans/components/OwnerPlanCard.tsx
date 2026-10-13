@@ -127,7 +127,7 @@ export const OwnerPlanCard: React.FC<OwnerPlanCardProps> = ({
         {/* Leads Unlock */}
         <View style={styles.metricItem}>
           <View style={styles.metricLabelRow}>
-            <Ionicons name="unlock-outline" size={13} color={subTextColor} />
+            <Ionicons name="lock-open-outline" size={13} color={subTextColor} />
             <Text style={[styles.metricLabel, { color: subTextColor }]}>Leads Unlock</Text>
           </View>
           {isUnlimited ? (

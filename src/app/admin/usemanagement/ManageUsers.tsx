@@ -107,6 +107,13 @@ export default function ManageUsers() {
   // Deactivate Confirmation State
   const [deactivateTargetUser, setDeactivateTargetUser] = useState<UserItem | null>(null);
 
+  // Activate / Retrieve Confirmation State
+  const [activateTargetUser, setActivateTargetUser] = useState<UserItem | null>(null);
+
+  // Suspend Confirmation State
+  const [suspendTargetUser, setSuspendTargetUser] = useState<UserItem | null>(null);
+  const [suspendReason, setSuspendReason] = useState<string>('');
+
   // Attendance Modal State
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
@@ -655,13 +662,56 @@ export default function ManageUsers() {
                     }}
                   >
                     {/* Left Actions (Manage Context) */}
-                    <View style={{ flexDirection: 'row', gap: 18 }}>
+                    <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
                       {/* Edit Button */}
                       <TouchableOpacity
                         onPress={() => handleOpenEdit(u)}
                       >
                         <Edit2 size={18} color={adminTheme.brand} />
                       </TouchableOpacity>
+
+                      {/* Activate / Retrieve Button (If Inactive) */}
+                      {!u.isActive ? (
+                        <TouchableOpacity
+                          onPress={() => setActivateTargetUser(u)}
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 6,
+                            backgroundColor: '#10b98115',
+                            borderWidth: 1,
+                            borderColor: '#10b98140',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <UserCheck size={14} color="#10b981" />
+                          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '700' }}>Activate</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        /* Suspend Button (If Active) */
+                        <TouchableOpacity
+                          onPress={() => {
+                            setSuspendReason('');
+                            setSuspendTargetUser(u);
+                          }}
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 6,
+                            backgroundColor: '#f59e0b15',
+                            borderWidth: 1,
+                            borderColor: '#f59e0b40',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <UserX size={14} color="#f59e0b" />
+                          <Text style={{ color: '#f59e0b', fontSize: 11, fontWeight: '700' }}>Suspend</Text>
+                        </TouchableOpacity>
+                      )}
 
                       {/* Delete (Deactivate) Button */}
                       <TouchableOpacity
@@ -1269,6 +1319,233 @@ export default function ManageUsers() {
               }}
             >
               <Text style={{ fontSize: 12, fontWeight: '700', color: '#ffffff' }}>Deactivate</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* ACTIVATE / RETRIEVE CONFIRMATION POPUP */}
+      {activateTargetUser && (
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            left: 20,
+            right: 20,
+            backgroundColor: cardBg,
+            borderRadius: 14,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: '#10b98140',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 10,
+            elevation: 8,
+            gap: 12,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: '#10b98115',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <UserCheck size={18} color="#10b981" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>
+                Activate & Retrieve Account?
+              </Text>
+              <Text style={{ fontSize: 12, color: subTextColor, marginTop: 2 }}>
+                Restore login access for {activateTargetUser.username}? Account will be reactivated in the directory.
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => setActivateTargetUser(null)}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: borderCol,
+                backgroundColor: bgColor,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor }}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={async () => {
+                const target = activateTargetUser;
+                setActivateTargetUser(null);
+                try {
+                  const res = await userManagementService.activateUser(target.userId);
+                  if (res && res.success) {
+                    Toast.show({
+                      type: 'success',
+                      text1: 'Account Activated',
+                      text2: res.message || 'User account activated and retrieved successfully',
+                    });
+                    fetchUsers();
+                  } else {
+                    Toast.show({
+                      type: 'error',
+                      text1: 'Activation Failed',
+                      text2: res.message || 'Failed to activate account',
+                    });
+                  }
+                } catch (err: any) {
+                  console.error('Error activating user:', err);
+                  Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: err.message || 'Server error activating user',
+                  });
+                }
+              }}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: '#10b981',
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#ffffff' }}>Activate User</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* SUSPEND CONFIRMATION POPUP */}
+      {suspendTargetUser && (
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            left: 20,
+            right: 20,
+            backgroundColor: cardBg,
+            borderRadius: 14,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: '#f59e0b40',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 10,
+            elevation: 8,
+            gap: 12,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: '#f59e0b15',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <UserX size={18} color="#f59e0b" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>
+                Suspend User Account?
+              </Text>
+              <Text style={{ fontSize: 12, color: subTextColor, marginTop: 2 }}>
+                Temporarily block login access for {suspendTargetUser.username}.
+              </Text>
+            </View>
+          </View>
+
+          <TextInput
+            placeholder="Reason (e.g. Payment pending or terms violation)"
+            placeholderTextColor={subTextColor}
+            value={suspendReason}
+            onChangeText={setSuspendReason}
+            style={{
+              height: 38,
+              borderWidth: 1,
+              borderColor: borderCol,
+              borderRadius: 8,
+              paddingHorizontal: 10,
+              fontSize: 12,
+              color: textColor,
+              backgroundColor: bgColor,
+            }}
+          />
+
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => {
+                setSuspendTargetUser(null);
+                setSuspendReason('');
+              }}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: borderCol,
+                backgroundColor: bgColor,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor }}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={async () => {
+                const target = suspendTargetUser;
+                const reason = suspendReason;
+                setSuspendTargetUser(null);
+                setSuspendReason('');
+                try {
+                  const res = await userManagementService.suspendUser(
+                    target.userId,
+                    reason.trim() ? { reason: reason.trim() } : undefined
+                  );
+                  if (res && res.success) {
+                    Toast.show({
+                      type: 'success',
+                      text1: 'Account Suspended',
+                      text2: res.message || 'User account suspended successfully',
+                    });
+                    fetchUsers();
+                  } else {
+                    Toast.show({
+                      type: 'error',
+                      text1: 'Suspension Failed',
+                      text2: res.message || 'Failed to suspend account',
+                    });
+                  }
+                } catch (err: any) {
+                  console.error('Error suspending user:', err);
+                  Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: err.message || 'Server error suspending user',
+                  });
+                }
+              }}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: '#f59e0b',
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#ffffff' }}>Suspend User</Text>
             </TouchableOpacity>
           </View>
         </View>

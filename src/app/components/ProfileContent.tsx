@@ -217,7 +217,8 @@ export default function ProfileContent() {
         Toast.show({
           type: 'success',
           text1: 'Account Deleted',
-          text2: res.message || 'Your account has been deleted successfully.',
+          text2: 'Account delete requested. Our team will contact you within 30 min to 1 hr to help you get back your account. Thank you.',
+          visibilityTime: 6000,
         });
         await logout();
         router.replace('/main-login');

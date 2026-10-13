@@ -94,7 +94,11 @@ export const useAuthStore = create<AuthState>((set) => ({
           toastTitle = 'Account Not Found';
         }
       } else if (status === 403) {
-        toastTitle = 'Account Deactivated';
+        if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('suspend')) {
+          toastTitle = 'Account Suspended';
+        } else {
+          toastTitle = 'Account Deactivated';
+        }
       } else if (status === 401) {
         toastTitle = 'Invalid Credentials';
       }
@@ -153,7 +157,11 @@ export const useAuthStore = create<AuthState>((set) => ({
           toastTitle = 'Account Not Found';
         }
       } else if (status === 403) {
-        toastTitle = 'Account Deactivated';
+        if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('suspend')) {
+          toastTitle = 'Account Suspended';
+        } else {
+          toastTitle = 'Account Deactivated';
+        }
       } else if (status === 401) {
         toastTitle = 'Invalid Credentials';
       }

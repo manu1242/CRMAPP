@@ -9,7 +9,7 @@ interface RememberMeProps {
 }
 
 export default function RememberMe({ checked, onChange }: RememberMeProps) {
-  const { theme } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <TouchableOpacity 
@@ -19,11 +19,11 @@ export default function RememberMe({ checked, onChange }: RememberMeProps) {
     >
       <View 
         className="w-5 h-5 border-2 border-accent rounded justify-center items-center mr-2"
-        style={{ backgroundColor: checked ? '#10b981' : theme.inputBg }}
+        style={{ backgroundColor: checked ? '#10b981' : colors.inputBg }}
       >
         {checked && <View className="w-2 h-2 rounded-sm" style={{ backgroundColor: '#ffffff' }} />}
       </View>
-      <Text className="text-sm" style={{ color: theme.textSecondary }}>Remember me</Text>
+      <Text className="text-sm" style={{ color: colors.textSecondary }}>Remember me</Text>
     </TouchableOpacity>
   );
 }

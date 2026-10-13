@@ -5,7 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import NetInfo from '@react-native-community/netinfo';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import Toast from 'react-native-toast-message';
+import Toast, { SuccessToast, ErrorToast, InfoToast } from 'react-native-toast-message';
 import { setupInterceptors } from '../api/interceptors';
 import { useAuthStore } from '../auth/store/authStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -58,6 +58,64 @@ QueryPersister.restoreCache(queryClient);
 queryClient.getQueryCache().subscribe(() => {
   QueryPersister.saveCache(queryClient);
 });
+
+// Custom Toast configuration with multi-line message support
+const toastConfig = {
+  success: (props: any) => (
+    <SuccessToast
+      {...props}
+      style={{
+        borderLeftColor: '#10B981',
+        minHeight: 60,
+        height: 'auto',
+        paddingVertical: 10,
+        width: '92%',
+        maxWidth: 420,
+      }}
+      contentContainerStyle={{ paddingHorizontal: 16 }}
+      text1Style={{ fontSize: 14, fontWeight: '700' }}
+      text2Style={{ fontSize: 12.5, color: '#4B5563', lineHeight: 18 }}
+      text1NumberOfLines={2}
+      text2NumberOfLines={4}
+    />
+  ),
+  error: (props: any) => (
+    <ErrorToast
+      {...props}
+      style={{
+        borderLeftColor: '#EF4444',
+        minHeight: 60,
+        height: 'auto',
+        paddingVertical: 10,
+        width: '92%',
+        maxWidth: 420,
+      }}
+      contentContainerStyle={{ paddingHorizontal: 16 }}
+      text1Style={{ fontSize: 14, fontWeight: '700' }}
+      text2Style={{ fontSize: 12.5, color: '#4B5563', lineHeight: 18 }}
+      text1NumberOfLines={2}
+      text2NumberOfLines={4}
+    />
+  ),
+  info: (props: any) => (
+    <InfoToast
+      {...props}
+      style={{
+        borderLeftColor: '#3B82F6',
+        minHeight: 60,
+        height: 'auto',
+        paddingVertical: 10,
+        width: '92%',
+        maxWidth: 420,
+      }}
+      contentContainerStyle={{ paddingHorizontal: 16 }}
+      text1Style={{ fontSize: 14, fontWeight: '700' }}
+      text2Style={{ fontSize: 12.5, color: '#4B5563', lineHeight: 18 }}
+      text1NumberOfLines={2}
+      text2NumberOfLines={4}
+    />
+  ),
+};
 
 // Auth-aware navigation guard component
 function AuthGuardLayout() {
@@ -390,7 +448,7 @@ function InnerLayout() {
         </View>
 
         <AuthGuardLayout />
-        <Toast />
+        <Toast config={toastConfig} />
       </ExpoThemeProvider>
     );
   }
@@ -571,7 +629,7 @@ function InnerLayout() {
         <BottomMenuSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} blurTargetRef={mainContainerRef} />
       )}
       <AuthGuardLayout />
-      <Toast />
+      <Toast config={toastConfig} />
     </ExpoThemeProvider>
   );
 }

@@ -180,4 +180,43 @@ export const userManagementService = {
       API_ENDPOINTS.USER_MANAGEMENT.BY_ID(userId)
     );
   },
+
+  /**
+   * 3.7 Activate & Retrieve User Account
+   */
+  activateUser: async (userId: number | string): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      userId: number;
+      username: string;
+      email: string;
+      isActive: boolean;
+      status: string;
+      accountDeletedAt: string | null;
+    };
+  }> => {
+    return await apiClient.post(API_ENDPOINTS.USER_MANAGEMENT.ACTIVATE(userId));
+  },
+
+  /**
+   * 3.8 Suspend User Account
+   */
+  suspendUser: async (
+    userId: number | string,
+    payload?: { reason?: string }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      userId: number;
+      username: string;
+      email: string;
+      isActive: boolean;
+      status: string;
+      reason?: string;
+    };
+  }> => {
+    return await apiClient.post(API_ENDPOINTS.USER_MANAGEMENT.SUSPEND(userId), payload);
+  },
 };
