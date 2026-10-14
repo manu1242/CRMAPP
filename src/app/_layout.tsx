@@ -149,6 +149,9 @@ function AuthGuardLayout() {
     if (isLoading) return; // Wait until session check is done
     if (suppressGuardRef.current) return; // Suppress during impersonation-stop transition
 
+    // Universal public screens that should never be redirected away from
+    if (segments[0] === 'privacy' || segments[0] === 'refund-policy' || segments[0] === 'terms') return;
+
     const publicRoutes = ['login', 'main-login', 'register', 'forgot-password', 'reset-password', 'index', '', 'InquiryForm'];
     const inPublicRoute = publicRoutes.includes(segments[0] as string) || segments[0] === undefined;
     const role = user?.role?.trim()?.toLowerCase();
@@ -341,7 +344,7 @@ function InnerLayout() {
     }
   }, [isImpersonating, isLoading, userRole]);
 
-  const isPublicRoute = ['login', 'main-login', 'register', 'forgot-password', 'reset-password', 'index', ''].includes(segments[0] as string) || segments[0] === undefined;
+  const isPublicRoute = ['login', 'main-login', 'register', 'forgot-password', 'reset-password', 'index', '', 'privacy', 'refund-policy', 'terms'].includes(segments[0] as string) || segments[0] === undefined;
 
   let activeTab: 'dashboard' | 'tenants' | 'inquiries' | 'subscriptions' | 'profile' = 'dashboard';
   let adminActiveTab: 'dashboard' | 'users' | 'settings' | 'profile' = 'dashboard';
@@ -392,6 +395,9 @@ function InnerLayout() {
       <Stack.Screen name="change-password" />
       <Stack.Screen name="select-workspace" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="privacy" />
+      <Stack.Screen name="refund-policy" />
+      <Stack.Screen name="terms" />
       <Stack.Screen name="admin/dashboard" />
       <Stack.Screen name="admin/AdminNotification" />
       <Stack.Screen name="admin/PartnerDashboard" />

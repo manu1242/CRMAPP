@@ -27,7 +27,7 @@ interface AuthState {
   setError: (error: string | null) => void;
   login: (credentials: LoginRequest) => Promise<'success' | 'pick_workspace' | 'error'>;
   loginWithWorkspace: (tenantId: number) => Promise<'success' | 'error'>;
-  logout: () => Promise<void>;
+  logout: (skipToast?: boolean) => Promise<void>;
   handleSessionExpired: () => void;
   initializeSession: () => Promise<void>;
   impersonate: (token: string, targetUser: any) => Promise<void>;
@@ -87,24 +87,24 @@ export const useAuthStore = create<AuthState>((set) => ({
       const errorMsg = respData?.message || err.message || 'Login failed';
 
       let toastTitle = 'Login Failed';
+      let displayMsg = typeof errorMsg === 'string' ? errorMsg : 'Login failed';
+
       if (status === 404) {
         if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('deleted')) {
           toastTitle = 'Account Deleted';
+          displayMsg = 'This account has been deactivated or suspended. Please contact the Super Admin to reactivate your account.';
         } else {
           toastTitle = 'Account Not Found';
         }
       } else if (status === 403) {
-        if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('suspend')) {
-          toastTitle = 'Account Suspended';
-        } else {
-          toastTitle = 'Account Deactivated';
-        }
+        toastTitle = 'Account Suspended';
+        displayMsg = 'Your account has been deactivated or suspended. Please contact the Super Admin to reactivate your account.';
       } else if (status === 401) {
         toastTitle = 'Invalid Credentials';
       }
 
-      set({ error: errorMsg, isLoading: false });
-      Toast.show({ type: 'error', text1: toastTitle, text2: errorMsg });
+      set({ error: displayMsg, isLoading: false, isAuthenticated: false, user: null });
+      Toast.show({ type: 'error', text1: toastTitle, text2: displayMsg, visibilityTime: 5000 });
       return 'error';
     }
   },
@@ -150,29 +150,29 @@ export const useAuthStore = create<AuthState>((set) => ({
       const errorMsg = respData?.message || err.message || 'Login failed';
 
       let toastTitle = 'Login Failed';
+      let displayMsg = typeof errorMsg === 'string' ? errorMsg : 'Login failed';
+
       if (status === 404) {
         if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('deleted')) {
           toastTitle = 'Account Deleted';
+          displayMsg = 'This account has been deactivated or suspended. Please contact the Super Admin to reactivate your account.';
         } else {
           toastTitle = 'Account Not Found';
         }
       } else if (status === 403) {
-        if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('suspend')) {
-          toastTitle = 'Account Suspended';
-        } else {
-          toastTitle = 'Account Deactivated';
-        }
+        toastTitle = 'Account Suspended';
+        displayMsg = 'Your account has been deactivated or suspended. Please contact the Super Admin to reactivate your account.';
       } else if (status === 401) {
         toastTitle = 'Invalid Credentials';
       }
 
-      set({ error: errorMsg, isLoading: false });
-      Toast.show({ type: 'error', text1: toastTitle, text2: errorMsg });
+      set({ error: displayMsg, isLoading: false, isAuthenticated: false, user: null });
+      Toast.show({ type: 'error', text1: toastTitle, text2: displayMsg, visibilityTime: 5000 });
       return 'error';
     }
   },
 
-  logout: async () => {
+  logout: async (skipToast = false) => {
     set({ isLoading: true });
     if (__DEV__) {
       console.log('[AUTH] Logging out...');
@@ -188,11 +188,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         console.log('[AUTH] Session cleared');
       }
 
-      Toast.show({
-        type: 'success',
-        text1: 'Logged Out',
-        text2: 'Session closed successfully.',
-      });
+      if (!skipToast) {
+        Toast.show({
+          type: 'success',
+          text1: 'Logged Out',
+          text2: 'Session closed successfully.',
+        });
+      }
     } catch (err) {
       console.error('[AUTH] Logout error:', err);
     } finally {

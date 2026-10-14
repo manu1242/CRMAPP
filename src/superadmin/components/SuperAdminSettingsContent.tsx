@@ -13,6 +13,7 @@ import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 import AppFooter from '../../auth/components/AppFooter';
 import { SaaSSettings } from '../tenants/models/Tenant';
@@ -32,6 +33,7 @@ const emptySettings: SaaSSettings = {
 };
 
 export default function SuperAdminSettingsContent() {
+    const router = useRouter();
     const [settings, setSettings] = useState<SaaSSettings>(emptySettings);
 
     const [loading, setLoading] = useState(true);
@@ -512,6 +514,91 @@ export default function SuperAdminSettingsContent() {
                                 When a new tenant signs up using a referral code, both the referrer and joiner receive their respective bonus amounts.
                             </Text>
                         </View>
+                    </View>
+                </View>
+
+                {/* ── LEGAL & COMPLIANCE POLICIES ── */}
+                <View style={{
+                    backgroundColor: cardBg,
+                    borderRadius: 16,
+                    padding: 18,
+                    marginTop: 20,
+                    borderWidth: 1,
+                    borderColor: borderCol,
+                }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                        <View style={{ backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5', padding: 7, borderRadius: 8 }}>
+                            <Ionicons name="shield-checkmark" size={17} color="#10b981" />
+                        </View>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
+                            Legal & Compliance Policies
+                        </Text>
+                    </View>
+
+                    <View style={{ gap: 8 }}>
+                        {/* Privacy Policy */}
+                        <TouchableOpacity
+                            onPress={() => router.push('/privacy')}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                paddingVertical: 12,
+                                borderBottomWidth: 1,
+                                borderBottomColor: borderCol,
+                            }}
+                            activeOpacity={0.7}
+                        >
+                            <View style={{ backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5', padding: 8, borderRadius: 8, marginRight: 12 }}>
+                                <Ionicons name="shield-checkmark-outline" size={16} color="#10b981" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 13.5, fontWeight: '600', color: textColor }}>Privacy Policy</Text>
+                                <Text style={{ fontSize: 11, color: labelColor, marginTop: 2 }}>Platform privacy & customer data protection policy</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={16} color={labelColor} />
+                        </TouchableOpacity>
+
+                        {/* Refund Policy */}
+                        <TouchableOpacity
+                            onPress={() => router.push('/refund-policy')}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                paddingVertical: 12,
+                                borderBottomWidth: 1,
+                                borderBottomColor: borderCol,
+                            }}
+                            activeOpacity={0.7}
+                        >
+                            <View style={{ backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#fffbeb', padding: 8, borderRadius: 8, marginRight: 12 }}>
+                                <Ionicons name="receipt-outline" size={16} color="#f59e0b" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 13.5, fontWeight: '600', color: textColor }}>Refund & Cancellation Policy</Text>
+                                <Text style={{ fontSize: 11, color: labelColor, marginTop: 2 }}>Digital software return, refund & cancellation guidelines</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={16} color={labelColor} />
+                        </TouchableOpacity>
+
+                        {/* Terms & Conditions */}
+                        <TouchableOpacity
+                            onPress={() => router.push('/terms')}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                paddingVertical: 12,
+                            }}
+                            activeOpacity={0.7}
+                        >
+                            <View style={{ backgroundColor: isDark ? 'rgba(6, 182, 212, 0.12)' : '#ecfeff', padding: 8, borderRadius: 8, marginRight: 12 }}>
+                                <Ionicons name="document-text-outline" size={16} color="#06b6d4" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 13.5, fontWeight: '600', color: textColor }}>Terms & Conditions</Text>
+                                <Text style={{ fontSize: 11, color: labelColor, marginTop: 2 }}>Master platform service terms & agreements</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={16} color={labelColor} />
+                        </TouchableOpacity>
                     </View>
                 </View>
 

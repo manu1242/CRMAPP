@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useSegments } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme, getSuperAdminTheme } from '../../../theme/adminTheme';
 import { EXTERNAL_LINKS, openExternalLink } from '../../../config/externalLinks';
@@ -10,6 +10,7 @@ interface AppFooterProps {
 }
 
 export default function AppFooter({ showLinks = true }: AppFooterProps) {
+  const router = useRouter();
   const { isDark } = useTheme();
   const segments = useSegments();
   const isSuperAdmin = segments.some(
@@ -32,9 +33,9 @@ export default function AppFooter({ showLinks = true }: AppFooterProps) {
       }}
     >
       {showLinks && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 2 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 2, flexWrap: 'wrap' }}>
           <TouchableOpacity 
-            onPress={() => openExternalLink(EXTERNAL_LINKS.PRIVACY_POLICY)}
+            onPress={() => router.push('/privacy')}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           >
@@ -44,7 +45,17 @@ export default function AppFooter({ showLinks = true }: AppFooterProps) {
           </TouchableOpacity>
           <Text style={{ fontSize: 11, color: theme.FooterText }}>•</Text>
           <TouchableOpacity 
-            onPress={() => openExternalLink(EXTERNAL_LINKS.TERMS_AND_CONDITIONS)}
+            onPress={() => router.push('/refund-policy')}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: '600', color: theme.brand }}>
+              Refund Policy
+            </Text>
+          </TouchableOpacity>
+          <Text style={{ fontSize: 11, color: theme.FooterText }}>•</Text>
+          <TouchableOpacity 
+            onPress={() => router.push('/terms')}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           >

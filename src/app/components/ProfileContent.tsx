@@ -55,6 +55,7 @@ import {
   Check,
   X,
   ShieldAlert,
+  RotateCcw,
 } from 'lucide-react-native';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { profileService, UserProfileData, AccountDetailsData } from '../../admin/services/profileService';
@@ -214,14 +215,15 @@ export default function ProfileContent() {
 
       if (res && res.success) {
         setDeleteAccountModalVisible(false);
+        // Clear mobile authentication session, tokens, user state, and private cached data
+        await logout(true);
+        router.replace('/main-login');
         Toast.show({
           type: 'success',
-          text1: 'Account Deleted',
-          text2: 'Account delete requested. Our team will contact you within 30 min to 1 hr to help you get back your account. Thank you.',
+          text1: 'Account Deactivated',
+          text2: 'Your workspace has been suspended. Please contact the Super Admin to reactivate your account.',
           visibilityTime: 6000,
         });
-        await logout();
-        router.replace('/main-login');
       } else {
         setDeleteError(res?.message || 'Failed to delete account.');
       }
@@ -919,7 +921,7 @@ export default function ProfileContent() {
                     {/* Privacy Policy */}
                     <TouchableOpacity
                       activeOpacity={0.6}
-                      onPress={() => openExternalLink(EXTERNAL_LINKS.PRIVACY_POLICY)}
+                      onPress={() => router.push('/privacy')}
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
@@ -952,10 +954,46 @@ export default function ProfileContent() {
 
                     <View style={{ height: 1, backgroundColor: isDark ? borderCol : '#f0f0f0', marginLeft: 52 }} />
 
+                    {/* Refund Policy */}
+                    <TouchableOpacity
+                      activeOpacity={0.6}
+                      onPress={() => router.push('/refund-policy')}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 13,
+                        paddingHorizontal: 4,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : '#FFFBEB',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <RotateCcw size={16} color="#F59E0B" />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: textColor }}>
+                          Refund & Cancellation Policy
+                        </Text>
+                        <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                          Return, refund & cancellation guidelines
+                        </Text>
+                      </View>
+                      <ChevronRight size={16} color={subTextColor} />
+                    </TouchableOpacity>
+
+                    <View style={{ height: 1, backgroundColor: isDark ? borderCol : '#f0f0f0', marginLeft: 52 }} />
+
                     {/* Terms & Conditions */}
                     <TouchableOpacity
                       activeOpacity={0.6}
-                      onPress={() => openExternalLink(EXTERNAL_LINKS.TERMS_AND_CONDITIONS)}
+                      onPress={() => router.push('/terms')}
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
@@ -1127,6 +1165,25 @@ export default function ProfileContent() {
             {/* Modal Body */}
             <ScrollView style={{ padding: 18, maxHeight: 380 }} showsVerticalScrollIndicator={false}>
 
+              {/* Workspace Suspension Warning */}
+              <View style={{
+                backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5',
+                borderRadius: 10,
+                padding: 12,
+                marginBottom: 16,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <ShieldAlert size={18} color="#EF4444" style={{ marginRight: 8 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: isDark ? '#FCA5A5' : '#DC2626' }}>
+                    Warning: Workspace Suspension
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 12, color: textColor, lineHeight: 18 }}>
+                  Deleting your Admin account will suspend your entire tenant workspace. You and your organization members will not be able to log in until a Super Admin reactivates your account from the Super Admin web dashboard.
+                </Text>
+              </View>
 
               {/* Password Confirmation */}
               <Text style={{ fontSize: 13, fontWeight: '600', color: textColor, marginBottom: 6 }}>
@@ -1215,7 +1272,7 @@ export default function ProfileContent() {
                   {deleteConfirmed && <Check size={14} color="#FFFFFF" />}
                 </View>
                 <Text style={{ flex: 1, fontSize: 12.5, color: textColor, lineHeight: 18 }}>
-                  I confirm that I want to delete my account and understand that this action cannot be undone.
+                  I confirm that I want to delete my Admin account and understand that my workspace will be suspended until reactivated by the Super Admin.
                 </Text>
               </TouchableOpacity>
 

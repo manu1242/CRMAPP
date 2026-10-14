@@ -196,7 +196,7 @@ export default function SidebarDrawer({ isOpen, onClose, activeRoute }: SidebarD
           <TouchableOpacity 
             onPress={() => {
               onClose();
-              openExternalLink(EXTERNAL_LINKS.PRIVACY_POLICY);
+              router.push('/privacy');
             }}
             className="flex-row items-center gap-3 px-3 py-2.5 rounded-lg mb-1"
           >
@@ -206,7 +206,17 @@ export default function SidebarDrawer({ isOpen, onClose, activeRoute }: SidebarD
           <TouchableOpacity 
             onPress={() => {
               onClose();
-              openExternalLink(EXTERNAL_LINKS.TERMS_AND_CONDITIONS);
+              router.push('/refund-policy');
+            }}
+            className="flex-row items-center gap-3 px-3 py-2.5 rounded-lg mb-1"
+          >
+            <Ionicons name="receipt-outline" size={18} color="#f59e0b" />
+            <Text className="font-medium text-sm text-slate-300">Refund Policy</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => {
+              onClose();
+              router.push('/terms');
             }}
             className="flex-row items-center gap-3 px-3 py-2.5 rounded-lg mb-1"
           >

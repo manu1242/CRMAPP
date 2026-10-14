@@ -30,6 +30,9 @@ import {
   Sun,
   Moon,
   Smartphone,
+  Shield,
+  RotateCcw,
+  FileText,
 } from 'lucide-react-native';
 
 export default function SuperAdminProfileScreen() {
@@ -103,6 +106,30 @@ export default function SuperAdminProfileScreen() {
       desc: 'Global company info & platform metadata',
       route: '/superadmin/settings',
       color: '#ea580c',
+    },
+  ];
+
+  const saasLegalLinks = [
+    {
+      title: 'Privacy Policy',
+      icon: Shield,
+      desc: 'Platform privacy & data protection policy',
+      route: '/privacy',
+      color: '#10b981',
+    },
+    {
+      title: 'Refund & Cancellation Policy',
+      icon: RotateCcw,
+      desc: 'Digital software return, refund & cancellation guidelines',
+      route: '/refund-policy',
+      color: '#f59e0b',
+    },
+    {
+      title: 'Terms & Conditions',
+      icon: FileText,
+      desc: 'Master platform service terms & agreements',
+      route: '/terms',
+      color: '#06b6d4',
     },
   ];
 
@@ -276,6 +303,47 @@ export default function SuperAdminProfileScreen() {
                   >
                     {label}
                   </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ── LEGAL & COMPLIANCE POLICIES ──────────────────────────── */}
+        <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol, ...cardShadow }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.12)', padding: 6, borderRadius: 8 }}>
+              <Shield size={15} color="#10b981" />
+            </View>
+            <Text style={[styles.sectionTitleText, { color: textColor }]}>
+              Legal & Compliance Policies
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'column' }}>
+            {saasLegalLinks.map((link, idx) => {
+              const Icon = link.icon;
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => router.push(link.route as any)}
+                  style={[
+                    styles.linkRow,
+                    {
+                      borderBottomColor: borderCol,
+                      borderBottomWidth: idx === saasLegalLinks.length - 1 ? 0 : 1,
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.iconWrapper, { backgroundColor: isDark ? `${link.color}18` : `${link.color}09` }]}>
+                    <Icon size={17} color={link.color} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.linkLabel, { color: textColor }]}>{link.title}</Text>
+                    <Text style={[styles.linkSub, { color: subTextColor }]}>{link.desc}</Text>
+                  </View>
+                  <ChevronRight size={15} color={subTextColor} />
                 </TouchableOpacity>
               );
             })}

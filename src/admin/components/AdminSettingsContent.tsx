@@ -21,6 +21,7 @@ import {
   Shield,
   FileText,
   HelpCircle,
+  RotateCcw,
 } from 'lucide-react-native';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { useUpdateStore } from '../../hooks/useUpdateStore';
@@ -75,8 +76,9 @@ export default function AdminSettingsContent() {
       {
         title: 'Legal & Support',
         items: [
-          { title: 'Privacy Policy', icon: Shield, desc: 'Read how your privacy and data are protected', externalUrl: EXTERNAL_LINKS.PRIVACY_POLICY, color: '#10b981' },
-          { title: 'Terms & Conditions', icon: FileText, desc: 'View terms of service and agreement', externalUrl: EXTERNAL_LINKS.TERMS_AND_CONDITIONS, color: '#06b6d4' },
+          { title: 'Privacy Policy', icon: Shield, desc: 'Read how your privacy and data are protected', route: '/privacy', color: '#10b981' },
+          { title: 'Refund & Cancellation Policy', icon: RotateCcw, desc: 'Return, refund & cancellation guidelines', route: '/refund-policy', color: '#f59e0b' },
+          { title: 'Terms & Conditions', icon: FileText, desc: 'View terms of service and agreement', route: '/terms', color: '#06b6d4' },
           { title: 'Contact & Inquiry', icon: HelpCircle, desc: 'Get in touch for support and inquiries', externalUrl: EXTERNAL_LINKS.CONTACT_US, color: '#f59e0b' },
         ],
       },
