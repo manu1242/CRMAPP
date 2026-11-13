@@ -20,10 +20,13 @@ import {
   Building,
   User,
   IndianRupee,
+  Download,
 } from 'lucide-react-native';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
+import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
 import { useBookings } from '../../../../admin/hooks/useBookings';
+import { downloadBookingPdf } from '../../../../utils/pdfDownloadHelper';
 
 const STATUS_OPTIONS = ['All', 'Confirmed', 'Pending', 'Cancelled', 'Completed'];
 
@@ -48,6 +51,7 @@ export default function BookingsPage() {
   const router = useRouter();
   const { isDark } = useTheme();
   const theme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -161,7 +165,8 @@ export default function BookingsPage() {
       {/* Main List */}
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16, paddingTop: 16 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: Math.max(bottomSpacing, 110), paddingHorizontal: 16, paddingTop: 16, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isListLoading && isListRefetching} onRefresh={refetchList} />}
       >
@@ -186,8 +191,24 @@ export default function BookingsPage() {
                       <FileText size={18} color={theme.brand} />
                       <Text style={[styles.bookingNumberText, { color: theme.textPrimary }]}>{b.bookingNumber}</Text>
                     </View>
-                    <View style={[styles.statusBadge, { backgroundColor: badgeColors.bg }]}>
-                      <Text style={[styles.statusText, { color: badgeColors.text }]}>{b.status}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          downloadBookingPdf(b.bookingId, b.bookingNumber);
+                        }}
+                        style={{
+                          padding: 6,
+                          borderRadius: 8,
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f0f4f8',
+                        }}
+                      >
+                        <Download size={15} color={theme.brand} />
+                      </TouchableOpacity>
+                      <View style={[styles.statusBadge, { backgroundColor: badgeColors.bg }]}>
+                        <Text style={[styles.statusText, { color: badgeColors.text }]}>{b.status}</Text>
+                      </View>
                     </View>
                   </View>
 

@@ -25,10 +25,17 @@ export const UnassignedLeadService = {
   },
 
   assignExecutive: async (payload: AssignExecutiveRequest): Promise<AssignExecutiveResponse> => {
-    return apiClient.post<AssignExecutiveResponse>(
-      API_ENDPOINTS.UNASSIGNED_LEADS.ASSIGN_EXECUTIVE,
-      payload
-    );
+    try {
+      return await apiClient.post<AssignExecutiveResponse>(
+        API_ENDPOINTS.LEADS.ASSIGN_BULK,
+        payload
+      );
+    } catch {
+      return apiClient.post<AssignExecutiveResponse>(
+        API_ENDPOINTS.UNASSIGNED_LEADS.ASSIGN_EXECUTIVE,
+        payload
+      );
+    }
   },
 
   deleteLead: async (leadId: number): Promise<DeleteLeadResponse> => {

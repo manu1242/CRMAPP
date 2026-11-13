@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
-import { useBrandingQuery } from '../../../admin/hooks/useBranding';
 import {
   ArrowLeft,
   Shield,
@@ -29,6 +28,9 @@ import {
   Info,
   MapPin,
   Clock,
+  Trash2,
+  UserCheck,
+  ShieldAlert,
 } from 'lucide-react-native';
 
 interface PolicyPoint {
@@ -50,9 +52,7 @@ export default function PrivacyPolicyScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
-  const { data: branding } = useBrandingQuery();
-
-  const companyName = branding?.companyName || 'UPropTech Solutions';
+  const companyName = 'UPropTech';
   const companyEmail = 'support@uproptech.com';
   const companyAddress = 'Ultrakey IT Solutions Pvt Ltd';
 
@@ -229,6 +229,112 @@ export default function PrivacyPolicyScreen() {
     {
       id: 's8',
       number: '08',
+      title: 'Account Deletion & Data Retention',
+      icon: Trash2,
+      iconColor: '#EF4444',
+      points: [
+        {
+          title: 'Requesting Account Deletion',
+          text: 'You may request the deletion of your account through the account settings in the application or by contacting our support team.',
+        },
+        {
+          title: 'Access Disabling & Retained Information',
+          text: 'When an account deletion request is processed, access to the account may be disabled. Certain information may be retained where required for legal compliance, security, dispute resolution, or other legitimate purposes.',
+        },
+        {
+          title: 'Data Retention & Anonymization',
+          text: 'Personal data that is no longer required will be deleted or anonymized in accordance with our applicable data retention policies and legal obligations.',
+        },
+        {
+          title: 'Suspended or Deactivated Accounts',
+          text: 'If your account has been deactivated or suspended and you wish to regain access, please contact the authorized Super Admin or our support team to request account reactivation.',
+        },
+        {
+          title: 'Approval & Data Restoration Policy',
+          text: 'Account reactivation restores access only after the account has been approved and its status has been changed to Active. Reactivation does not guarantee restoration of data that has already been permanently deleted.',
+        },
+        {
+          title: 'Support & Assistance',
+          text: `For assistance with account deletion, personal data, or account recovery, please contact our support team at ${companyEmail}.`,
+        },
+      ],
+      highlight: 'You can request account deletion at any time; deactivated accounts require Super Admin approval to restore access.',
+    },
+    {
+      id: 's9',
+      number: '09',
+      title: 'Account Suspension, Deletion & Reactivation',
+      icon: UserCheck,
+      iconColor: '#8B5CF6',
+      points: [
+        {
+          title: 'Administrator Responsibilities',
+          text: 'Administrators are responsible for maintaining the security and appropriate use of their accounts.',
+        },
+        {
+          title: 'Initiating Account Deactivation',
+          text: 'An administrator may initiate account deactivation through the account settings available in the mobile application. Once the request is successfully processed, access to the account will be restricted.',
+        },
+        {
+          title: 'Sign-in Restrictions for Deactivated Accounts',
+          text: 'A deactivated or suspended account cannot sign in until the applicable account restrictions have been removed by an authorized Super Admin.',
+        },
+        {
+          title: 'Account Reactivation Process',
+          text: 'Administrators who wish to regain access may contact the Super Admin or authorized support team and request account reactivation. The Super Admin may review the request and reactivate eligible accounts in accordance with organizational policies.',
+        },
+        {
+          title: 'Restoration of Active Status',
+          text: 'Once an account has been reactivated and its status is Active, the administrator may sign in again using valid credentials.',
+        },
+        {
+          title: 'Distinction Between Deactivation and Deletion',
+          text: 'Account suspension or deactivation is distinct from permanent account deletion. Permanent deletion requests and the handling of associated personal data will be governed by our Privacy Policy and applicable legal requirements.',
+        },
+        {
+          title: 'Right to Restrict or Suspend Accounts',
+          text: 'We reserve the right to restrict or suspend accounts where necessary to protect application security, enforce organizational policies, or comply with applicable laws.',
+        },
+      ],
+      highlight: 'Deactivated or suspended accounts require Super Admin approval to restore Active status before signing in.',
+    },
+    {
+      id: 's10',
+      number: '10',
+      title: 'Child Safety Policy',
+      icon: ShieldAlert,
+      iconColor: '#E11D48',
+      points: [
+        {
+          title: 'Child Safety Commitment',
+          text: 'UPropTech is committed to providing a safe and secure platform. We strictly prohibit all forms of child sexual abuse and exploitation (CSAE). UPropTech maintains a zero-tolerance policy toward child sexual abuse, exploitation, and endangerment.',
+        },
+        {
+          title: 'Prohibited Activities',
+          text: 'Users are not allowed to upload, share, or promote child sexual abuse material (CSAM), exploit minors, or engage in any activity that endangers children.',
+        },
+        {
+          title: 'Age Restrictions',
+          text: 'UPropTech is designed for real estate professionals, property owners, agents, and customers. The platform is not intended for children under 18.',
+        },
+        {
+          title: 'Reporting and Enforcement',
+          text: 'Users can report child safety concerns to our support team. We review reports, remove prohibited content, suspend violating accounts, and notify relevant authorities when required by law.',
+        },
+        {
+          title: 'Privacy and Protection',
+          text: 'We are committed to protecting user information and complying with applicable child protection and privacy laws.',
+        },
+        {
+          title: 'Contact Information',
+          text: 'For child safety concerns, contact: Company: UPropTech | Email: support@uproptech.com | Website: https://uproptech.com',
+        },
+      ],
+      highlight: 'UPropTech maintains a zero-tolerance policy toward child sexual abuse, exploitation, and endangerment.',
+    },
+    {
+      id: 's11',
+      number: '11',
       title: 'Policy Modifications & Revisions',
       icon: RefreshCw,
       iconColor: '#6366F1',
@@ -253,8 +359,8 @@ export default function PrivacyPolicyScreen() {
       highlight: 'Material updates to this policy will be highlighted directly within the application.',
     },
     {
-      id: 's9',
-      number: '09',
+      id: 's12',
+      number: '12',
       title: 'Questions & Contact Information',
       icon: Mail,
       iconColor: '#14B8A6',
@@ -339,7 +445,7 @@ export default function PrivacyPolicyScreen() {
             <View style={styles.badgeItem}>
               <Clock size={13} color={subTextColor} />
               <Text style={[styles.badgeText, { color: subTextColor }]}>
-                Last updated: 2026
+                Last updated: October 14, 2026
               </Text>
             </View>
             <View style={styles.badgeDot} />

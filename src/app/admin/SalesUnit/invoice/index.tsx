@@ -25,10 +25,13 @@ import {
   Info,
   CheckCircle,
   AlertCircle,
+  Download,
 } from 'lucide-react-native';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
 import { useInvoices } from '../../../../admin/hooks/useInvoices';
+import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
+import { downloadInvoicePdf } from '../../../../utils/pdfDownloadHelper';
 
 const STATUS_OPTIONS = ['All', 'Generated', 'Sent', 'Paid', 'Partial', 'Overdue', 'Cancelled'];
 const STATUS_PILLS_HEIGHT = 46;
@@ -67,6 +70,7 @@ export default function InvoicesPage() {
   const router = useRouter();
   const { isDark } = useTheme();
   const theme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
   const params = useLocalSearchParams<{ search?: string }>();
 
   const [searchInput, setSearchInput] = useState('');
@@ -254,9 +258,10 @@ export default function InvoicesPage() {
         ref={scrollViewRef}
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingTop:headerHeight + 16,
-          paddingBottom: 110,
+          paddingTop: headerHeight + 16,
+          paddingBottom: Math.max(bottomSpacing, 110),
           paddingHorizontal: 16,
+          flexGrow: 1,
         }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isListLoading && isListRefetching} onRefresh={refetchList} />}
@@ -287,8 +292,24 @@ export default function InvoicesPage() {
                       <FileText size={18} color={theme.brand} />
                       <Text style={[styles.cardNumber, { color: theme.textPrimary }]}>{inv.invoiceNumber}</Text>
                     </View>
-                    <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-                      <Text style={[styles.badgeText, { color: badge.text }]}>{inv.status}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          downloadInvoicePdf(inv.invoiceId, inv.invoiceNumber);
+                        }}
+                        style={{
+                          padding: 6,
+                          borderRadius: 8,
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f0f4f8',
+                        }}
+                      >
+                        <Download size={15} color={theme.brand} />
+                      </TouchableOpacity>
+                      <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+                        <Text style={[styles.badgeText, { color: badge.text }]}>{inv.status}</Text>
+                      </View>
                     </View>
                   </View>
 

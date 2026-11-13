@@ -22,10 +22,10 @@ export const OwnerPlanCard: React.FC<OwnerPlanCardProps> = ({
   const { isDark } = useTheme();
 
   // Theme colors
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
   const badgeBg = plan.isActive
     ? isDark
       ? 'rgba(16, 185, 129, 0.15)'
@@ -66,8 +66,8 @@ export const OwnerPlanCard: React.FC<OwnerPlanCardProps> = ({
       {/* Top Header Row */}
       <View style={styles.headerRow}>
         <View style={styles.titleArea}>
-          <View style={[styles.iconBox, { backgroundColor: isDark ? '#1e3a8a30' : '#eff6ff' }]}>
-            <FontAwesome5 name="crown" size={16} color="#3b82f6" />
+          <View style={[styles.iconBox, { backgroundColor: isDark ? '#835CEE25' : '#835CEE15' }]}>
+            <FontAwesome5 name="crown" size={16} color="#835CEE" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.planTitle, { color: textColor }]} numberOfLines={1}>
@@ -110,7 +110,7 @@ export const OwnerPlanCard: React.FC<OwnerPlanCardProps> = ({
       ) : null}
 
       {/* Metrics Row (Validity & Leads Unlock) */}
-      <View style={[styles.metricsContainer, { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: borderCol }]}>
+      <View style={[styles.metricsContainer, { backgroundColor: isDark ? '#161616' : '#f4f4f5', borderColor: borderCol }]}>
         {/* Validity */}
         <View style={styles.metricItem}>
           <View style={styles.metricLabelRow}>
@@ -154,8 +154,8 @@ export const OwnerPlanCard: React.FC<OwnerPlanCardProps> = ({
             value={plan.isActive}
             onValueChange={() => onToggleStatus(plan)}
             disabled={isToggling}
-            trackColor={{ false: isDark ? '#334155' : '#cbd5e1', true: '#93c5fd' }}
-            thumbColor={plan.isActive ? '#2563eb' : isDark ? '#64748b' : '#f1f5f9'}
+            trackColor={{ false: isDark ? '#2e2e2e' : '#e4e4e7', true: '#c4b5fd' }}
+            thumbColor={plan.isActive ? '#835CEE' : isDark ? '#71717a' : '#f4f4f5'}
             style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
           />
         </View>
@@ -164,10 +164,10 @@ export const OwnerPlanCard: React.FC<OwnerPlanCardProps> = ({
         <View style={styles.buttonGroup}>
           <TouchableOpacity
             onPress={() => onEdit(plan)}
-            style={[styles.actionBtn, styles.editBtn, { borderColor: borderCol, backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}
+            style={[styles.actionBtn, styles.editBtn, { borderColor: borderCol, backgroundColor: isDark ? '#242424' : '#ffffff' }]}
             activeOpacity={0.7}
           >
-            <Ionicons name="create-outline" size={14} color="#2563eb" />
+            <Ionicons name="create-outline" size={14} color="#835CEE" />
             <Text style={styles.editBtnText}>Edit</Text>
           </TouchableOpacity>
 
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   editBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563eb',
+    color: '#835CEE',
   },
   deleteBtn: {
     backgroundColor: 'rgba(239, 68, 68, 0.12)',

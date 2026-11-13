@@ -19,11 +19,14 @@ import {
   X,
   Building,
   User,
-  IndianRupee
+  IndianRupee,
+  Download,
 } from 'lucide-react-native';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
 import { useQuotations } from '../../../../admin/hooks/useQuotations';
+import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
+import { downloadQuotationPdf } from '../../../../utils/pdfDownloadHelper';
 
 const STATUS_OPTIONS = ['All', 'Draft', 'Sent', 'Accepted', 'Rejected', 'Expired'];
 
@@ -51,6 +54,7 @@ export default function QuotationsPage() {
   const router = useRouter();
   const { isDark } = useTheme();
   const theme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Ref for auto-scrolling the main list
   const scrollViewRef = useRef<ScrollView>(null);
@@ -181,7 +185,8 @@ export default function QuotationsPage() {
       {/* Main List */}
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16, paddingTop: 16 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: Math.max(bottomSpacing, 110), paddingHorizontal: 16, paddingTop: 16, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isListLoading && isListRefetching} onRefresh={refetchList} />}
       >
@@ -208,8 +213,24 @@ export default function QuotationsPage() {
                       <FileText size={18} color={theme.brand} />
                       <Text style={[styles.quoteNumberText, { color: theme.textPrimary }]}>{q.quotationNumber}</Text>
                     </View>
-                    <View style={[styles.statusBadge, { backgroundColor: badgeColors.bg }]}>
-                      <Text style={[styles.statusText, { color: badgeColors.text }]}>{q.status}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          downloadQuotationPdf(q.quotationId, q.quotationNumber);
+                        }}
+                        style={{
+                          padding: 6,
+                          borderRadius: 8,
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f0f4f8',
+                        }}
+                      >
+                        <Download size={15} color={theme.brand} />
+                      </TouchableOpacity>
+                      <View style={[styles.statusBadge, { backgroundColor: badgeColors.bg }]}>
+                        <Text style={[styles.statusText, { color: badgeColors.text }]}>{q.status}</Text>
+                      </View>
                     </View>
                   </View>
 

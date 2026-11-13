@@ -41,6 +41,8 @@ import {
 } from '../hooks/useTasksQuery';
 import { useIsMounted } from '../../hooks/useIsMounted';
 import ConnectionStateView from '../../app/components/ConnectionStateView';
+import TaskCard from './TaskCard';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 
 // Helper date utilities
 function getMonday(d: Date): Date {
@@ -80,6 +82,7 @@ export default function TasksContent() {
   const { isDark } = useTheme();
   const router = useRouter();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Color tokens
   const bgColor = adminTheme.primaryBg;
@@ -271,7 +274,8 @@ export default function TasksContent() {
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[brandCol]} />}
       >
         <View
@@ -588,146 +592,12 @@ export default function TasksContent() {
           ) : (
             <View style={{ paddingHorizontal: 16, gap: 12 }}>
               {filteredTasks.map((task) => (
-                <View
+                <TaskCard
                   key={task.leadId}
-                  style={{
-                    backgroundColor: cardBg,
-                    borderRadius: 16,
-                    borderWidth: 1,
-                    borderColor: task.isCompleted ? borderCol : brandCol + '40',
-                    padding: 16,
-                    opacity: task.isCompleted ? 0.75 : 1,
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-                      <TouchableOpacity onPress={() => handleToggleComplete(task.leadId, task.isCompleted)}>
-                        {task.isCompleted ? (
-                          <CheckCircle2 size={24} color={brandCol} />
-                        ) : (
-                          <Circle size={24} color={subTextColor} />
-                        )}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        onPress={() => handleNavigateToLead(task.leadId)}
-                        style={{ flex: 1 }}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <Text
-                            style={{
-                              fontSize: 16,
-                              fontWeight: '700',
-                              color: textColor,
-                              textDecorationLine: task.isCompleted ? 'line-through' : 'none',
-                            }}
-                          >
-                            {task.name}
-                          </Text>
-                          <ExternalLink size={14} color={subTextColor} />
-                        </View>
-                        <Text style={{ fontSize: 12, color: subTextColor, marginTop: 2 }}>
-                          {task.contact}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    <View
-                      style={{
-                        backgroundColor: '#3b82f615',
-                        paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderRadius: 8,
-                      }}
-                    >
-                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#3b82f6' }}>
-                        {task.stage || 'Lead'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {task.comments && (
-                    <View
-                      style={{
-                        marginTop: 12,
-                        backgroundColor: bgColor,
-                        padding: 10,
-                        borderRadius: 10,
-                        borderLeftWidth: 3,
-                        borderLeftColor: brandCol,
-                      }}
-                    >
-                      <Text style={{ fontSize: 12, color: textColor, fontStyle: 'italic' }}>
-                        "{task.comments}"
-                      </Text>
-                    </View>
-                  )}
-
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginTop: 14,
-                      paddingTop: 12,
-                      borderTopWidth: 1,
-                      borderTopColor: borderCol,
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Clock size={12} color={subTextColor} />
-                      <Text style={{ fontSize: 11, color: subTextColor }}>
-                        {formatFollowUpTime(task.followUpDate)}
-                      </Text>
-                    </View>
-
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <TouchableOpacity
-                        onPress={() => Linking.openURL(`tel:${task.contact}`)}
-                        style={{
-                          backgroundColor: adminTheme.badgeBg,
-                          padding: 8,
-                          borderRadius: 8,
-                        }}
-                      >
-                        <Phone size={14} color={brandCol} />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        onPress={() =>
-                          Linking.openURL(
-                            `whatsapp://send?phone=${task.contact.replace(/[^0-9]/g, '')}`
-                          )
-                        }
-                        style={{
-                          backgroundColor: '#25D36615',
-                          padding: 8,
-                          borderRadius: 8,
-                        }}
-                      >
-                        <MessageCircle size={14} color="#25D366" />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        onPress={() => openRescheduleModal(task)}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 4,
-                          backgroundColor: inputBg,
-                          paddingHorizontal: 10,
-                          paddingVertical: 6,
-                          borderRadius: 8,
-                        }}
-                      >
-                        <RotateCcw size={12} color={textColor} />
-                        <Text style={{ fontSize: 11, fontWeight: '600', color: textColor }}>
-                          Reschedule
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
+                  task={task}
+                  onToggleComplete={handleToggleComplete}
+                  onReschedule={openRescheduleModal}
+                />
               ))}
             </View>
           )}

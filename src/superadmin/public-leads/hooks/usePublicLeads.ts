@@ -7,7 +7,8 @@ export const usePublicLeadsQuery = (params?: PublicLeadsFilterParams) => {
   return useQuery({
     queryKey: ['publicLeads', params],
     queryFn: () => publicLeadsApi.getPublicLeads(params),
-    staleTime: 60 * 1000,
+    staleTime: 90 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 };
 
@@ -15,7 +16,8 @@ export const usePublicLeadStatsQuery = () => {
   return useQuery({
     queryKey: ['publicLeadStats'],
     queryFn: () => publicLeadsApi.getPublicLeadStats(),
-    staleTime: 60 * 1000,
+    staleTime: 90 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 };
 
@@ -24,6 +26,8 @@ export const usePublicLeadDetailQuery = (id?: number | string) => {
     queryKey: ['publicLeadDetail', id],
     queryFn: () => publicLeadsApi.getPublicLeadById(id!),
     enabled: !!id,
+    staleTime: 90 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 };
 

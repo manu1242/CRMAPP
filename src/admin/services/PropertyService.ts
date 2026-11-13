@@ -30,41 +30,76 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
 
 export const PropertyService = {
   getPropertiesList: async (): Promise<PropertyListResponse> => {
-    const response = await apiClient.get<any>(API_ENDPOINTS.PROPERTIES.GET_LIST);
-    // Handle both { success: true, properties: [...] } and { success: true, data: [...] } formats
-    if (response) {
-      if (Array.isArray(response.data)) {
-        return {
-          success: response.success ?? true,
-          properties: response.data,
-          message: response.message,
-        };
+    try {
+      const response = await apiClient.get<any>(API_ENDPOINTS.PROPERTIES.GET_LIST, undefined, { timeout: 30000 });
+      // Handle both { success: true, properties: [...] } and { success: true, data: [...] } formats
+      if (response) {
+        if (Array.isArray(response.data)) {
+          return {
+            success: response.success ?? true,
+            properties: response.data,
+            message: response.message,
+          };
+        }
+        if (Array.isArray(response.properties)) {
+          return response;
+        }
       }
-      if (Array.isArray(response.properties)) {
-        return response;
+      return { success: false, properties: [] };
+    } catch (err: any) {
+      console.warn('[PropertyService] Primary /api/v1/properties failed, trying fallback...', err?.message);
+      try {
+        const fallback = await apiClient.get<any>('/api/v1/properties/GetAllProperties', undefined, { timeout: 30000 });
+        if (fallback) {
+          const list = fallback.properties || fallback.data;
+          if (Array.isArray(list)) {
+            return {
+              success: true,
+              properties: list,
+              message: fallback.message,
+            };
+          }
+        }
+      } catch (fallbackErr: any) {
+        console.warn('[PropertyService] Fallback /api/v1/properties/GetAllProperties also failed:', fallbackErr?.message);
       }
+      throw err;
     }
-    return { success: false, properties: [] };
   },
 
   getBuilders: async (): Promise<BuildersResponse> => {
-    return apiClient.get<BuildersResponse>(API_ENDPOINTS.PROPERTIES.GET_BUILDERS);
+    return apiClient.get<BuildersResponse>(API_ENDPOINTS.PROPERTIES.GET_BUILDERS, undefined, { timeout: 25000 });
   },
 
   getExecutives: async (): Promise<ExecutivesResponse> => {
-    return apiClient.get<ExecutivesResponse>(API_ENDPOINTS.PROPERTIES.GET_EXECUTIVES);
+    return apiClient.get<ExecutivesResponse>(API_ENDPOINTS.PROPERTIES.GET_EXECUTIVES, undefined, { timeout: 25000 });
   },
 
   getPropertyById: async (id: number | string): Promise<{ success: boolean; message?: string } & Partial<PropertyDetails>> => {
-    const res = await apiClient.get<any>(API_ENDPOINTS.PROPERTIES.GET_BY_ID(id));
-    if (res && res.data && typeof res.data === 'object') {
-      return {
-        success: res.success ?? true,
-        message: res.message,
-        ...res.data,
-      };
+    try {
+      const res = await apiClient.get<any>(API_ENDPOINTS.PROPERTIES.GET_BY_ID(id), undefined, { timeout: 30000 });
+      if (res && res.data && typeof res.data === 'object') {
+        return {
+          success: res.success ?? true,
+          message: res.message,
+          ...res.data,
+        };
+      }
+      return res;
+    } catch (err: any) {
+      console.warn(`[PropertyService] Failed to fetch property #${id}, attempting query fallback...`, err?.message);
+      try {
+        const fallback = await apiClient.get<any>(`/api/v1/properties/GetProperty?id=${id}`, undefined, { timeout: 30000 });
+        if (fallback && fallback.data && typeof fallback.data === 'object') {
+          return {
+            success: fallback.success ?? true,
+            message: fallback.message,
+            ...fallback.data,
+          };
+        }
+      } catch {}
+      throw err;
     }
-    return res;
   },
 
   saveProperty: async (formData: FormData): Promise<GeneralApiResponse> => {
@@ -72,7 +107,14 @@ export const PropertyService = {
   },
 
   deleteProperty: async (id: number | string): Promise<GeneralApiResponse> => {
-    return apiClient.post<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE(id));
+    try {
+      return await apiClient.delete<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE(id));
+    } catch (err: any) {
+      if (err?.response?.status === 405) {
+        return await apiClient.post<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE(id));
+      }
+      throw err;
+    }
   },
 
   bulkUploadProperties: async (formData: FormData): Promise<GeneralApiResponse> => {
@@ -87,12 +129,22 @@ export const PropertyService = {
     return res;
   },
 
-  saveFlat: async (formData: FormData): Promise<GeneralApiResponse> => {
-    return apiClient.postForm<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.SAVE_FLAT, formData);
+  saveFlat: async (data: FormData | any): Promise<GeneralApiResponse> => {
+    if (data instanceof FormData) {
+      return apiClient.postForm<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.SAVE_FLAT, data);
+    }
+    return apiClient.post<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.SAVE_FLAT, data);
   },
 
   deleteFlat: async (flatId: number | string): Promise<GeneralApiResponse> => {
-    return apiClient.post<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_FLAT(flatId));
+    try {
+      return await apiClient.delete<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_FLAT(flatId));
+    } catch (err: any) {
+      if (err?.response?.status === 405) {
+        return await apiClient.post<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_FLAT(flatId));
+      }
+      throw err;
+    }
   },
 
   getImages: async (propertyId: number | string): Promise<{ success: boolean; uploads: PropertyImageItem[] }> => {
@@ -108,10 +160,16 @@ export const PropertyService = {
   },
 
   deleteImage: async (uploadId: number | string): Promise<GeneralApiResponse> => {
-    // Send uploadId in a FormData object as expected by standard POST endpoints in MVC
-    const formData = new FormData();
-    formData.append('uploadId', uploadId.toString());
-    return apiClient.postForm<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_IMAGE(uploadId), formData);
+    try {
+      return await apiClient.delete<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_IMAGE(uploadId));
+    } catch (err: any) {
+      if (err?.response?.status === 405) {
+        const formData = new FormData();
+        formData.append('uploadId', uploadId.toString());
+        return await apiClient.postForm<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_IMAGE(uploadId), formData);
+      }
+      throw err;
+    }
   },
 
   getDocuments: async (propertyId: number | string): Promise<{ success: boolean; documents: any[] }> => {
@@ -127,9 +185,16 @@ export const PropertyService = {
   },
 
   deleteDocument: async (documentId: number | string): Promise<GeneralApiResponse> => {
-    const formData = new FormData();
-    formData.append('documentId', documentId.toString());
-    return apiClient.postForm<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_DOCUMENT(documentId), formData);
+    try {
+      return await apiClient.delete<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_DOCUMENT(documentId));
+    } catch (err: any) {
+      if (err?.response?.status === 405) {
+        const formData = new FormData();
+        formData.append('documentId', documentId.toString());
+        return await apiClient.postForm<GeneralApiResponse>(API_ENDPOINTS.PROPERTIES.DELETE_DOCUMENT(documentId), formData);
+      }
+      throw err;
+    }
   },
 
   // Helper to resolve property cover image URI directly

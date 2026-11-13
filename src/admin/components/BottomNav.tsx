@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUpdateStore } from '../../hooks/useUpdateStore';
 import { NotificationService } from '../../Services/NotificationService';
 import { useAuthStore } from '../../auth/store/authStore';
+import { triggerHaptic } from '../../utils/haptics';
 
 interface BottomNavProps {
   active: 'dashboard' | 'users' | 'settings' | 'profile';
@@ -38,16 +39,32 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
   const role = user?.role?.trim()?.toLowerCase() || '';
 
   const navigateToDashboard = useCallback(() => {
+    triggerHaptic('selection');
+    if (active === 'dashboard') return;
     if (role === 'partner') {
-      router.replace('/admin/PartnerDashboard' as any);
+      router.navigate('/admin/PartnerDashboard' as any);
     } else {
-      router.replace('/admin/dashboard' as any);
+      router.navigate('/admin/dashboard' as any);
     }
-  }, [router, role]);
+  }, [router, role, active]);
 
-  const navigateToUsers = useCallback(() => router.replace('/admin/users' as any), [router]);
-  const navigateToSettings = useCallback(() => router.replace('/admin/settings' as any), [router]);
-  const navigateToProfile = useCallback(() => router.replace('/profile' as any), [router]);
+  const navigateToUsers = useCallback(() => {
+    triggerHaptic('selection');
+    if (active === 'users') return;
+    router.navigate('/admin/users' as any);
+  }, [router, active]);
+
+  const navigateToSettings = useCallback(() => {
+    triggerHaptic('selection');
+    if (active === 'settings') return;
+    router.navigate('/admin/settings' as any);
+  }, [router, active]);
+
+  const navigateToProfile = useCallback(() => {
+    triggerHaptic('selection');
+    if (active === 'profile') return;
+    router.navigate('/profile' as any);
+  }, [router, active]);
 
   // Color tokens matching the capsule dock style with Green active state in both Light & Dark modes
   const GREEN = '#10b981';

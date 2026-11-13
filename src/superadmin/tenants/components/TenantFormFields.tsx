@@ -27,7 +27,7 @@ function formatPrice(price: number) {
 
 const PLAN_TYPE_COLORS: Record<string, { bg: string; border: string; badge: string; text: string }> = {
   Basic: { bg: '#f0fdf4', border: '#bbf7d0', badge: '#16a34a', text: '#15803d' },
-  Standard: { bg: '#eff6ff', border: '#bfdbfe', badge: '#2563eb', text: '#1d4ed8' },
+  Standard: { bg: '#f3effe', border: '#c4b5fd', badge: '#835CEE', text: '#6d45d4' },
   Enterprise: { bg: '#fdf4ff', border: '#e9d5ff', badge: '#9333ea', text: '#7e22ce' },
 };
 
@@ -45,15 +45,15 @@ export const TenantFormFields = ({
   const { isDark } = useTheme();
 
   // Dynamic Theme Colors
-  const textColor = isDark ? '#f1f5f9' : '#334155';
-  const labelColor = isDark ? '#cbd5e1' : '#475569';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#cbd5e1';
-  const inputBg = isDark ? '#0f172a' : '#ffffff';
-  const labelBg = isDark ? '#1e293b' : '#f1f5f9';
-  const modalBg = isDark ? '#1e293b' : '#ffffff';
-  const modalHeaderBorder = isDark ? '#334155' : '#f1f5f9';
-  const planCardBg = isDark ? '#0f172a' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const labelColor = isDark ? '#a1a1aa' : '#52525b';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
+  const inputBg = isDark ? '#1e1e1e' : '#FFFFFF';
+  const labelBg = isDark ? '#1e1e1e' : '#f4f4f5';
+  const modalBg = isDark ? '#242424' : '#FFFFFF';
+  const modalHeaderBorder = isDark ? '#2e2e2e' : '#e4e4e7';
+  const planCardBg = isDark ? '#161616' : '#FFFFFF';
 
   const updateField = (key: string, value: string | number) => {
     setFormData((prev: any) => ({ ...prev, [key]: value }));
@@ -157,7 +157,7 @@ export const TenantFormFields = ({
             <View style={{
               height: '100%',
               justifyContent: 'center',
-              backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+              backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5',
               borderLeftWidth: 1,
               borderLeftColor: borderCol,
               borderTopRightRadius: 9,
@@ -464,12 +464,12 @@ export const TenantFormFields = ({
               <TouchableOpacity
                 onPress={() => setPlanModalVisible(false)}
                 style={{
-                  backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                  backgroundColor: isDark ? '#2e2e2e' : '#f4f4f5',
                   padding: 6,
                   borderRadius: 20,
                 }}
               >
-                <Ionicons name="close" size={18} color={isDark ? '#cbd5e1' : '#475569'} />
+                <Ionicons name="close" size={18} color={isDark ? '#a1a1aa' : '#52525b'} />
               </TouchableOpacity>
             </View>
 
@@ -480,7 +480,7 @@ export const TenantFormFields = ({
             >
               {activePlans.length === 0 ? (
                 <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                  <Ionicons name="cube-outline" size={48} color={isDark ? '#475569' : '#cbd5e1'} />
+                  <Ionicons name="cube-outline" size={48} color={isDark ? '#52525b' : '#a1a1aa'} />
                   <Text style={{ color: subTextColor, fontWeight: '600', marginTop: 12, fontSize: 14 }}>No active plans found</Text>
                 </View>
               ) : (
@@ -495,7 +495,7 @@ export const TenantFormFields = ({
                       style={{
                         borderWidth: isSelected ? 2 : 1,
                         borderColor: isSelected ? colors.badge : borderCol,
-                        backgroundColor: isSelected ? (isDark ? '#1e293b' : colors.bg) : planCardBg,
+                        backgroundColor: isSelected ? (isDark ? '#242424' : colors.bg) : planCardBg,
                         borderRadius: 10,
                         padding: 16,
                         marginBottom: 4,
@@ -535,13 +535,13 @@ export const TenantFormFields = ({
 
                       {/* Pricing */}
                       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-                        <View style={{ flex: 1, backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderRadius: 10, padding: 10, alignItems: 'center' }}>
+                        <View style={{ flex: 1, backgroundColor: isDark ? '#161616' : '#f4f4f5', borderRadius: 10, padding: 10, alignItems: 'center' }}>
                           <Text style={{ color: subTextColor, fontSize: 10, fontWeight: '600', textTransform: 'uppercase' }}>Monthly</Text>
                           <Text style={{ color: textColor, fontWeight: '700', fontSize: 14, marginTop: 2 }}>
                             {formatPrice(plan.monthlyPrice)}
                           </Text>
                         </View>
-                        <View style={{ flex: 1, backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderRadius: 10, padding: 10, alignItems: 'center' }}>
+                        <View style={{ flex: 1, backgroundColor: isDark ? '#161616' : '#f4f4f5', borderRadius: 10, padding: 10, alignItems: 'center' }}>
                           <Text style={{ color: subTextColor, fontSize: 10, fontWeight: '600', textTransform: 'uppercase' }}>Yearly</Text>
                           <Text style={{ color: textColor, fontWeight: '700', fontSize: 14, marginTop: 2 }}>
                             {formatPrice(plan.yearlyPrice)}
@@ -560,7 +560,7 @@ export const TenantFormFields = ({
                           <View
                             key={item.label}
                             style={{
-                              backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                              backgroundColor: isDark ? '#242424' : '#ffffff',
                               borderWidth: 1,
                               borderColor: borderCol,
                               borderRadius: 8,
@@ -602,14 +602,14 @@ function FeatureChip({ label }: { label: string }) {
   const { isDark } = useTheme();
   return (
     <View style={{
-      backgroundColor: isDark ? '#1e3a8a30' : '#f0f9ff',
-      borderColor: isDark ? '#1d4ed850' : '#e0f2fe',
+      backgroundColor: isDark ? '#835CEE25' : '#835CEE15',
+      borderColor: isDark ? '#835CEE50' : '#c4b5fd',
       borderWidth: 1,
       borderRadius: 20,
       paddingHorizontal: 8,
       paddingVertical: 2,
     }}>
-      <Text style={{ color: '#0284c7', fontSize: 10, fontWeight: '600' }}>{label}</Text>
+      <Text style={{ color: isDark ? '#a78bfa' : '#835CEE', fontSize: 10, fontWeight: '600' }}>{label}</Text>
     </View>
   );
 }

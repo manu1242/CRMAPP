@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -50,6 +50,7 @@ import {
 } from '../../../admin/services/userManagementService';
 import { useAuthStore } from '../../../auth/store/authStore';
 import { useUserStore } from '../../../admin/store/useUserStore';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 const MONTHS_LIST = [
   'January',
@@ -70,6 +71,7 @@ export default function ManageUsers() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
@@ -127,11 +129,16 @@ export default function ManageUsers() {
     fetchUsers();
   }, [search, selectedRole, selectedStatus, page]);
 
-  // Refetch when screen is focused (returning from Create/Edit User)
+  // Refetch when screen is focused (returning from Create/Edit User), skipping redundant initial mount
+  const isFirstMountRef = useRef(true);
   useFocusEffect(
     useCallback(() => {
+      if (isFirstMountRef.current) {
+        isFirstMountRef.current = false;
+        return;
+      }
       fetchUsers();
-    }, [])
+    }, [fetchUsers])
   );
 
 
@@ -278,7 +285,8 @@ export default function ManageUsers() {
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: Math.max(bottomSpacing, 120), flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchUsers(true)} />
         }

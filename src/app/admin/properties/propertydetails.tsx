@@ -15,7 +15,6 @@ import {
   Linking,
   Animated,
   Dimensions,
-  BackHandler,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -45,6 +44,7 @@ import {
 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
@@ -55,8 +55,12 @@ import { AuthImage } from '../../../components/AuthImage';
 import FlatsTab from './components/FlatsTab';
 import PhotosTab from './components/PhotosTab';
 import DocumentsTab from './components/DocumentsTab';
+import PropertyDocumentUploader from '../../../admin/components/PropertyDocumentUploader';
+import { downloadAndShareFile } from '../../../Services/downloadService';
+import PropertyImageGallery from '../../../admin/components/PropertyImageGallery';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 const DOCUMENT_TYPES = ['Title Deed', 'NOC', 'Building Plan', 'RERA Certificate', 'Other'];
 
@@ -70,6 +74,7 @@ export default function PropertyDetailsScreen() {
 
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
@@ -81,20 +86,6 @@ export default function PropertyDetailsScreen() {
 
   // Active Tab — single source of truth, no displayTab needed
   const [activeTab, setActiveTab] = useState<'overview' | 'flats' | 'photos' | 'documents'>('overview');
-
-  useEffect(() => {
-    const handleBack = () => {
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/admin/properties' as any);
-      }
-      return true;
-    };
-
-    const backSub = BackHandler.addEventListener('hardwareBackPress', handleBack);
-    return () => backSub.remove();
-  }, [router]);
 
   // Tracks which tab content is currently visible (only changes AFTER fade-out finishes)
   const displayTabRef = React.useRef<'overview' | 'flats' | 'photos' | 'documents'>('overview');
@@ -293,6 +284,7 @@ export default function PropertyDetailsScreen() {
 
     const formData = new FormData();
     formData.append('propertyId', propertyId);
+    formData.append('propertyIdForm', propertyId);
     formData.append('file', { uri: imageUri, name: filename, type } as any);
 
     try {
@@ -377,24 +369,28 @@ export default function PropertyDetailsScreen() {
       };
       input.click();
     } else {
-      // In native React Native, we use expo-image-picker as a document library fallback
-      const pickerResult = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images', 'videos'],
-        allowsEditing: false,
+      const pickerResult = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'image/*',
+        ],
+        copyToCacheDirectory: true,
       });
 
-      if (pickerResult.canceled) return;
+      if (pickerResult.canceled || !pickerResult.assets || pickerResult.assets.length === 0) return;
 
       setUploadingDoc(true);
-      const uri = pickerResult.assets[0].uri;
-      const filename = uri.split('/').pop() || 'document.pdf';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `application/${match[1]}` : `application/pdf`;
+      const asset = pickerResult.assets[0];
+      const filename = asset.name || 'document.pdf';
+      const type = asset.mimeType || 'application/pdf';
 
       const formData = new FormData();
       formData.append('propertyId', propertyId);
+      formData.append('propertyIdForm', propertyId);
       formData.append('documentType', selectedDocType);
-      formData.append('file', { uri, name: filename, type } as any);
+      formData.append('file', { uri: asset.uri, name: filename, type } as any);
 
       try {
         const res = await PropertyService.uploadDocument(formData);
@@ -413,11 +409,17 @@ export default function PropertyDetailsScreen() {
     }
   };
 
-  const handleDownloadDocument = (doc: any) => {
+  const handleDownloadDocument = async (doc: any) => {
     const apiBaseUrl = getApiUrl();
-    const downloadUrl = `${apiBaseUrl}/Properties/DownloadDocument?documentId=${doc.documentId}`;
-    Linking.openURL(downloadUrl).catch(() => {
-      Toast.show({ type: 'error', text1: 'Error', text2: 'Unable to download file' });
+    const downloadUrl = `${apiBaseUrl}/api/v1/properties/documents/${doc.documentId}/download`;
+    const fileName = doc.fileName || `${doc.documentType || 'document'}_${doc.documentId}.pdf`;
+    const mimeType = doc.contentType || 'application/pdf';
+
+    await downloadAndShareFile({
+      url: downloadUrl,
+      fileName,
+      mimeType,
+      dialogTitle: `Download ${doc.documentType || 'Document'}`,
     });
   };
 
@@ -488,7 +490,8 @@ export default function PropertyDetailsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <Animated.View
@@ -689,81 +692,23 @@ export default function PropertyDetailsScreen() {
 
 
 
-      {/* --- DOCUMENT UPLOAD OPTIONS MODAL --- */}
-      <Modal visible={isDocUploadModalOpen} transparent animationType="slide">
-        <View style={styles.modalScrollOverlay}>
-          <View style={[styles.formContainer, { backgroundColor: cardBg, borderColor: borderCol, maxHeight: 300 }]}>
-            <View style={[styles.formHeader, { borderBottomColor: borderCol }]}>
-              <Text style={[styles.formTitle, { color: textColor }]}>Upload Document</Text>
-              <TouchableOpacity onPress={() => setDocUploadModalOpen(false)}>
-                <X size={20} color={textColor} />
-              </TouchableOpacity>
-            </View>
-            <View style={{ padding: 20 }}>
-              <Text style={[styles.label, { color: textColor }]}>Document Type</Text>
-              <TouchableOpacity
-                style={[styles.pickerWrapper, { backgroundColor: inputBg, borderColor: borderCol, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }]}
-                onPress={() => setDocTypeDropdownOpen(true)}
-              >
-                <Text style={{ color: textColor, fontSize: 13 }}>{selectedDocType}</Text>
-                <ChevronDown size={14} color={subTextColor} />
-              </TouchableOpacity>
+      {/* --- REUSABLE PROPERTY DOCUMENT UPLOADER MODAL --- */}
+      <PropertyDocumentUploader
+        propertyId={propertyId}
+        visible={isDocUploadModalOpen}
+        onClose={() => setDocUploadModalOpen(false)}
+        onUploadSuccess={() => queryClient.invalidateQueries({ queryKey: ['property_documents', propertyId] })}
+      />
 
-              <TouchableOpacity
-                style={[styles.addButton, { backgroundColor: brandCol, justifyContent: 'center' }]}
-                onPress={handlePickAndUploadDocument}
-                disabled={uploadingDoc}
-              >
-                <Upload size={16} color="#fff" />
-                <Text style={styles.addButtonText}>
-                  {uploadingDoc ? 'Uploading...' : 'Choose file & Upload'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Document Type Dropdown Modal */}
-      <Modal visible={isDocTypeDropdownOpen} transparent animationType="fade">
-        <TouchableOpacity activeOpacity={1} onPress={() => setDocTypeDropdownOpen(false)} style={styles.modalOverlay}>
-          <View style={[styles.dropdownMenu, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <Text style={[styles.dropdownTitle, { color: subTextColor }]}>Select Document Type</Text>
-            {DOCUMENT_TYPES.map((type) => (
-              <TouchableOpacity
-                key={type}
-                onPress={() => {
-                  setSelectedDocType(type);
-                  setDocTypeDropdownOpen(false);
-                }}
-                style={[
-                  styles.dropdownOption,
-                  { backgroundColor: selectedDocType === type ? borderCol : 'transparent' },
-                ]}
-              >
-                <Text style={{ color: textColor }}>{type}</Text>
-                {selectedDocType === type && <Check size={14} color={brandCol} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* --- PHOTO GALLERY PREVIEW MODAL --- */}
-      <Modal visible={selectedPreviewImageId !== null} transparent animationType="fade">
-        <View style={styles.imagePreviewModalOverlay}>
-          <TouchableOpacity style={styles.closePreviewBtn} onPress={() => setSelectedPreviewImageId(null)}>
-            <X size={24} color="#fff" />
-          </TouchableOpacity>
-          {selectedPreviewImageId !== null && (
-            <Image
-              source={{ uri: `${getApiUrl()}/api/v1/properties/images/${selectedPreviewImageId}/file` }}
-              style={styles.fullPreviewImage}
-              resizeMode="contain"
-            />
-          )}
-        </View>
-      </Modal>
+      {/* --- REUSABLE PHOTO GALLERY FULLSCREEN MODAL --- */}
+      <PropertyImageGallery
+        images={images}
+        visible={selectedPreviewImageId !== null}
+        initialIndex={Math.max(0, images.findIndex((img) => img.uploadId === selectedPreviewImageId))}
+        onClose={() => setSelectedPreviewImageId(null)}
+        onDelete={handleDeleteImage}
+        canDelete={true}
+      />
 
       <Toast />
     </View>

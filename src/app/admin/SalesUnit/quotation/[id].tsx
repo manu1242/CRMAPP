@@ -20,6 +20,7 @@ import {
   Trash2,
   X,
   Mail,
+  Download,
 } from 'lucide-react-native';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
@@ -31,6 +32,7 @@ import {
   useSendQuotationApproval,
 } from '../../../../admin/hooks/useQuotations';
 import { useQueryClient } from '@tanstack/react-query';
+import { downloadQuotationPdf } from '../../../../utils/pdfDownloadHelper';
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return 'N/A';
@@ -156,13 +158,27 @@ export default function QuotationDetailScreen() {
             {isLoading ? 'Loading...' : quotation?.quotationNumber || 'Quotation Detail'}
           </Text>
         </View>
-        {quotation?.status ? (
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(quotation.status).bg }]}>
-            <Text style={[styles.statusText, { color: getStatusColor(quotation.status).text }]}>
-              {quotation.status}
-            </Text>
-          </View>
-        ) : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {quotation && (
+            <TouchableOpacity
+              onPress={() => downloadQuotationPdf(quotationId, quotation.quotationNumber)}
+              style={{
+                padding: 6,
+                borderRadius: 8,
+                backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f0f4f8',
+              }}
+            >
+              <Download size={17} color={theme.brand} />
+            </TouchableOpacity>
+          )}
+          {quotation?.status ? (
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(quotation.status).bg }]}>
+              <Text style={[styles.statusText, { color: getStatusColor(quotation.status).text }]}>
+                {quotation.status}
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       {isLoading ? (
@@ -259,6 +275,14 @@ export default function QuotationDetailScreen() {
 
           {/* Action Buttons */}
           <View style={styles.actionRow}>
+            <TouchableOpacity
+              onPress={() => downloadQuotationPdf(quotationId, quotation.quotationNumber)}
+              style={[styles.actionBtn, { backgroundColor: '#10b981' }]}
+            >
+              <Download size={15} color="#ffffff" />
+              <Text style={styles.actionBtnText}>Download PDF</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={() => {
                 setApprovalResult(null);

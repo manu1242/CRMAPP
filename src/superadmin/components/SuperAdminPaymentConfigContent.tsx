@@ -17,6 +17,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import AppFooter from '../../auth/components/AppFooter';
 import { apiClient } from '../../api/apiClient';
 import { API_ENDPOINTS } from '../../api/endpoints';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 
 interface PaymentConfig {
   razorpayKeyId: string;
@@ -33,6 +34,7 @@ const emptyConfig: PaymentConfig = {
 export default function SuperAdminPaymentConfigContent() {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { bottomSpacing } = useBottomNavSpacing();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<PaymentConfig>(emptyConfig);
@@ -40,12 +42,12 @@ export default function SuperAdminPaymentConfigContent() {
   const [showWebhook, setShowWebhook] = useState(false);
 
   // Theme
-  const bgColor = isDark ? '#0f172a' : '#f8fafc';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const labelColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
-  const inputBg = isDark ? '#0f172a' : '#ffffff';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#FFFFFF';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const labelColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
+  const inputBg = isDark ? '#1e1e1e' : '#f4f4f5';
 
   const loadConfig = useCallback(async () => {
     try {
@@ -98,7 +100,7 @@ export default function SuperAdminPaymentConfigContent() {
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: bgColor, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#0284c7" />
+        <ActivityIndicator size="large" color="#835CEE" />
       </View>
     );
   }
@@ -106,11 +108,11 @@ export default function SuperAdminPaymentConfigContent() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, backgroundColor: bgColor, paddingTop: insets.top }}
+      style={{ flex: 1, backgroundColor: bgColor }}
     >
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal:10, paddingTop:0, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: bottomSpacing, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Card */}
@@ -133,11 +135,11 @@ export default function SuperAdminPaymentConfigContent() {
               width: 36,
               height: 36,
               borderRadius: 10,
-              backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+              backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5',
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-              <Ionicons name="card-outline" size={18} color="#0284c7" />
+              <Ionicons name="card-outline" size={18} color="#835CEE" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
@@ -175,7 +177,7 @@ export default function SuperAdminPaymentConfigContent() {
                 value={config.razorpayKeyId}
                 onChangeText={v => updateField('razorpayKeyId', v)}
                 placeholder="rzp_live_xxxxxxxxxx"
-                placeholderTextColor={isDark ? '#475569' : '#94a3b8'}
+                placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
               />
               <Text style={{ fontSize: 11, color: labelColor, marginTop: 5 }}>
                 Your Razorpay Key ID (starts with rzp_live_ or rzp_test_)
@@ -216,7 +218,7 @@ export default function SuperAdminPaymentConfigContent() {
                   value={config.razorpayKeySecret}
                   onChangeText={v => updateField('razorpayKeySecret', v)}
                   placeholder="Enter Secret Key"
-                  placeholderTextColor={isDark ? '#475569' : '#94a3b8'}
+                  placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
                 />
                 <TouchableOpacity onPress={() => setShowSecret(s => !s)} style={{ padding: 4 }}>
                   <Ionicons
@@ -243,7 +245,7 @@ export default function SuperAdminPaymentConfigContent() {
                 </Text>
                 <View style={{
                   marginLeft: 4,
-                  backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+                  backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5',
                   paddingHorizontal: 7,
                   paddingVertical: 2,
                   borderRadius: 6,
@@ -274,7 +276,7 @@ export default function SuperAdminPaymentConfigContent() {
                   value={config.razorpayWebhookSecret}
                   onChangeText={v => updateField('razorpayWebhookSecret', v)}
                   placeholder="Enter Webhook Secret"
-                  placeholderTextColor={isDark ? '#475569' : '#94a3b8'}
+                  placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
                 />
                 <TouchableOpacity onPress={() => setShowWebhook(s => !s)} style={{ padding: 4 }}>
                   <Ionicons
@@ -309,7 +311,7 @@ export default function SuperAdminPaymentConfigContent() {
           onPress={saveConfig}
           disabled={saving}
           style={{
-            backgroundColor: '#0284c7',
+            backgroundColor: '#835CEE',
             marginTop: 20,
             borderRadius: 14,
             height: 52,

@@ -17,6 +17,7 @@ import { AgentsService } from '../../../admin/services/Agentservice';
 import { useAgents, useAgentDropdowns, useOnboardAgent, useUpdateAgent } from '../../../admin/hooks/useAgents';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 import {
   ArrowLeft,
   ChevronDown,
@@ -46,6 +47,7 @@ export default function CreateAgentScreen() {
 
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Form States
   const [form, setForm] = useState({
@@ -348,7 +350,11 @@ export default function CreateAgentScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60, gap: 16 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: Math.max(bottomSpacing, 110), flexGrow: 1, gap: 16 }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Form Card */}
         <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16, gap: 14 }}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: textColor, borderBottomWidth: 1, borderBottomColor: borderCol, paddingBottom: 8, marginBottom: 4 }}>

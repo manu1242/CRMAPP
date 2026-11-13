@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -8,9 +8,16 @@ import {
     ActivityIndicator,
     StyleSheet,
     Linking,
+    Alert,
+    Dimensions,
+    Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.5;
 import {
     Bell,
     BellOff,
@@ -27,17 +34,21 @@ import {
     Layers,
     FileText,
     Receipt,
+    Trash2,
 } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { NotificationService } from '../../Services/NotificationService';
 import { NotificationItem, TodayTaskItem } from '../../authorization/models/Notification';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
+import { triggerHaptic } from '../../utils/haptics';
 
 export default function AdminNotificationScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { isDark } = useTheme();
     const adminTheme = getAdminTheme(isDark);
+    const { bottomSpacing } = useBottomNavSpacing();
 
     const [activeTab, setActiveTab] = useState<'notifications' | 'tasks'>('notifications');
     const [loading, setLoading] = useState(true);
@@ -47,6 +58,7 @@ export default function AdminNotificationScreen() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [taskCount, setTaskCount] = useState(0);
     const [error, setError] = useState<string | null>(null);
+    const clearingIds = useRef(new Set<string | number>());
 
     const fetchNotifications = useCallback(async (isRefresh = false) => {
         if (isRefresh) {
@@ -77,6 +89,7 @@ export default function AdminNotificationScreen() {
 
     const handleMarkAllRead = async () => {
         try {
+            triggerHaptic('light');
             const res = await NotificationService.markAllAsRead();
             if (res && res.success) {
                 setUnreadCount(0);
@@ -84,6 +97,49 @@ export default function AdminNotificationScreen() {
             }
         } catch (err: any) {
             console.error('Failed to mark all as read:', err);
+        }
+    };
+
+    const handleClearAll = () => {
+        Alert.alert(
+            'Clear All Notifications',
+            'Are you sure you want to permanently clear all notifications?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Clear All',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            triggerHaptic('warning');
+                            setNotifications([]);
+                            setUnreadCount(0);
+                            await NotificationService.clearAllNotifications();
+                            fetchNotifications(true);
+                        } catch (err: any) {
+                            console.error('Failed to clear all notifications:', err);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleClearSingle = async (notifId?: number | string) => {
+        if (!notifId || clearingIds.current.has(notifId)) return;
+        clearingIds.current.add(notifId);
+        try {
+            triggerHaptic('light');
+            // Instant optimistic deletion from state with no lag
+            setNotifications((prev) =>
+                prev.filter((n) => (n.notificationId || n.id) !== notifId)
+            );
+            setUnreadCount((prev) => Math.max(0, prev - 1));
+            await NotificationService.clearNotification(notifId);
+        } catch (err) {
+            console.error('Failed to clear alert:', err);
+        } finally {
+            clearingIds.current.delete(notifId);
         }
     };
 
@@ -199,26 +255,48 @@ export default function AdminNotificationScreen() {
                     </Text>
                 </View>
 
-                {unreadCount > 0 && (
-                    <TouchableOpacity
-                        onPress={handleMarkAllRead}
-                        activeOpacity={0.7}
-                        style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 5,
-                            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
-                            borderRadius: 16,
-                        }}
-                    >
-                        <CheckCheck size={12} color={adminTheme.brand} />
-                        <Text style={{ color: adminTheme.brand, fontSize: 11, fontWeight: '700' }}>
-                            Mark All Read
-                        </Text>
-                    </TouchableOpacity>
-                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {unreadCount > 0 && (
+                        <TouchableOpacity
+                            onPress={handleMarkAllRead}
+                            activeOpacity={0.7}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
+                                backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+                                paddingHorizontal: 9,
+                                paddingVertical: 5,
+                                borderRadius: 14,
+                            }}
+                        >
+                            <CheckCheck size={12} color={adminTheme.brand} />
+                            <Text style={{ color: adminTheme.brand, fontSize: 11, fontWeight: '700' }}>
+                                Read All
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {notifications.length > 0 && (
+                        <TouchableOpacity
+                            onPress={handleClearAll}
+                            activeOpacity={0.7}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
+                                paddingHorizontal: 9,
+                                paddingVertical: 5,
+                                borderRadius: 14,
+                            }}
+                        >
+                            <Trash2 size={12} color={isDark ? '#ef4444' : '#ef4444'} />
+                            <Text style={{ color: isDark ? '#ef4444' : '#ef4444', fontSize: 11, fontWeight: '700', opacity: 0.8 }}>
+                                Clear All
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
             </View>
 
             {/* ── Tabs: Notifications vs Today's Follow-Up Tasks ── */}
@@ -369,7 +447,7 @@ export default function AdminNotificationScreen() {
                 ) : (
                     <ScrollView
                         style={{ flex: 1 }}
-                        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+                        contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
                         showsVerticalScrollIndicator={false}
                         refreshControl={
                             <RefreshControl
@@ -383,88 +461,179 @@ export default function AdminNotificationScreen() {
                         <View style={{ backgroundColor: adminTheme.cardBg }}>
                             {notifications.map((item, index) => {
                                 const isUnread = item.isRead === false;
-                                return (
-                                    <TouchableOpacity
-                                        key={item.id || item.notificationId || index}
-                                        onPress={() => handleNotificationClick(item)}
-                                        activeOpacity={0.7}
-                                        style={[
-                                            styles.notificationRow,
-                                            {
-                                                borderColor: adminTheme.border,
-                                                backgroundColor: isUnread
-                                                    ? (isDark ? 'rgba(16, 185, 129, 0.06)' : '#f0fdf4')
-                                                    : 'transparent',
-                                            },
-                                        ]}
-                                    >
+                                const notifId = item.notificationId || item.id;
+
+                                const renderRightActions = (
+                                    _progress: Animated.AnimatedInterpolation<number>,
+                                    dragX: Animated.AnimatedInterpolation<number>
+                                ) => {
+                                    const scale = dragX.interpolate({
+                                        inputRange: [-SWIPE_THRESHOLD, -40, 0],
+                                        outputRange: [1, 0.8, 0],
+                                        extrapolate: 'clamp',
+                                    });
+
+                                    return (
                                         <View
+                                            style={{
+                                                width: SCREEN_WIDTH,
+                                                backgroundColor: '#ef4444',
+                                                justifyContent: 'center',
+                                                alignItems: 'flex-end',
+                                                paddingRight: 24,
+                                            }}
+                                        >
+                                            <Animated.View
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    gap: 6,
+                                                    transform: [{ scale }],
+                                                }}
+                                            >
+                                                <Trash2 size={20} color="#ffffff" strokeWidth={2.5} />
+                                                <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>
+                                                    Delete
+                                                </Text>
+                                            </Animated.View>
+                                        </View>
+                                    );
+                                };
+
+                                const renderLeftActions = (
+                                    _progress: Animated.AnimatedInterpolation<number>,
+                                    dragX: Animated.AnimatedInterpolation<number>
+                                ) => {
+                                    const scale = dragX.interpolate({
+                                        inputRange: [0, 40, SWIPE_THRESHOLD],
+                                        outputRange: [0, 0.8, 1],
+                                        extrapolate: 'clamp',
+                                    });
+
+                                    return (
+                                        <View
+                                            style={{
+                                                width: SCREEN_WIDTH,
+                                                backgroundColor: '#ef4444',
+                                                justifyContent: 'center',
+                                                alignItems: 'flex-start',
+                                                paddingLeft: 24,
+                                            }}
+                                        >
+                                            <Animated.View
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    gap: 6,
+                                                    transform: [{ scale }],
+                                                }}
+                                            >
+                                                <Trash2 size={20} color="#ffffff" strokeWidth={2.5} />
+                                                <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>
+                                                    Delete
+                                                </Text>
+                                            </Animated.View>
+                                        </View>
+                                    );
+                                };
+
+                                return (
+                                    <Swipeable
+                                        key={notifId || index}
+                                        friction={1}
+                                        enableTrackpadTwoFingerGesture
+                                        activeOffsetX={[-25, 25]}
+                                        failOffsetY={[-15, 15]}
+                                        leftThreshold={SWIPE_THRESHOLD}
+                                        rightThreshold={SWIPE_THRESHOLD}
+                                        overshootRight={false}
+                                        overshootLeft={false}
+                                        renderRightActions={renderRightActions}
+                                        renderLeftActions={renderLeftActions}
+                                        onSwipeableWillOpen={() => handleClearSingle(notifId)}
+                                        onSwipeableOpen={() => handleClearSingle(notifId)}
+                                    >
+                                        <TouchableOpacity
+                                            onPress={() => handleNotificationClick(item)}
+                                            activeOpacity={0.7}
                                             style={[
-                                                styles.iconCircle,
+                                                styles.notificationRow,
                                                 {
-                                                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.03)',
+                                                    borderColor: adminTheme.border,
+                                                    backgroundColor: isUnread
+                                                        ? (isDark ? 'rgba(16, 185, 129, 0.06)' : '#f0fdf4')
+                                                        : adminTheme.cardBg,
                                                 },
                                             ]}
                                         >
-                                            {getNotificationIcon(item.type, item.title, item.message)}
-                                        </View>
+                                            <View
+                                                style={[
+                                                    styles.iconCircle,
+                                                    {
+                                                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.03)',
+                                                    },
+                                                ]}
+                                            >
+                                                {getNotificationIcon(item.type, item.title, item.message)}
+                                            </View>
 
-                                        <View style={{ flex: 1 }}>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                                            <View style={{ flex: 1 }}>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                                                    <Text
+                                                        style={{
+                                                            fontSize: 13,
+                                                            fontWeight: '700',
+                                                            color: adminTheme.textPrimary,
+                                                            flex: 1,
+                                                        }}
+                                                    >
+                                                        {item.title}
+                                                    </Text>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                        {getPriorityBadge(item.priority)}
+                                                        {isUnread && (
+                                                            <View
+                                                                style={{
+                                                                    backgroundColor: adminTheme.brand,
+                                                                    paddingHorizontal: 6,
+                                                                    paddingVertical: 2,
+                                                                    borderRadius: 4,
+                                                                }}
+                                                            >
+                                                                <Text style={{ color: '#ffffff', fontSize: 8, fontWeight: '700' }}>
+                                                                    NEW
+                                                                </Text>
+                                                            </View>
+                                                        )}
+                                                    </View>
+                                                </View>
                                                 <Text
                                                     style={{
-                                                        fontSize: 13,
-                                                        fontWeight: '700',
-                                                        color: adminTheme.textPrimary,
-                                                        flex: 1,
+                                                        fontSize: 12,
+                                                        color: adminTheme.textSecondary,
+                                                        lineHeight: 17,
+                                                        marginVertical: 4,
                                                     }}
                                                 >
-                                                    {item.title}
+                                                    {item.message}
                                                 </Text>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                                    {getPriorityBadge(item.priority)}
-                                                    {isUnread && (
-                                                        <View
-                                                            style={{
-                                                                backgroundColor: adminTheme.brand,
-                                                                paddingHorizontal: 6,
-                                                                paddingVertical: 2,
-                                                                borderRadius: 4,
-                                                            }}
-                                                        >
-                                                            <Text style={{ color: '#ffffff', fontSize: 8, fontWeight: '700' }}>
-                                                                NEW
-                                                            </Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                        <Clock size={10} color={adminTheme.textMuted} />
+                                                        <Text style={{ fontSize: 10, color: adminTheme.textMuted }}>
+                                                            {item.createdOnFormatted || (item.createdOn ? new Date(item.createdOn).toLocaleString() : '')}
+                                                        </Text>
+                                                    </View>
+                                                    {item.link && (
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                                                            <Text style={{ fontSize: 10, color: adminTheme.brand, fontWeight: '600' }}>View Details</Text>
+                                                            <ChevronRight size={10} color={adminTheme.brand} />
                                                         </View>
                                                     )}
                                                 </View>
                                             </View>
-                                            <Text
-                                                style={{
-                                                    fontSize: 12,
-                                                    color: adminTheme.textSecondary,
-                                                    lineHeight: 17,
-                                                    marginVertical: 4,
-                                                }}
-                                            >
-                                                {item.message}
-                                            </Text>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                                    <Clock size={10} color={adminTheme.textMuted} />
-                                                    <Text style={{ fontSize: 10, color: adminTheme.textMuted }}>
-                                                        {item.createdOnFormatted || (item.createdOn ? new Date(item.createdOn).toLocaleString() : '')}
-                                                    </Text>
-                                                </View>
-                                                {item.link && (
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                                                        <Text style={{ fontSize: 10, color: adminTheme.brand, fontWeight: '600' }}>View Details</Text>
-                                                        <ChevronRight size={10} color={adminTheme.brand} />
-                                                    </View>
-                                                )}
-                                            </View>
-                                        </View>
-                                    </TouchableOpacity>
+                                        </TouchableOpacity>
+                                    </Swipeable>
                                 );
                             })}
                         </View>
@@ -508,7 +677,7 @@ export default function AdminNotificationScreen() {
                 ) : (
                     <ScrollView
                         style={{ flex: 1 }}
-                        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}
+                        contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing, flexGrow: 1 }}
                         showsVerticalScrollIndicator={false}
                         refreshControl={
                             <RefreshControl

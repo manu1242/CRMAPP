@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Menu, Moon, Sun, Bell } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 import UserMenuModal from '../../app/components/UserMenuModal';
 import { NotificationService } from '../../Services/NotificationService';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getSuperAdminTheme } from '../../theme/adminTheme';
 import { useAuthStore } from '../../auth/store/authStore';
+import { triggerHaptic } from '../../utils/haptics';
 
 interface HeaderProps {
   onMenuPress?: () => void;
@@ -16,7 +18,6 @@ interface HeaderProps {
 const Header = React.memo(({ onMenuPress }: HeaderProps) => {
   const router = useRouter();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const { isDark, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
   const superTheme = getSuperAdminTheme(isDark);
@@ -29,18 +30,15 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
     return 'S';
   }, [user?.username]);
 
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const res = await NotificationService.getNotifications();
-      setUnreadCount(res.unreadCount || res.count || 0);
-    } catch {
-      setUnreadCount(0);
-    }
-  }, []);
+  const { data: notificationsData } = useQuery({
+    queryKey: ['superadmin-unread-notifications'],
+    queryFn: () => NotificationService.getNotifications(),
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
-  useEffect(() => {
-    fetchUnreadCount();
-  }, [fetchUnreadCount]);
+  const unreadCount = notificationsData?.unreadCount ?? (notificationsData as any)?.count ?? 0;
 
   const bgColor = superTheme.secondaryBg;
   const borderColor = superTheme.border;
@@ -68,7 +66,13 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
       {/* Left: Menu and Title */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 12 }}>
         {onMenuPress && (
-          <TouchableOpacity onPress={onMenuPress} style={{ padding: 4, marginRight: 4 }}>
+          <TouchableOpacity
+            onPress={() => {
+              triggerHaptic('light');
+              onMenuPress();
+            }}
+            style={{ padding: 4, marginRight: 4 }}
+          >
             <Menu size={20} color={iconColor} />
           </TouchableOpacity>
         )}
@@ -82,7 +86,10 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         {/* Dark/Light Mode Toggle */}
         <TouchableOpacity
-          onPress={toggleTheme}
+          onPress={() => {
+            triggerHaptic('medium');
+            toggleTheme();
+          }}
           style={{ padding: 4 }}
           accessibilityRole="button"
           accessibilityLabel="Toggle dark/light mode"
@@ -97,7 +104,10 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
 
         {/* Notifications Icon (Navigates to dedicated screen) */}
         <TouchableOpacity
-          onPress={() => router.push('/superadmin/notifications' as any)}
+          onPress={() => {
+            triggerHaptic('light');
+            router.navigate('/superadmin/notifications' as any);
+          }}
           style={{ padding: 4, position: 'relative' }}
           accessibilityRole="button"
           accessibilityLabel="Notifications"
@@ -127,7 +137,10 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
 
         {/* User Avatar Button (Right-aligned) */}
         <TouchableOpacity
-          onPress={() => setIsUserMenuOpen(true)}
+          onPress={() => {
+            triggerHaptic('light');
+            setIsUserMenuOpen(true);
+          }}
           style={{
             backgroundColor: superTheme.brand,
             borderRadius: 16,
@@ -136,7 +149,7 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
             alignItems: 'center',
             justifyContent: 'center',
             borderWidth: 1,
-            borderColor: isDark ? '#3b82f6' : '#93c5fd',
+            borderColor: isDark ? '#835CEE' : '#c4b5fd',
           }}
           activeOpacity={0.8}
           accessibilityRole="button"

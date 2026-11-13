@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,77 +12,70 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
   subscriptionService,
   RazorpayTransactionItem,
   RazorpayStats,
 } from '../../admin/services/subscriptionService';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 
 export default function TransactionsScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Theme colors
-  const bgColor = isDark ? '#0f172a' : '#f8fafc';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
-  const inputBg = isDark ? '#0f172a' : '#ffffff';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
+  const inputBg = isDark ? '#1e1e1e' : '#f4f4f5';
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'success' | 'pending' | 'failed'>('all');
-  const [transactions, setTransactions] = useState<RazorpayTransactionItem[]>([]);
-  const [stats, setStats] = useState<RazorpayStats>({
-    totalTransactions: 0,
-    successCount: 0,
-    failedCount: 0,
-    pendingCount: 0,
-    totalSuccessfulAmount: 0,
-  });
 
   // Modal State
   const [selectedTx, setSelectedTx] = useState<RazorpayTransactionItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  const fetchTransactions = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
-
-    try {
-      const res = await subscriptionService.getRazorpayTransactions({
+  const {
+    data: txData,
+    isLoading,
+    isRefetching,
+    refetch,
+    error: txQueryError,
+  } = useQuery({
+    queryKey: ['superadmin-transactions', { search: search.trim() || undefined }],
+    queryFn: () =>
+      subscriptionService.getRazorpayTransactions({
         search: search.trim() || undefined,
         pageSize: 50,
-      });
+      }),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  });
 
-      if (res && res.success && res.data) {
-        setTransactions(res.data.transactions || []);
-        if (res.data.stats) {
-          setStats(res.data.stats);
-        }
-      } else {
-        setTransactions([]);
-      }
-    } catch (err: any) {
-      console.warn('Error fetching transactions:', err?.message);
-      setError(err?.message || 'Failed to load transactions');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [search]);
-
-  useEffect(() => {
-    fetchTransactions();
-  }, [fetchTransactions]);
+  const transactions = useMemo(
+    () => (txData?.success && txData.data?.transactions) || [],
+    [txData]
+  );
+  const stats: RazorpayStats = useMemo(
+    () =>
+      (txData?.success && txData.data?.stats) || {
+        totalTransactions: 0,
+        successCount: 0,
+        failedCount: 0,
+        pendingCount: 0,
+        totalSuccessfulAmount: 0,
+      },
+    [txData]
+  );
+  const error = txQueryError
+    ? (txQueryError as any).message || 'Failed to load transactions'
+    : null;
 
   // Client-side filter for status
   const filteredTransactions = useMemo(() => {
@@ -148,15 +141,15 @@ export default function TransactionsScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor, marginBottom: 60 }}>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView
         style={{ flex: 1, paddingHorizontal: 16, paddingTop: 20 }}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchTransactions(true)}
-            colors={['#2563eb']}
+            refreshing={isRefetching}
+            onRefresh={() => refetch()}
+            colors={['#835CEE']}
           />
         }
       >
@@ -183,7 +176,7 @@ export default function TransactionsScreen() {
             </Text>
           </View>
           <TouchableOpacity
-            onPress={() => fetchTransactions(true)}
+            onPress={() => refetch()}
             style={{
               backgroundColor: cardBg,
               padding: 8,
@@ -192,7 +185,7 @@ export default function TransactionsScreen() {
               borderColor: borderCol,
             }}
           >
-            <Ionicons name="reload" size={18} color="#2563eb" />
+            <Ionicons name="reload" size={18} color="#835CEE" />
           </TouchableOpacity>
         </View>
 
@@ -262,10 +255,10 @@ export default function TransactionsScreen() {
               padding: 10,
             }}
           >
-            <Text style={{ fontSize: 10, color: '#2563eb', fontWeight: '600', textTransform: 'uppercase' }}>
+            <Text style={{ fontSize: 10, color: '#835CEE', fontWeight: '600', textTransform: 'uppercase' }}>
               Revenue
             </Text>
-            <Text style={{ fontSize: 14, fontWeight: '800', color: '#2563eb', marginTop: 2 }} numberOfLines={1}>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: '#835CEE', marginTop: 2 }} numberOfLines={1}>
               {formatCurrency(stats.totalSuccessfulAmount)}
             </Text>
           </View>
@@ -294,7 +287,7 @@ export default function TransactionsScreen() {
             value={search}
             onChangeText={setSearch}
             returnKeyType="search"
-            onSubmitEditing={() => fetchTransactions()}
+            onSubmitEditing={() => refetch()}
           />
           {search ? (
             <TouchableOpacity onPress={() => setSearch('')}>
@@ -313,9 +306,9 @@ export default function TransactionsScreen() {
                 paddingHorizontal: 14,
                 paddingVertical: 7,
                 borderRadius: 20,
-                backgroundColor: filter === f ? '#2563eb' : cardBg,
+                backgroundColor: filter === f ? '#835CEE' : cardBg,
                 borderWidth: 1,
-                borderColor: filter === f ? '#2563eb' : borderCol,
+                borderColor: filter === f ? '#835CEE' : borderCol,
               }}
             >
               <Text
@@ -333,9 +326,9 @@ export default function TransactionsScreen() {
         </View>
 
         {/* Transactions List */}
-        {loading ? (
+        {(isLoading && !txData) ? (
           <View style={{ paddingVertical: 50, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#2563eb" />
+            <ActivityIndicator size="large" color="#835CEE" />
             <Text style={{ marginTop: 12, color: subTextColor, fontSize: 13, fontWeight: '600' }}>
               Loading transactions...
             </Text>
@@ -359,10 +352,10 @@ export default function TransactionsScreen() {
               {error}
             </Text>
             <TouchableOpacity
-              onPress={() => fetchTransactions()}
+              onPress={() => refetch()}
               style={{
                 marginTop: 16,
-                backgroundColor: '#2563eb',
+                backgroundColor: '#835CEE',
                 paddingHorizontal: 18,
                 paddingVertical: 8,
                 borderRadius: 8,
@@ -463,13 +456,13 @@ export default function TransactionsScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <View
                         style={{
-                          backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+                          backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5',
                           paddingHorizontal: 8,
                           paddingVertical: 4,
                           borderRadius: 6,
                         }}
                       >
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#835CEE' }}>
                           {item.planName || item.transactionType || 'Subscription'}
                         </Text>
                       </View>
@@ -488,7 +481,7 @@ export default function TransactionsScreen() {
                       marginTop: 8,
                     }}
                   >
-                    <Text style={{ fontSize: 10, color: '#2563eb', fontWeight: '600' }}>
+                    <Text style={{ fontSize: 10, color: '#835CEE', fontWeight: '600' }}>
                       Tap for details
                     </Text>
                     <Text style={{ fontSize: 10, color: subTextColor }}>
@@ -618,7 +611,7 @@ export default function TransactionsScreen() {
                 marginTop: 20,
                 height: 42,
                 borderRadius: 10,
-                backgroundColor: '#2563eb',
+                backgroundColor: '#835CEE',
                 justifyContent: 'center',
                 alignItems: 'center',
               }}

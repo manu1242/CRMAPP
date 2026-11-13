@@ -20,6 +20,7 @@ import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
 import { useInvoiceDetail, useDeleteInvoice, useSendInvoice, useRecordInvoicePayment } from '../../../../admin/hooks/useInvoices';
 import { getInvoicePdfUrl } from '../../../../admin/services/InvoiceService';
+import { downloadInvoicePdf } from '../../../../utils/pdfDownloadHelper';
 
 function formatDate(dateStr: string | null | undefined): string {
     if (!dateStr) return 'N/A';
@@ -92,12 +93,8 @@ export default function InvoiceDetailScreen() {
     }, [invoice]);
 
     const handleDownloadPdf = async () => {
-        const url = getInvoicePdfUrl(invoiceId);
-        try {
-            await WebBrowser.openBrowserAsync(url);
-        } catch {
-            Toast.show({ type: 'error', text1: 'Error', text2: 'Could not open PDF.' });
-        }
+        if (!invoiceId) return;
+        await downloadInvoicePdf(invoiceId, invoice?.invoiceNumber);
     };
 
     const handleDelete = () => {
@@ -207,8 +204,20 @@ export default function InvoiceDetailScreen() {
                 <Text style={[styles.headerTitle, { color: theme.textPrimary }]} numberOfLines={1}>
                     Tax Invoice
                 </Text>
-                <View style={[styles.badge, { backgroundColor: statusColors.bg }]}>
-                    <Text style={[styles.badgeText, { color: statusColors.text }]}>{invoice.status}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TouchableOpacity
+                        onPress={handleDownloadPdf}
+                        style={{
+                            padding: 6,
+                            borderRadius: 8,
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f0f4f8',
+                        }}
+                    >
+                        <Download size={17} color={theme.brand} />
+                    </TouchableOpacity>
+                    <View style={[styles.badge, { backgroundColor: statusColors.bg }]}>
+                        <Text style={[styles.badgeText, { color: statusColors.text }]}>{invoice.status}</Text>
+                    </View>
                 </View>
             </View>
 

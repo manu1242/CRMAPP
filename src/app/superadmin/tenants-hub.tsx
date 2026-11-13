@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, BackHandler } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,32 +12,17 @@ export default function TenantsHubScreen() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { isDark } = useTheme();
 
-  // Handle Android physical back button override to go to dashboard
-  useEffect(() => {
-    const backAction = () => {
-      router.replace('/superadmin/dashboard');
-      return true; // prevent default behavior
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction
-    );
-
-    return () => backHandler.remove();
-  }, [router]);
-
   // Theme colors
-  const bgColor = isDark ? '#0f172a' : '#f3f4f6';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
 
-      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 20 }} contentContainerStyle={{ paddingBottom: 160 }}>
+      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 20 }} contentContainerStyle={{ paddingBottom: 120, flexGrow: 1 }}>
         <View style={{ marginBottom: 24 }}>
           <Text style={{ fontSize: 22, fontWeight: '800', color: textColor }}>Tenants Workspaces</Text>
           <Text style={{ fontSize: 13, color: subTextColor, marginTop: 4 }}>Manage active tenant organizations and provision new workspaces.</Text>
@@ -63,8 +48,8 @@ export default function TenantsHubScreen() {
               elevation: 3,
             }}
           >
-            <View style={{ backgroundColor: isDark ? '#1e3a8a30' : '#eff6ff', padding: 12, borderRadius: 12, marginRight: 16 }}>
-              <Ionicons name="business-outline" size={24} color="#3b82f6" />
+            <View style={{ backgroundColor: isDark ? '#835CEE25' : '#835CEE15', padding: 12, borderRadius: 12, marginRight: 16 }}>
+              <Ionicons name="business-outline" size={24} color="#835CEE" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Tenants List</Text>

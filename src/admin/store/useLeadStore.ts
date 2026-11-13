@@ -38,6 +38,7 @@ interface LeadState {
   scheduleSiteVisit: (id: number | string, data: any) => Promise<boolean>;
   updateInterestStatus: (id: number | string, followUpId: number | string, status: string) => Promise<boolean>;
   updateLeadStatus: (id: number | string, status: string) => Promise<boolean>;
+  updateLeadStage: (id: number | string, stage: string) => Promise<boolean>;
   setSearch: (search: string) => void;
   setStage: (stage: string) => void;
   setStatus: (status: string) => void;
@@ -279,6 +280,19 @@ export const useLeadStore = create<LeadState>((set, get) => ({
     try {
       const response = await LeadService.updateStatus(id, status);
       if (response.success) {
+        await get().fetchLeadDetails(id);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+
+  updateLeadStage: async (id: number | string, stage: string): Promise<boolean> => {
+    try {
+      const response = await LeadService.updateLeadStage(id, stage);
+      if (response && response.success !== false) {
         await get().fetchLeadDetails(id);
         return true;
       }

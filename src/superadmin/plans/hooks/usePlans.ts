@@ -7,7 +7,8 @@ export const usePlansQuery = () => {
   return useQuery({
     queryKey: ['plans'],
     queryFn: () => plansApi.getPlans(),
-    staleTime: 5 * 60 * 1000, // cache for 5 minutes - plans rarely change
+    staleTime: 15 * 60 * 1000, // cache for 15 minutes - plans rarely change
+    gcTime: 60 * 60 * 1000,
   });
 };
 
@@ -16,6 +17,8 @@ export const usePlanDetailQuery = (id: number) => {
     queryKey: ['plan', id],
     queryFn: () => plansApi.getPlanById(id),
     enabled: !!id && id > 0,
+    staleTime: 15 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 };
 

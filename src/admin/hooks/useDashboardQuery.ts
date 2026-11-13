@@ -5,35 +5,52 @@ import {
   RecentActivitiesData,
   FollowUpItem,
 } from '../services/dashboardService';
+import { useAuthStore } from '../../auth/store/authStore';
 
 export function useAdminDashboardQuery() {
-  return useQuery<DashboardData, Error>({
-    queryKey: ['adminDashboard'],
+  const user = useAuthStore((state) => state.user);
+  const isSuperAdmin = user?.role?.trim()?.toLowerCase() === 'superadmin';
+
+  return useQuery({
+    queryKey: ['adminDashboard', user?.userId, user?.tenantId],
     queryFn: ({ signal }) => dashboardService.getDashboardData(signal),
+    enabled: !!user && !isSuperAdmin,
     staleTime: 5 * 60 * 1000, // 5 minutes stale time
   });
 }
 
 export function useRecentActivitiesQuery() {
-  return useQuery<RecentActivitiesData, Error>({
-    queryKey: ['dashboardRecentActivities'],
+  const user = useAuthStore((state) => state.user);
+  const isSuperAdmin = user?.role?.trim()?.toLowerCase() === 'superadmin';
+
+  return useQuery({
+    queryKey: ['dashboardRecentActivities', user?.userId, user?.tenantId],
     queryFn: ({ signal }) => dashboardService.getRecentActivities(signal),
+    enabled: !!user && !isSuperAdmin,
     staleTime: 2 * 60 * 1000,
   });
 }
 
 export function useFollowUpsQuery() {
-  return useQuery<FollowUpItem[], Error>({
-    queryKey: ['dashboardFollowUps'],
+  const user = useAuthStore((state) => state.user);
+  const isSuperAdmin = user?.role?.trim()?.toLowerCase() === 'superadmin';
+
+  return useQuery({
+    queryKey: ['dashboardFollowUps', user?.userId, user?.tenantId],
     queryFn: ({ signal }) => dashboardService.getFollowUps(signal),
+    enabled: !!user && !isSuperAdmin,
     staleTime: 2 * 60 * 1000,
   });
 }
 
 export function useAdminAnalyticsQuery() {
-  return useQuery<any, Error>({
-    queryKey: ['dashboardAdminAnalytics'],
+  const user = useAuthStore((state) => state.user);
+  const isSuperAdmin = user?.role?.trim()?.toLowerCase() === 'superadmin';
+
+  return useQuery({
+    queryKey: ['dashboardAdminAnalytics', user?.userId, user?.tenantId],
     queryFn: ({ signal }) => dashboardService.getAdminAnalytics(signal),
+    enabled: !!user && !isSuperAdmin,
     staleTime: 5 * 60 * 1000,
   });
 }

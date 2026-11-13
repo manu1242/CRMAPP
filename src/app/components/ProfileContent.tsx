@@ -117,13 +117,15 @@ export default function ProfileContent() {
     postalCode: '',
   }), [authUser]);
 
+  const isSuperAdmin = authUser?.role?.trim()?.toLowerCase() === 'superadmin';
+
   const {
     data: profileData,
     isLoading: queryLoading,
     isRefetching: refreshing,
     refetch: refectObject,
   } = useQuery({
-    queryKey: ['adminProfile'],
+    queryKey: ['adminProfile', authUser?.userId],
     queryFn: async () => {
       const res = await profileService.getProfile();
       if (res && res.success && res.data) {
@@ -131,6 +133,7 @@ export default function ProfileContent() {
       }
       throw new Error('Profile fetch failed');
     },
+    enabled: !!authUser && !isSuperAdmin,
     retry: 1,
   });
 

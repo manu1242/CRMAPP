@@ -5,7 +5,6 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../../superadmin/components/Header';
 import SidebarDrawer from '../../auth/components/SidebarDrawer';
-import BottomNav from '../../superadmin/components/BottomNav';
 import { useTheme } from '../../contexts/ThemeContext';
 
 export default function SubscriptionsHubScreen() {
@@ -14,16 +13,16 @@ export default function SubscriptionsHubScreen() {
   const { isDark } = useTheme();
 
   // Theme colors
-  const bgColor = isDark ? '#0f172a' : '#f3f4f6';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
 
-      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 20 }} contentContainerStyle={{ paddingBottom: 160 }}>
+      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 20 }} contentContainerStyle={{ paddingBottom: 120, flexGrow: 1 }}>
         <View style={{ marginBottom: 24 }}>
           <Text style={{ fontSize: 22, fontWeight: '800', color: textColor }}>Subscriptions Management</Text>
           <Text style={{ fontSize: 13, color: subTextColor, marginTop: 4 }}>Configure subscription models and view tenant payment details.</Text>
@@ -77,8 +76,8 @@ export default function SubscriptionsHubScreen() {
               elevation: 3,
             }}
           >
-            <View style={{ backgroundColor: isDark ? '#1e3a8a30' : '#eff6ff', padding: 12, borderRadius: 12, marginRight: 16 }}>
-              <Ionicons name="people-outline" size={24} color="#3b82f6" />
+            <View style={{ backgroundColor: isDark ? '#835CEE25' : '#835CEE15', padding: 12, borderRadius: 12, marginRight: 16 }}>
+              <Ionicons name="people-outline" size={24} color="#835CEE" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Tenant Subscriptions</Text>
@@ -133,8 +132,8 @@ export default function SubscriptionsHubScreen() {
               elevation: 3,
             }}
           >
-            <View style={{ backgroundColor: isDark ? '#0284c730' : '#e0f2fe', padding: 12, borderRadius: 12, marginRight: 16 }}>
-              <Ionicons name="id-card-outline" size={24} color="#0284c7" />
+            <View style={{ backgroundColor: isDark ? '#835CEE25' : '#835CEE15', padding: 12, borderRadius: 12, marginRight: 16 }}>
+              <Ionicons name="id-card-outline" size={24} color="#835CEE" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Owner Subscriptions</Text>

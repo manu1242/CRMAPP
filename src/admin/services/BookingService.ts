@@ -97,3 +97,6 @@ export async function uploadBookingFile(formData: FormData): Promise<ApiResponse
     throw error;
   }
 }
+
+export { getBookingPdfUrl, downloadBookingPdf } from '../../utils/pdfDownloadHelper';
+

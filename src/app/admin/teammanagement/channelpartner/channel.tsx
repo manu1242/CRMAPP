@@ -17,6 +17,7 @@ import { useChannelPartners } from '../../../../admin/hooks/useChannelPartners';
 import { ChannelPartner } from '../../../../admin/models/ChannelPartnerTypes';
 import Toast from 'react-native-toast-message';
 import { exportToExcel, exportToCSV } from '../../../../Services/exportService';
+import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
 import {
   Search,
   Plus,
@@ -43,6 +44,7 @@ export default function ChannelPartnerListScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -326,7 +328,8 @@ export default function ChannelPartnerListScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing, flexGrow: 1, gap: 12 }}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[brandColor]} />}
           showsVerticalScrollIndicator={false}
         >

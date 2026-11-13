@@ -47,12 +47,12 @@ export default function SuperAdminProfileScreen() {
   };
 
   // Superadmin theme palette
-  const bgColor = isDark ? '#0f172a' : '#f8fafc';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f8fafc' : '#0f172a';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
-  const brandColor = '#2563eb';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
+  const brandColor = '#835CEE';
 
   const getInitials = (name: string) => {
     if (!name) return 'SA';
@@ -70,7 +70,7 @@ export default function SuperAdminProfileScreen() {
       icon: CreditCard,
       desc: 'Razorpay, Stripe & payment keys setup',
       route: '/superadmin/payment-config',
-      color: '#2563eb',
+      color: '#835CEE',
     },
     {
       title: 'Subscription Plans & Tiers',
@@ -190,7 +190,7 @@ export default function SuperAdminProfileScreen() {
 
           {/* Role Pill */}
           <View style={styles.rolePill}>
-            <Sparkles size={11} color="#2563eb" />
+            <Sparkles size={11} color="#835CEE" />
             <Text style={styles.rolePillText}>
               {user?.role?.toUpperCase() || 'SUPERADMIN'}
             </Text>
@@ -218,8 +218,8 @@ export default function SuperAdminProfileScreen() {
         {/* ── SAAS PLATFORM ADMINISTRATION ──────────────────────────── */}
         <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol, ...cardShadow }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <View style={{ backgroundColor: 'rgba(37, 99, 235, 0.12)', padding: 6, borderRadius: 8 }}>
-              <Sliders size={15} color="#2563eb" />
+            <View style={{ backgroundColor: 'rgba(131, 92, 238, 0.12)', padding: 6, borderRadius: 8 }}>
+              <Sliders size={15} color="#835CEE" />
             </View>
             <Text style={[styles.sectionTitleText, { color: textColor }]}>
               SaaS Administration
@@ -259,8 +259,8 @@ export default function SuperAdminProfileScreen() {
         {/* ── APPEARANCE & THEME SETTINGS ──────────────────────────── */}
         <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol, ...cardShadow }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <View style={{ backgroundColor: 'rgba(37, 99, 235, 0.12)', padding: 6, borderRadius: 8 }}>
-              <Sun size={15} color="#2563eb" />
+            <View style={{ backgroundColor: 'rgba(131, 92, 238, 0.12)', padding: 6, borderRadius: 8 }}>
+              <Sun size={15} color="#835CEE" />
             </View>
             <Text style={[styles.sectionTitleText, { color: textColor }]}>
               Appearance & Theme
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#835CEE',
     width: 20,
     height: 20,
     borderRadius: 10,
@@ -468,8 +468,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(37, 99, 235, 0.10)',
-    borderColor: 'rgba(37, 99, 235, 0.22)',
+    backgroundColor: 'rgba(131, 92, 238, 0.10)',
+    borderColor: 'rgba(131, 92, 238, 0.22)',
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 12,
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   rolePillText: {
-    color: '#2563eb',
+    color: '#835CEE',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.6,

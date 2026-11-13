@@ -123,10 +123,10 @@ export const TenantFilterBar = React.memo(() => {
             borderRadius: 12,
             borderWidth: 1,
             backgroundColor: isExpanded
-              ? (isDark ? 'rgba(56, 189, 248, 0.15)' : '#e0f2fe')
+              ? (isDark ? 'rgba(131, 92, 238, 0.15)' : '#f3effe')
               : superTheme.inputBg,
             borderColor: isExpanded
-              ? (isDark ? 'rgba(56, 189, 248, 0.4)' : '#bae6fd')
+              ? (isDark ? 'rgba(131, 92, 238, 0.4)' : '#c4b5fd')
               : superTheme.border,
           }}
         >
@@ -226,10 +226,10 @@ export const TenantFilterBar = React.memo(() => {
                       borderRadius: 8,
                       borderWidth: 1,
                       backgroundColor: isSelected
-                        ? (isDark ? 'rgba(56, 189, 248, 0.15)' : '#e0f2fe')
+                        ? (isDark ? 'rgba(131, 92, 238, 0.15)' : '#f3effe')
                         : superTheme.inputBg,
                       borderColor: isSelected
-                        ? (isDark ? 'rgba(56, 189, 248, 0.4)' : '#bae6fd')
+                        ? (isDark ? 'rgba(131, 92, 238, 0.4)' : '#c4b5fd')
                         : superTheme.border,
                     }}
                   >
@@ -237,7 +237,7 @@ export const TenantFilterBar = React.memo(() => {
                       style={{
                         fontSize: 11,
                         fontWeight: '600',
-                        color: isSelected ? (isDark ? '#38bdf8' : '#0369a1') : superTheme.textSecondary,
+                        color: isSelected ? (isDark ? '#a78bfa' : '#835CEE') : superTheme.textSecondary,
                       }}
                     >
                       {item.label}

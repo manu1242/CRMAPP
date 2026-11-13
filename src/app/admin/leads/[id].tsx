@@ -16,6 +16,7 @@ import {
 import Toast from 'react-native-toast-message';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import {
   ArrowLeft,
   RefreshCw,
@@ -46,16 +47,31 @@ import {
   FileSpreadsheet,
   ChevronDown,
   Trash2,
+  UserCheck,
+  Download,
+  ExternalLink,
+  File,
+  CheckCircle2,
+  ThumbsUp,
+  ThumbsDown,
+  Snowflake,
+  Calendar,
+  Camera,
+  Image as ImageIcon,
+  Pen,
 } from 'lucide-react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
 import { useLeadStore } from '../../../admin/store/useLeadStore';
 import { LeadService } from '../../../admin/services/LeadService';
+import LeadAssignmentModal from '../../../admin/components/LeadAssignmentModal';
+import LeadStageModal from '../../../admin/components/LeadStageModal';
 import * as QuotationService from '../../../admin/services/QuoatationService';
 import * as BookingService from '../../../admin/services/BookingService';
 import * as InvoiceService from '../../../admin/services/InvoiceService';
 import * as PaymentService from '../../../admin/services/PaymentService';
 import { getApiUrl } from '../../../api/remoteConfig';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 function openFileUrl(path: string | null | undefined) {
   if (!path) return;
@@ -111,7 +127,47 @@ type TabType =
   | 'notes'
   | 'documents'
   | 'sitevisits'
-  | 'transitions';
+  | 'transactions'
+  // | 'transitions';
+
+// Helper to determine file icon and colors matching Web CRM
+function getFileIconInfo(fileName?: string) {
+  const ext = fileName?.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'pdf':
+      return { icon: FileText, color: '#ef4444', bg: '#ef444415' };
+    case 'doc':
+    case 'docx':
+      return { icon: FileText, color: '#3b82f6', bg: '#3b82f615' };
+    case 'xls':
+    case 'xlsx':
+    case 'csv':
+      return { icon: FileSpreadsheet, color: '#10b981', bg: '#10b98115' };
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'webp':
+      return { icon: Paperclip, color: '#06b6d4', bg: '#06b6d415' };
+    default:
+      return { icon: File, color: '#8b5cf6', bg: '#8b5cf615' };
+  }
+}
+
+// Helper to determine activity icon and colors matching Web CRM History
+function getActivityIconInfo(activityText?: string) {
+  const act = activityText?.toLowerCase() || '';
+  if (act.includes('created') || act.includes('add')) return { icon: Plus, color: '#10b981', bg: '#10b98115' };
+  if (act.includes('update') || act.includes('modif') || act.includes('edit')) return { icon: Briefcase, color: '#3b82f6', bg: '#3b82f615' };
+  if (act.includes('delete') || act.includes('remove')) return { icon: Trash2, color: '#ef4444', bg: '#ef444415' };
+  if (act.includes('follow')) return { icon: CalendarCheck, color: '#06b6d4', bg: '#06b6d415' };
+  if (act.includes('note')) return { icon: FileText, color: '#f59e0b', bg: '#f59e0b15' };
+  if (act.includes('upload') || act.includes('file') || act.includes('document')) return { icon: Upload, color: '#10b981', bg: '#10b98115' };
+  if (act.includes('call') || act.includes('phone')) return { icon: Phone, color: '#10b981', bg: '#10b98115' };
+  if (act.includes('email') || act.includes('mail')) return { icon: Mail, color: '#3b82f6', bg: '#3b82f615' };
+  if (act.includes('site') || act.includes('visit')) return { icon: MapPin, color: '#ec4899', bg: '#ec489915' };
+  return { icon: Clock, color: '#8b5cf6', bg: '#8b5cf615' };
+}
 
 export default function LeadDetailsScreen() {
   const router = useRouter();
@@ -119,6 +175,7 @@ export default function LeadDetailsScreen() {
   const leadId = params.id;
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const {
     selectedLeadDetails,
@@ -132,10 +189,34 @@ export default function LeadDetailsScreen() {
     uploadLeadDocument,
     deleteLeadDocument,
     updateLeadStatus,
+    updateInterestStatus,
   } = useLeadStore();
 
   const [activeTab, setActiveTab] = useState<TabType>('contact');
   const [refreshing, setRefreshing] = useState(false);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [stageModalOpen, setStageModalOpen] = useState(false);
+  const [updatingInterestFollowUpId, setUpdatingInterestFollowUpId] = useState<number | null>(null);
+
+  const handleUpdateInterest = async (followUpId: number, status: 'Interested' | 'Not Interested' | 'Cold') => {
+    if (!leadId || !followUpId) return;
+    setUpdatingInterestFollowUpId(followUpId);
+    const success = await updateInterestStatus(leadId, followUpId, status);
+    setUpdatingInterestFollowUpId(null);
+    if (success) {
+      Toast.show({
+        type: 'success',
+        text1: 'Interest Status',
+        text2: `Status updated to ${status}`,
+      });
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Update Failed',
+        text2: 'Could not update interest status. Please try again.',
+      });
+    }
+  };
 
   // Form States
   const [newNoteText, setNewNoteText] = useState('');
@@ -225,6 +306,7 @@ export default function LeadDetailsScreen() {
 
   // File Upload State
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadPickerModalOpen, setUploadPickerModalOpen] = useState(false);
 
   // Local state for Documents & Financial Sub-sections
   const [quotations, setQuotations] = useState<any[]>([]);
@@ -558,57 +640,137 @@ export default function LeadDetailsScreen() {
     }
   };
 
-  const handleUploadDocument = async () => {
+  const uploadSelectedFile = async (uri: string, name: string, mimeType: string) => {
     if (!leadId) return;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('leadId', String(leadId));
+      formData.append('file', {
+        uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
+        name: name,
+        type: mimeType || 'application/octet-stream',
+      } as any);
+
+      const success = await uploadLeadDocument(leadId, formData);
+      setIsUploading(false);
+
+      if (success) {
+        Toast.show({
+          type: 'success',
+          text1: 'Upload Successful',
+          text2: `${name} uploaded successfully!`,
+        });
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Upload Failed',
+          text2: 'File upload failed. Please try again.',
+        });
+      }
+    } catch (err: any) {
+      setIsUploading(false);
+      Toast.show({
+        type: 'error',
+        text1: 'Upload Error',
+        text2: err?.message || 'Failed to upload file.',
+      });
+      console.log('Upload error:', err);
+    }
+  };
+
+  const handlePickDocument = async () => {
+    setUploadPickerModalOpen(false);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'text/plain',
+          'text/csv',
+          'image/*',
+          '*/*',
+        ],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const doc = result.assets[0];
+        const docName = doc.name || `doc_${Date.now()}.pdf`;
+        const docMime = doc.mimeType || 'application/pdf';
+        await uploadSelectedFile(doc.uri, docName, docMime);
+      }
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Document Error',
+        text2: err?.message || 'Failed to pick document.',
+      });
+    }
+  };
+
+  const handlePickImage = async () => {
+    setUploadPickerModalOpen(false);
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images', 'videos'],
+        mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        setIsUploading(true);
-
-        const formData = new FormData();
-        const fileName = asset.fileName || `doc_${Date.now()}.jpg`;
+        const fileName = asset.fileName || `img_${Date.now()}.jpg`;
         const mimeType = asset.mimeType || 'image/jpeg';
-
-        // Append file object formatted for React Native FormData
-        formData.append('file', {
-          uri: Platform.OS === 'android' ? asset.uri : asset.uri.replace('file://', ''),
-          name: fileName,
-          type: mimeType,
-        } as any);
-
-        const success = await uploadLeadDocument(leadId, formData);
-        setIsUploading(false);
-
-        if (success) {
-          Toast.show({
-            type: 'success',
-            text1: 'Success',
-            text2: 'Document uploaded successfully!',
-          });
-        } else {
-          Toast.show({
-            type: 'error',
-            text1: 'Upload Failed',
-            text2: 'Document upload failed. Please try again.',
-          });
-        }
+        await uploadSelectedFile(asset.uri, fileName, mimeType);
       }
     } catch (err: any) {
-      setIsUploading(false);
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: err.message || 'Failed to select document.',
-
+        text1: 'Gallery Error',
+        text2: err?.message || 'Failed to pick image.',
       });
-      console.log(err)
     }
+  };
+
+  const handleTakePhoto = async () => {
+    setUploadPickerModalOpen(false);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Toast.show({
+          type: 'error',
+          text1: 'Permission Required',
+          text2: 'Camera access is required to take photos.',
+        });
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const fileName = asset.fileName || `photo_${Date.now()}.jpg`;
+        const mimeType = asset.mimeType || 'image/jpeg';
+        await uploadSelectedFile(asset.uri, fileName, mimeType);
+      }
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Camera Error',
+        text2: err?.message || 'Failed to capture photo.',
+      });
+    }
+  };
+
+  const handleUploadDocument = () => {
+    setUploadPickerModalOpen(true);
   };
 
   // Render Rating Pill
@@ -635,19 +797,23 @@ export default function LeadDetailsScreen() {
     );
   };
 
+  const totalTransactionsCount =
+    quotations.length + bookingDocuments.length + invoices.length + payments.length;
+
   const tabs: { key: TabType; label: string; count?: number; icon: any }[] = [
     { key: 'contact', label: 'Contact', icon: User },
     { key: 'requirements', label: 'Requirements', icon: Home },
     { key: 'activities', label: 'Activities', count: activities.length, icon: Activity },
     { key: 'followups', label: 'Follow Ups', count: followUps.length, icon: CalendarCheck },
     { key: 'notes', label: 'Notes', count: notes.length, icon: FileText },
-    { key: 'documents', label: 'Documents', count: documents.length, icon: Paperclip },
+    { key: 'documents', label: 'Uploads', count: documents.length, icon: Paperclip },
     { key: 'sitevisits', label: 'Site Visits', count: siteVisits.length, icon: MapPin },
-    { key: 'transitions', label: 'Transitions', count: transitions.length, icon: GitCommit },
+    { key: 'transactions', label: 'Transactions', count: totalTransactionsCount, icon: Receipt },
+    // { key: 'transitions', label: 'Transitions', count: transitions.length, icon: GitCommit },
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: bgColor ,marginBottom:40}]}>
+    <View style={[styles.container, { backgroundColor: bgColor }]}>
       {/* Top Header Bar */}
       <View style={{
         flexDirection: 'row',
@@ -705,7 +871,7 @@ export default function LeadDetailsScreen() {
       ) : (
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: Math.max(bottomSpacing, 100) }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           showsVerticalScrollIndicator={false}
         >
@@ -819,14 +985,18 @@ export default function LeadDetailsScreen() {
                   </View>
                 )}
               </View>
-              {contact?.stage && (
-                <View style={[styles.pillBadge, { backgroundColor: '#8b5cf615' }]}>
-                  <Briefcase size={12} color="#8b5cf6" />
-                  <Text style={[styles.pillBadgeText, { color: '#8b5cf6' }]}>
-                    {contact.stage}
-                  </Text>
-                </View>
-              )}
+              {/* Interactive Stage Badge (matches Web CRM stage modal) */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => setStageModalOpen(true)}
+                style={[styles.pillBadge, { backgroundColor: '#8b5cf615', borderWidth: 1, borderColor: '#8b5cf630' }]}
+              >
+                <Briefcase size={12} color="#8b5cf6" />
+                <Text style={[styles.pillBadgeText, { color: '#8b5cf6' }]}>
+                  {contact?.stage || 'Set Stage'}
+                </Text>
+                <Pen size={10} color="#8b5cf6" style={{ marginLeft: 2 }} />
+              </TouchableOpacity>
               {contact?.source && (
                 <View style={[styles.pillBadge, { backgroundColor: '#10b98115' }]}>
                   <Building size={12} color="#10b981" />
@@ -869,6 +1039,16 @@ export default function LeadDetailsScreen() {
                 <Mail size={16} color={contact?.email ? '#3b82f6' : subTextColor} />
                 <Text style={[styles.actionBtnText, { color: contact?.email ? '#3b82f6' : subTextColor }]}>
                   Email
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setAssignModalOpen(true)}
+                style={[styles.actionBtn, { backgroundColor: '#8b5cf615' }]}
+              >
+                <UserCheck size={16} color="#8b5cf6" />
+                <Text style={[styles.actionBtnText, { color: '#8b5cf6' }]}>
+                  Assign
                 </Text>
               </TouchableOpacity>
             </View>
@@ -974,33 +1154,44 @@ export default function LeadDetailsScreen() {
             {/* TAB 3: Activities */}
             {activeTab === 'activities' && (
               <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-                <Text style={[styles.sectionTitle, { color: textColor }]}>Activity History</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <Activity size={18} color="#3b82f6" />
+                  <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 0 }]}>Activity History</Text>
+                </View>
                 {activities.length === 0 ? (
                   <EmptyState text="No activity logs recorded yet." subTextColor={subTextColor} />
                 ) : (
                   <View style={styles.timelineList}>
-                    {activities.map((act, index) => (
-                      <View key={act.historyId || index} style={styles.timelineItem}>
-                        <View style={styles.timelineDotContainer}>
-                          <View style={styles.timelineDot} />
-                          {index !== activities.length - 1 && <View style={[styles.timelineLine, { backgroundColor: borderCol }]} />}
-                        </View>
-                        <View style={[styles.timelineCard, { backgroundColor: inputBg, borderColor: borderCol }]}>
-                          <Text style={[styles.timelineActivity, { color: textColor }]}>{act.activity}</Text>
-                          <View style={styles.timelineMeta}>
-                            <Clock size={12} color={subTextColor} />
-                            <Text style={[styles.timelineTime, { color: subTextColor }]}>
-                              {act.activityDateFormatted || formatDateTime(act.activityDate)}
-                            </Text>
-                            {(act.executiveName || act.executiveId) && (
-                              <Text style={[styles.timelineTime, { color: subTextColor }]}>
-                                · {act.executiveName || `Exec #${act.executiveId}`}
-                              </Text>
+                    {activities.map((act, index) => {
+                      const iconInfo = getActivityIconInfo(act.activity);
+                      const ActIcon = iconInfo.icon;
+                      return (
+                        <View key={act.historyId || index} style={styles.timelineItem}>
+                          <View style={styles.timelineDotContainer}>
+                            <View style={[styles.activityIconCircle, { backgroundColor: iconInfo.bg }]}>
+                              <ActIcon size={12} color={iconInfo.color} />
+                            </View>
+                            {index !== activities.length - 1 && (
+                              <View style={[styles.timelineLine, { backgroundColor: borderCol }]} />
                             )}
                           </View>
+                          <View style={[styles.timelineCard, { backgroundColor: inputBg, borderColor: borderCol }]}>
+                            <Text style={[styles.timelineActivity, { color: textColor }]}>{act.activity}</Text>
+                            <View style={styles.timelineMeta}>
+                              <Clock size={12} color={subTextColor} />
+                              <Text style={[styles.timelineTime, { color: subTextColor }]}>
+                                {act.activityDateFormatted || formatDateTime(act.activityDate)}
+                              </Text>
+                              {(act.executiveName || act.executiveId) && (
+                                <Text style={[styles.timelineTime, { color: subTextColor }]}>
+                                  · {act.executiveName || `Exec #${act.executiveId}`}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
                         </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 )}
               </View>
@@ -1151,13 +1342,16 @@ export default function LeadDetailsScreen() {
               </View>
             )}
 
-            {/* TAB 6: Documents & Financial Sub-sections */}
+            {/* TAB 6: Uploads / Documents */}
             {activeTab === 'documents' && (
               <View style={{ gap: 16 }}>
-                {/* File Upload Header Bar */}
+                {/* Upload Action Card */}
                 <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 0 }]}>Lead Documents</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Paperclip size={18} color="#3b82f6" />
+                      <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 0 }]}>Lead Documents</Text>
+                    </View>
                     <TouchableOpacity
                       onPress={handleUploadDocument}
                       disabled={isUploading}
@@ -1168,51 +1362,203 @@ export default function LeadDetailsScreen() {
                       ) : (
                         <>
                           <Upload size={14} color="#ffffff" />
-                          <Text style={styles.addBtnSmallText}>Upload Document</Text>
+                          <Text style={styles.addBtnSmallText}>Upload File</Text>
                         </>
                       )}
                     </TouchableOpacity>
                   </View>
 
-                  {documents.length === 0 ? (
-                    <EmptyState text="No documents uploaded yet." subTextColor={subTextColor} />
-                  ) : (
-                    <View style={{ gap: 10, marginTop: 14 }}>
-                      {documents.map((doc) => (
-                        <View
-                          key={doc.uploadId}
-                          style={[styles.docItem, { backgroundColor: inputBg, borderColor: borderCol, flexDirection: 'row', alignItems: 'center' }]}
-                        >
-                          <TouchableOpacity
-                            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
-                            onPress={() => {
-                              if (doc.filePath) {
-                                openFileUrl(doc.filePath);
-                              }
-                            }}
-                          >
-                            <Paperclip size={20} color="#3b82f6" />
-                            <View style={{ flex: 1 }}>
-                              <Text style={[styles.docName, { color: textColor }]} numberOfLines={1}>
-                                {doc.fileName}
-                              </Text>
-                              <Text style={{ fontSize: 11, color: subTextColor }}>
-                                {doc.fileType || 'Document'} · {formatDateTime(doc.uploadedOn)}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
+                  <Text style={{ fontSize: 11, color: subTextColor, marginBottom: 14 }}>
+                    Supported formats: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG (Max: 10MB)
+                  </Text>
 
-                          <TouchableOpacity
-                            onPress={() => handleDeleteDocument(doc.uploadId)}
-                            style={{ padding: 6, marginLeft: 8 }}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  {documents.length === 0 ? (
+                    <View style={{ alignItems: 'center', paddingVertical: 28 }}>
+                      <Paperclip size={36} color={subTextColor} style={{ opacity: 0.5, marginBottom: 8 }} />
+                      <Text style={{ color: textColor, fontSize: 14, fontWeight: '600', marginBottom: 4 }}>
+                        No Documents Uploaded
+                      </Text>
+                      <Text style={{ color: subTextColor, fontSize: 12, textAlign: 'center' }}>
+                        Upload your first document using the button above.
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={{ gap: 10 }}>
+                      {documents.map((doc) => {
+                        const iconInfo = getFileIconInfo(doc.fileName);
+                        const DocIcon = iconInfo.icon;
+                        return (
+                          <View
+                            key={doc.uploadId}
+                            style={[
+                              styles.docItem,
+                              { backgroundColor: inputBg, borderColor: borderCol, flexDirection: 'row', alignItems: 'center' },
+                            ]}
                           >
-                            <Trash2 size={16} color="#ef4444" />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
+                            <TouchableOpacity
+                              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                              onPress={() => {
+                                if (doc.filePath) {
+                                  openFileUrl(doc.filePath);
+                                }
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <View
+                                style={{
+                                  width: 40,
+                                  height: 40,
+                                  borderRadius: 8,
+                                  backgroundColor: iconInfo.bg,
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <DocIcon size={20} color={iconInfo.color} />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.docName, { color: textColor }]} numberOfLines={1}>
+                                  {doc.fileName}
+                                </Text>
+                                <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                                  {formatDateTime(doc.uploadedOn)}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+                              {doc.filePath ? (
+                                <TouchableOpacity
+                                  onPress={() => openFileUrl(doc.filePath)}
+                                  style={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: 6,
+                                    backgroundColor: '#3b82f615',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                >
+                                  <Download size={15} color="#3b82f6" />
+                                </TouchableOpacity>
+                              ) : null}
+                              <TouchableOpacity
+                                onPress={() => handleDeleteDocument(doc.uploadId)}
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 6,
+                                  backgroundColor: '#ef444415',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                              >
+                                <Trash2 size={15} color="#ef4444" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        );
+                      })}
                     </View>
                   )}
+                </View>
+              </View>
+            )}
+
+            {/* TAB: Transactions & Documents */}
+            {activeTab === 'transactions' && (
+              <View style={{ gap: 16 }}>
+                {/* Financial Summary Metric Cards */}
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  <View
+                    style={{
+                      flex: 1,
+                      minWidth: '45%',
+                      backgroundColor: cardBg,
+                      borderColor: borderCol,
+                      borderWidth: 1,
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#0284c715', alignItems: 'center', justifyContent: 'center' }}>
+                        <FileSpreadsheet size={16} color="#0284c7" />
+                      </View>
+                      <View>
+                        <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>{quotations.length}</Text>
+                        <Text style={{ fontSize: 11, color: subTextColor }}>Quotations</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View
+                    style={{
+                      flex: 1,
+                      minWidth: '45%',
+                      backgroundColor: cardBg,
+                      borderColor: borderCol,
+                      borderWidth: 1,
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#16a34a15', alignItems: 'center', justifyContent: 'center' }}>
+                        <FileCheck size={16} color="#16a34a" />
+                      </View>
+                      <View>
+                        <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>{bookings.length || bookingDocuments.length}</Text>
+                        <Text style={{ fontSize: 11, color: subTextColor }}>Bookings</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View
+                    style={{
+                      flex: 1,
+                      minWidth: '45%',
+                      backgroundColor: cardBg,
+                      borderColor: borderCol,
+                      borderWidth: 1,
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#8b5cf615', alignItems: 'center', justifyContent: 'center' }}>
+                        <Receipt size={16} color="#8b5cf6" />
+                      </View>
+                      <View>
+                        <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>{invoices.length}</Text>
+                        <Text style={{ fontSize: 11, color: subTextColor }}>Invoices</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View
+                    style={{
+                      flex: 1,
+                      minWidth: '45%',
+                      backgroundColor: cardBg,
+                      borderColor: borderCol,
+                      borderWidth: 1,
+                      borderRadius: 12,
+                      padding: 12,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#d9770615', alignItems: 'center', justifyContent: 'center' }}>
+                        <CreditCard size={16} color="#d97706" />
+                      </View>
+                      <View>
+                        <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>{payments.length}</Text>
+                        <Text style={{ fontSize: 11, color: subTextColor }}>Payments</Text>
+                      </View>
+                    </View>
+                  </View>
                 </View>
 
                 {/* Sub-section 1: Quotations */}
@@ -1222,38 +1568,54 @@ export default function LeadDetailsScreen() {
                       <FileSpreadsheet size={18} color="#0284c7" />
                       <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 0 }]}>Quotations</Text>
                     </View>
-                    <TouchableOpacity style={[styles.addBtnSmall, { backgroundColor: '#0284c7' }]}
-                      onPress={() => router.push('/admin/SalesUnit/quotation')}>
+                    <TouchableOpacity
+                      style={[styles.addBtnSmall, { backgroundColor: '#0284c7' }]}
+                      onPress={() => router.push('/admin/SalesUnit/quotation')}
+                    >
                       <Plus size={14} color="#ffffff" />
-                      <Text style={styles.addBtnSmallText}> New Quotation</Text>
+                      <Text style={styles.addBtnSmallText}>New Quotation</Text>
                     </TouchableOpacity>
                   </View>
 
                   {quotations.length === 0 ? (
-                    <Text style={{ fontSize: 13, color: subTextColor }}>No quotations available.</Text>
+                    <Text style={{ fontSize: 13, color: subTextColor }}>No quotations available for this lead.</Text>
                   ) : (
-                    <View style={{ gap: 10, marginTop: 10 }}>
+                    <View style={{ gap: 10 }}>
                       {quotations.map((q) => (
                         <TouchableOpacity
                           key={q.quotationId}
                           style={[styles.docItem, { backgroundColor: inputBg, borderColor: borderCol }]}
                           onPress={() => router.push(`/admin/SalesUnit/quotation/${q.quotationId}`)}
+                          activeOpacity={0.7}
                         >
                           <FileSpreadsheet size={20} color="#0284c7" />
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.docName, { color: textColor }]} numberOfLines={1}>
-                              {q.quotationNumber}
+                              {q.quotationNumber || `Quotation #${q.quotationId}`}
                             </Text>
-                            <Text style={{ fontSize: 11, color: subTextColor }}>
+                            <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
                               Property: {q.propertyName || 'N/A'} {q.flatNumber ? `· Unit ${q.flatNumber}` : ''}
                             </Text>
-                            <Text style={{ fontSize: 11, color: subTextColor }}>
-                              Total: ₹{q.grandTotal?.toLocaleString('en-IN') || '0'} · Date: {formatDate(q.quotationDate)}
+                            <Text style={{ fontSize: 11, color: subTextColor, marginTop: 1 }}>
+                              Total: ₹{Number(q.grandTotal || 0).toLocaleString('en-IN')} · Date: {formatDate(q.quotationDate)}
                             </Text>
-                            <Text style={{ fontSize: 10, color: q.status === 'Accepted' ? '#10b981' : q.status === 'Rejected' ? '#ef4444' : '#f59e0b', marginTop: 2, fontWeight: 'bold' }}>
+                            <Text
+                              style={{
+                                fontSize: 10,
+                                color:
+                                  q.status === 'Accepted'
+                                    ? '#10b981'
+                                    : q.status === 'Rejected'
+                                    ? '#ef4444'
+                                    : '#f59e0b',
+                                marginTop: 4,
+                                fontWeight: 'bold',
+                              }}
+                            >
                               Status: {q.status || 'Draft'}
                             </Text>
                           </View>
+                          <ExternalLink size={16} color={subTextColor} />
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -1262,15 +1624,24 @@ export default function LeadDetailsScreen() {
 
                 {/* Sub-section 2: Booking Documents */}
                 <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <FileCheck size={18} color="#16a34a" />
-                    <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 0 }]}>Booking Documents</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <FileCheck size={18} color="#16a34a" />
+                      <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 0 }]}>Booking Documents</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.addBtnSmall, { backgroundColor: '#16a34a' }]}
+                      onPress={() => router.push('/admin/SalesUnit/bookings')}
+                    >
+                      <Plus size={14} color="#ffffff" />
+                      <Text style={styles.addBtnSmallText}>View Bookings</Text>
+                    </TouchableOpacity>
                   </View>
 
                   {bookingDocuments.length === 0 ? (
-                    <Text style={{ fontSize: 13, color: subTextColor }}>No booking documents available.</Text>
+                    <Text style={{ fontSize: 13, color: subTextColor }}>No booking documents available for this lead.</Text>
                   ) : (
-                    <View style={{ gap: 10, marginTop: 10 }}>
+                    <View style={{ gap: 10 }}>
                       {bookingDocuments.map((doc) => (
                         <TouchableOpacity
                           key={doc.documentId}
@@ -1280,19 +1651,21 @@ export default function LeadDetailsScreen() {
                               openFileUrl(doc.filePath);
                             }
                           }}
+                          activeOpacity={0.7}
                         >
                           <FileCheck size={20} color="#16a34a" />
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.docName, { color: textColor }]} numberOfLines={1}>
                               {doc.documentName}
                             </Text>
-                            <Text style={{ fontSize: 11, color: subTextColor }}>
+                            <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
                               Booking: {doc.bookingNumber || 'N/A'} · Type: {doc.documentType}
                             </Text>
-                            <Text style={{ fontSize: 11, color: subTextColor }}>
+                            <Text style={{ fontSize: 11, color: subTextColor, marginTop: 1 }}>
                               Uploaded: {formatDate(doc.uploadedOn)}
                             </Text>
                           </View>
+                          {doc.filePath ? <Download size={16} color="#16a34a" /> : null}
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -1303,42 +1676,52 @@ export default function LeadDetailsScreen() {
                 <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Receipt size={18} color="#0284c7" />
+                      <Receipt size={18} color="#8b5cf6" />
                       <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 0 }]}>Invoice Documents</Text>
                     </View>
                     <TouchableOpacity
-                      style={[styles.iconBtn, { backgroundColor: '#0284c7', width: 30, height: 30 }]}
+                      style={[styles.addBtnSmall, { backgroundColor: '#8b5cf6' }]}
                       onPress={() => router.push('/admin/SalesUnit/invoice')}
                     >
-                      <Plus size={16} color="#ffffff" />
+                      <Plus size={14} color="#ffffff" />
+                      <Text style={styles.addBtnSmallText}>New Invoice</Text>
                     </TouchableOpacity>
                   </View>
 
                   {invoices.length === 0 ? (
-                    <Text style={{ fontSize: 13, color: subTextColor }}>No invoice documents available.</Text>
+                    <Text style={{ fontSize: 13, color: subTextColor }}>No invoice documents available for this lead.</Text>
                   ) : (
-                    <View style={{ gap: 10, marginTop: 10 }}>
+                    <View style={{ gap: 10 }}>
                       {invoices.map((inv) => (
                         <TouchableOpacity
                           key={inv.invoiceId}
                           style={[styles.docItem, { backgroundColor: inputBg, borderColor: borderCol }]}
-                          onPress={() => router.push(`/admin/SalesUnit/invoice`)}
+                          onPress={() => router.push('/admin/SalesUnit/invoice')}
+                          activeOpacity={0.7}
                         >
-                          <Receipt size={20} color="#0284c7" />
+                          <Receipt size={20} color="#8b5cf6" />
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.docName, { color: textColor }]} numberOfLines={1}>
                               {inv.invoiceNumber}
                             </Text>
-                            <Text style={{ fontSize: 11, color: subTextColor }}>
-                              Booking: {inv.bookingNumber} · Amount: ₹{inv.totalAmount?.toLocaleString('en-IN') || '0'}
+                            <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                              Booking: {inv.bookingNumber} · Amount: ₹{Number(inv.totalAmount || 0).toLocaleString('en-IN')}
                             </Text>
-                            <Text style={{ fontSize: 11, color: subTextColor }}>
+                            <Text style={{ fontSize: 11, color: subTextColor, marginTop: 1 }}>
                               Due: {formatDate(inv.dueDate)}
                             </Text>
-                            <Text style={{ fontSize: 10, color: inv.status === 'Paid' ? '#10b981' : '#ef4444', marginTop: 2, fontWeight: 'bold' }}>
+                            <Text
+                              style={{
+                                fontSize: 10,
+                                color: inv.status === 'Paid' ? '#10b981' : '#ef4444',
+                                marginTop: 4,
+                                fontWeight: 'bold',
+                              }}
+                            >
                               Status: {inv.status || 'Unpaid'}
                             </Text>
                           </View>
+                          <ExternalLink size={16} color={subTextColor} />
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -1352,35 +1735,39 @@ export default function LeadDetailsScreen() {
                       <CreditCard size={18} color="#d97706" />
                       <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 0 }]}>Payments</Text>
                     </View>
-                    <TouchableOpacity style={[styles.addBtnSmall, { backgroundColor: '#d97706' }]}
-                      onPress={() => router.push('/admin/SalesUnit/payments')}>
+                    <TouchableOpacity
+                      style={[styles.addBtnSmall, { backgroundColor: '#d97706' }]}
+                      onPress={() => router.push('/admin/SalesUnit/payments')}
+                    >
                       <Plus size={14} color="#ffffff" />
                       <Text style={styles.addBtnSmallText}>Record Payment</Text>
                     </TouchableOpacity>
                   </View>
 
                   {payments.length === 0 ? (
-                    <Text style={{ fontSize: 13, color: subTextColor }}>No payments recorded.</Text>
+                    <Text style={{ fontSize: 13, color: subTextColor }}>No payments recorded for this lead.</Text>
                   ) : (
-                    <View style={{ gap: 10, marginTop: 10 }}>
+                    <View style={{ gap: 10 }}>
                       {payments.map((p) => (
                         <TouchableOpacity
                           key={p.paymentId}
                           style={[styles.docItem, { backgroundColor: inputBg, borderColor: borderCol }]}
-                          onPress={() => router.push(`/admin/SalesUnit/payments`)}
+                          onPress={() => router.push('/admin/SalesUnit/payments')}
+                          activeOpacity={0.7}
                         >
                           <CreditCard size={20} color="#d97706" />
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.docName, { color: textColor }]} numberOfLines={1}>
                               Receipt: {p.receiptNumber}
                             </Text>
-                            <Text style={{ fontSize: 11, color: subTextColor }}>
-                              Booking: {p.bookingNumber} · Amount: ₹{p.amount?.toLocaleString('en-IN') || '0'}
+                            <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                              Booking: {p.bookingNumber} · Amount: ₹{Number(p.amount || 0).toLocaleString('en-IN')}
                             </Text>
-                            <Text style={{ fontSize: 11, color: subTextColor }}>
+                            <Text style={{ fontSize: 11, color: subTextColor, marginTop: 1 }}>
                               Date: {formatDate(p.paymentDate)} · Method: {p.paymentMethod}
                             </Text>
                           </View>
+                          <ExternalLink size={16} color={subTextColor} />
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -1389,91 +1776,244 @@ export default function LeadDetailsScreen() {
               </View>
             )}
 
-            {/* TAB 7: Site Visits */}
+            {/* TAB 7: Site Visit Activities */}
             {activeTab === 'sitevisits' && (
-              <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 0 }]}>Site Visits</Text>
-                  <TouchableOpacity
-                    onPress={() => openScheduleModal('sitevisit')}
-                    style={styles.addBtnSmall}
-                  >
-                    <Plus size={14} color="#ffffff" />
-                    <Text style={styles.addBtnSmallText}>Schedule Visit</Text>
-                  </TouchableOpacity>
+              <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol, padding: 0, overflow: 'hidden' }]}>
+                {/* Header matching user image - Clean with no schedule button */}
+                <View style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderBottomWidth: 1,
+                  borderBottomColor: borderCol,
+                  backgroundColor: cardBg,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Building size={20} color="#0284c7" />
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>
+                      Site Visit Activities
+                    </Text>
+                  </View>
+                  <View style={{
+                    backgroundColor: '#0d6efd',
+                    paddingHorizontal: 12,
+                    paddingVertical: 5,
+                    borderRadius: 20,
+                  }}>
+                    <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>
+                      {siteVisits.length} properties visited
+                    </Text>
+                  </View>
                 </View>
 
                 {siteVisits.length === 0 ? (
-                  <EmptyState text="No site visits recorded." subTextColor={subTextColor} />
-                ) : (
-                  <View style={{ gap: 12 }}>
-                    {siteVisits.map((visit) => (
-                      <View key={visit.followUpId} style={[styles.cardItem, { backgroundColor: inputBg, borderColor: borderCol }]}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <MapPin size={16} color="#ec4899" />
-                            <Text style={[styles.cardItemTitle, { color: textColor }]}>
-                              {visit.stage || 'Site Visit'}
-                            </Text>
-                          </View>
-                          <View style={[styles.pillBadge, { backgroundColor: visit.status === 'Completed' ? '#10b98115' : '#f59e0b15' }]}>
-                            <Text style={[styles.pillBadgeText, { color: visit.status === 'Completed' ? '#10b981' : '#f59e0b' }]}>
-                              {visit.status || 'Scheduled'}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <Text style={[styles.cardItemSub, { color: subTextColor, marginTop: 6 }]}>
-                          Date: {visit.visitDateFormatted || formatDate(visit.visitDate || visit.followUpDate)} {visit.visitTime || visit.followUpTime ? `· ${visit.visitTime || visit.followUpTime}` : ''}
-                        </Text>
-
-                        {visit.comments ? (
-                          <Text style={[styles.cardItemDesc, { color: textColor, marginTop: 6 }]}>
-                            {visit.comments}
-                          </Text>
-                        ) : null}
-
-                        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
-                          {(visit.propertyName || visit.propertyId) && (
-                            <Text style={{ fontSize: 12, color: subTextColor }}>
-                              Property: <Text style={{ color: textColor, fontWeight: '600' }}>{visit.propertyName || `#${visit.propertyId}`}</Text>
-                            </Text>
-                          )}
-                          {visit.interestStatus && (
-                            <Text style={{ fontSize: 12, color: subTextColor }}>
-                              Interest: <Text style={{ color: textColor, fontWeight: '600' }}>{visit.interestStatus}</Text>
-                            </Text>
-                          )}
-                          {visit.rating && (
-                            <Text style={{ fontSize: 12, color: subTextColor }}>
-                              Rating: <Text style={{ color: '#f59e0b', fontWeight: '600' }}>{visit.rating} ★</Text>
-                            </Text>
-                          )}
-                          {visit.executiveName && (
-                            <Text style={{ fontSize: 12, color: subTextColor }}>
-                              Exec: <Text style={{ color: textColor, fontWeight: '600' }}>{visit.executiveName}</Text>
-                            </Text>
-                          )}
-                        </View>
-
-                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: borderCol + '40' }}>
-                          <TouchableOpacity
-                            onPress={() => openEditScheduleModal(visit)}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                          >
-                            <CalendarCheck size={14} color="#3b82f6" />
-                            <Text style={{ color: '#3b82f6', fontSize: 12, fontWeight: '600' }}>Edit / Complete</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ))}
+                  <View style={{ padding: 28, alignItems: 'center' }}>
+                    <Building size={40} color={subTextColor} style={{ opacity: 0.4, marginBottom: 8 }} />
+                    <Text style={{ color: textColor, fontSize: 14, fontWeight: '600', marginBottom: 4 }}>
+                      No Site Visits Yet
+                    </Text>
+                    <Text style={{ color: subTextColor, fontSize: 12, textAlign: 'center' }}>
+                      This lead hasn't visited any properties yet.
+                    </Text>
                   </View>
+                ) : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ minWidth: 630 }}>
+                      {/* Table Header Row */}
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                        borderBottomWidth: 1,
+                        borderBottomColor: borderCol,
+                      }}>
+                        <Text style={{ width: 60, fontSize: 13, fontWeight: '700', color: subTextColor }}>S.No</Text>
+                        <Text style={{ width: 250, fontSize: 13, fontWeight: '700', color: subTextColor }}>Property Name</Text>
+                        <Text style={{ width: 320, fontSize: 13, fontWeight: '700', color: subTextColor }}>Interest Status</Text>
+                      </View>
+
+                      {/* Table Rows */}
+                      {siteVisits.map((visit, index) => {
+                        const isUpdatingThis = updatingInterestFollowUpId === visit.followUpId;
+                        const currentStatus = visit.interestStatus;
+                        const isInterested = currentStatus === 'Interested';
+                        const isNotInterested = currentStatus === 'Not Interested';
+                        const isCold = currentStatus === 'Cold';
+
+                        const visitDateStr = visit.visitDateFormatted || formatDate(visit.visitDate || visit.followUpDate);
+
+                        return (
+                          <View
+                            key={visit.followUpId || index}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              paddingHorizontal: 16,
+                              paddingVertical: 14,
+                              borderBottomWidth: index === siteVisits.length - 1 ? 0 : 1,
+                              borderBottomColor: borderCol,
+                              backgroundColor: cardBg,
+                            }}
+                          >
+                            {/* Column 1: S.No Badge */}
+                            <View style={{ width: 60, justifyContent: 'center' }}>
+                              <View style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: 6,
+                                backgroundColor: '#475569',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}>
+                                <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>
+                                  {index + 1}
+                                </Text>
+                              </View>
+                            </View>
+
+                            {/* Column 2: Property Icon & Details */}
+                            <View style={{ width: 250, flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 12 }}>
+                              <View style={{
+                                width: 38,
+                                height: 38,
+                                borderRadius: 8,
+                                backgroundColor: '#00918E',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}>
+                                <Building size={18} color="#ffffff" />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }} numberOfLines={1}>
+                                  {visit.propertyName || (visit as any).propertyTitle || 'Property #' + (visit.propertyId || visit.followUpId)}
+                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                                  <Calendar size={11} color={subTextColor} />
+                                  <Text style={{ fontSize: 11, color: subTextColor }}>
+                                    Visited: {visitDateStr}
+                                  </Text>
+                                </View>
+                              </View>
+                            </View>
+
+                            {/* Column 3: Interest Status 3-Button Group */}
+                            <View style={{ width: 320, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              {/* 1. INTERESTED */}
+                              <TouchableOpacity
+                                onPress={() => handleUpdateInterest(visit.followUpId, 'Interested')}
+                                disabled={isUpdatingThis}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  paddingHorizontal: 10,
+                                  paddingVertical: 7,
+                                  borderRadius: 6,
+                                  borderWidth: 1.5,
+                                  borderColor: '#28a745',
+                                  backgroundColor: isInterested
+                                    ? '#28a745'
+                                    : isDark
+                                    ? '#14532d25'
+                                    : '#d4edda',
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <ThumbsUp size={13} color={isInterested ? '#ffffff' : isDark ? '#4ade80' : '#155724'} />
+                                <Text style={{
+                                  fontSize: 11,
+                                  fontWeight: '700',
+                                  color: isInterested ? '#ffffff' : isDark ? '#4ade80' : '#155724',
+                                  letterSpacing: 0.3,
+                                }}>
+                                  INTERESTED
+                                </Text>
+                              </TouchableOpacity>
+
+                              {/* 2. NOT INTERESTED */}
+                              <TouchableOpacity
+                                onPress={() => handleUpdateInterest(visit.followUpId, 'Not Interested')}
+                                disabled={isUpdatingThis}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  paddingHorizontal: 10,
+                                  paddingVertical: 7,
+                                  borderRadius: 6,
+                                  borderWidth: 1.5,
+                                  borderColor: '#dc3545',
+                                  backgroundColor: isNotInterested
+                                    ? '#dc3545'
+                                    : isDark
+                                    ? '#7f1d1d25'
+                                    : '#f8d7da',
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <ThumbsDown size={13} color={isNotInterested ? '#ffffff' : isDark ? '#f87171' : '#721c24'} />
+                                <Text style={{
+                                  fontSize: 11,
+                                  fontWeight: '700',
+                                  color: isNotInterested ? '#ffffff' : isDark ? '#f87171' : '#721c24',
+                                  letterSpacing: 0.3,
+                                }}>
+                                  NOT INTERESTED
+                                </Text>
+                              </TouchableOpacity>
+
+                              {/* 3. COLD */}
+                              <TouchableOpacity
+                                onPress={() => handleUpdateInterest(visit.followUpId, 'Cold')}
+                                disabled={isUpdatingThis}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  paddingHorizontal: 10,
+                                  paddingVertical: 7,
+                                  borderRadius: 6,
+                                  borderWidth: 1.5,
+                                  borderColor: '#17a2b8',
+                                  backgroundColor: isCold
+                                    ? '#17a2b8'
+                                    : isDark
+                                    ? '#164e6325'
+                                    : '#d1ecf1',
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <Snowflake size={13} color={isCold ? '#ffffff' : isDark ? '#38bdf8' : '#0c5460'} />
+                                <Text style={{
+                                  fontSize: 11,
+                                  fontWeight: '700',
+                                  color: isCold ? '#ffffff' : isDark ? '#38bdf8' : '#0c5460',
+                                  letterSpacing: 0.3,
+                                }}>
+                                  COLD
+                                </Text>
+                              </TouchableOpacity>
+
+                              {isUpdatingThis && (
+                                <ActivityIndicator size="small" color="#0284c7" style={{ marginLeft: 4 }} />
+                              )}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
                 )}
               </View>
             )}
 
             {/* TAB 8: Stage Transitions */}
-            {activeTab === 'transitions' && (
+            {/* {activeTab === 'transitions' && (
               <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Stage Transition History</Text>
                 {transitions.length === 0 ? (
@@ -1505,7 +2045,7 @@ export default function LeadDetailsScreen() {
                   </View>
                 )}
               </View>
-            )}
+            )} */}
           </View>
         </ScrollView>
       )}
@@ -1697,6 +2237,192 @@ export default function LeadDetailsScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Reusable Lead Assignment Modal */}
+      <LeadAssignmentModal
+        visible={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        leadId={Number(leadId)}
+        leadName={contact?.fullName}
+        currentAgentId={contact?.assignedToAgentId}
+        currentAgentName={contact?.assignedToAgentName}
+        onSuccess={(_newAgentId, _newAgentName) => {
+          fetchLeadDetails(leadId);
+        }}
+      />
+
+      {/* Reusable Lead Stage Modal */}
+      <LeadStageModal
+        visible={stageModalOpen}
+        onClose={() => setStageModalOpen(false)}
+        leadId={Number(leadId)}
+        leadName={contact?.fullName}
+        currentStage={contact?.stage}
+        onSuccess={(_newStage) => {
+          fetchLeadDetails(leadId);
+        }}
+      />
+
+      {/* Upload File / Document Type Picker Modal */}
+      <Modal
+        visible={uploadPickerModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUploadPickerModalOpen(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setUploadPickerModalOpen(false)}
+        >
+          <Pressable
+            style={[styles.modalCard, { backgroundColor: cardBg, borderColor: borderCol, maxWidth: 420 }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Upload size={20} color="#3b82f6" />
+                <Text style={[styles.modalTitle, { color: textColor }]}>Upload Attachment</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setUploadPickerModalOpen(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <X size={20} color={subTextColor} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 13, color: subTextColor, marginBottom: 16 }}>
+              Select whether you want to upload a document or an image:
+            </Text>
+
+            <View style={{ gap: 10 }}>
+              {/* Option 1: Document */}
+              <TouchableOpacity
+                onPress={handlePickDocument}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: 14,
+                  borderRadius: 12,
+                  backgroundColor: inputBg,
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                }}
+              >
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    backgroundColor: '#3b82f615',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <FileText size={22} color="#3b82f6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
+                    Document File
+                  </Text>
+                  <Text style={{ fontSize: 12, color: subTextColor, marginTop: 2 }}>
+                    PDF, Word (.doc, .docx), Excel (.xls, .xlsx)
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Option 2: Gallery */}
+              <TouchableOpacity
+                onPress={handlePickImage}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: 14,
+                  borderRadius: 12,
+                  backgroundColor: inputBg,
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                }}
+              >
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    backgroundColor: '#10b98115',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <ImageIcon size={22} color="#10b981" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
+                    Photo Library / Gallery
+                  </Text>
+                  <Text style={{ fontSize: 12, color: subTextColor, marginTop: 2 }}>
+                    JPG, JPEG, PNG from gallery
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Option 3: Camera */}
+              <TouchableOpacity
+                onPress={handleTakePhoto}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: 14,
+                  borderRadius: 12,
+                  backgroundColor: inputBg,
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                }}
+              >
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    backgroundColor: '#8b5cf615',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Camera size={22} color="#8b5cf6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
+                    Take Photo
+                  </Text>
+                  <Text style={{ fontSize: 12, color: subTextColor, marginTop: 2 }}>
+                    Capture photo directly using camera
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setUploadPickerModalOpen(false)}
+              style={{
+                marginTop: 16,
+                paddingVertical: 12,
+                borderRadius: 8,
+                backgroundColor: inputBg,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -1927,6 +2653,13 @@ const styles = StyleSheet.create({
   timelineDotContainer: {
     alignItems: 'center',
     marginRight: 10,
+  },
+  activityIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   timelineDot: {
     width: 10,

@@ -9,7 +9,10 @@ import {
   RefreshControl,
   Alert,
   StyleSheet,
+  Platform,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../contexts/ThemeContext';
 import {
@@ -22,9 +25,13 @@ import {
 import { OwnerPlan, CreateOwnerPlanRequest, UpdateOwnerPlanRequest } from '../models/ownerPlan';
 import { OwnerPlanCard } from './OwnerPlanCard';
 import { OwnerPlanFormModal } from './OwnerPlanFormModal';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 export const OwnerPlansContent: React.FC = () => {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Queries & Mutations
   const { data, isLoading, isError, refetch, isRefetching } = useOwnerPlansQuery();
@@ -40,12 +47,12 @@ export const OwnerPlansContent: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<OwnerPlan | null>(null);
 
   // Theme colors
-  const bgColor = isDark ? '#0f172a' : '#f8fafc';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
-  const inputBg = isDark ? '#1e293b' : '#ffffff';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
+  const inputBg = isDark ? '#1e1e1e' : '#ffffff';
 
   const rawPlans: OwnerPlan[] = Array.isArray(data?.data) ? data.data : [];
 
@@ -125,13 +132,43 @@ export const OwnerPlansContent: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Top Title & Action Header */}
-      <View style={styles.topHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: textColor }]}>Owner Packages</Text>
-          <Text style={[styles.subtitle, { color: subTextColor }]}>
-            Manage pricing, validity & lead unlock packages for property owners
-          </Text>
+      {/* Top Title & Action Header with Back Button */}
+      <View
+        style={[
+          styles.topHeader,
+          {
+            paddingTop: Platform.OS === 'android' ? Math.max(14, insets.top) : Math.max(10, insets.top),
+            borderBottomWidth: 1,
+            borderBottomColor: borderCol,
+          },
+        ]}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 }}>
+          <TouchableOpacity
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.navigate('/superadmin/subscriptions-hub');
+            }}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: cardBg,
+              borderWidth: 1,
+              borderColor: borderCol,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={20} color={textColor} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>Owner Packages</Text>
+            <Text style={[styles.subtitle, { color: subTextColor }]} numberOfLines={1}>
+              Manage pricing & lead unlock packages
+            </Text>
+          </View>
         </View>
         <TouchableOpacity
           onPress={handleOpenCreateModal}
@@ -145,13 +182,13 @@ export const OwnerPlansContent: React.FC = () => {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomSpacing, flexGrow: 1 }]}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            colors={['#2563eb']}
-            tintColor="#2563eb"
+            colors={['#835CEE']}
+            tintColor="#835CEE"
           />
         }
       >
@@ -166,8 +203,8 @@ export const OwnerPlansContent: React.FC = () => {
           >
             <View style={styles.metricCardHeader}>
               <Text style={[styles.metricCardLabel, { color: subTextColor }]}>Total</Text>
-              <View style={[styles.metricIconBox, { backgroundColor: isDark ? '#1e3a8a30' : '#eff6ff' }]}>
-                <MaterialCommunityIcons name="package-variant" size={16} color="#3b82f6" />
+              <View style={[styles.metricIconBox, { backgroundColor: isDark ? '#835CEE25' : '#835CEE15' }]}>
+                <MaterialCommunityIcons name="package-variant" size={16} color="#835CEE" />
               </View>
             </View>
             <Text style={[styles.metricCardValue, { color: textColor }]}>{totalCount}</Text>
@@ -250,9 +287,9 @@ export const OwnerPlansContent: React.FC = () => {
                   style={[
                     styles.tabChip,
                     active
-                      ? { backgroundColor: '#2563eb', borderColor: '#2563eb' }
+                      ? { backgroundColor: '#835CEE', borderColor: '#835CEE' }
                       : {
-                          backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                          backgroundColor: isDark ? '#242424' : '#ffffff',
                           borderColor: borderCol,
                         },
                   ]}
@@ -273,9 +310,9 @@ export const OwnerPlansContent: React.FC = () => {
         </View>
 
         {/* Plan List Area */}
-        {isLoading ? (
+        {(isLoading && !data) ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2563eb" />
+            <ActivityIndicator size="large" color="#835CEE" />
             <Text style={[styles.loadingText, { color: subTextColor }]}>
               Loading owner packages...
             </Text>
@@ -386,12 +423,12 @@ const styles = StyleSheet.create({
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2563eb',
+    backgroundColor: '#835CEE',
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 12,
     gap: 6,
-    shadowColor: '#2563eb',
+    shadowColor: '#835CEE',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
@@ -539,7 +576,7 @@ const styles = StyleSheet.create({
   emptyActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2563eb',
+    backgroundColor: '#835CEE',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,

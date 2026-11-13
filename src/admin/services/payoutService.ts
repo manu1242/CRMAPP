@@ -16,6 +16,8 @@ export interface AgentPayoutFilters {
   year: number;
   search: string | null;
   agentId: number | null;
+  status?: string | null;
+  allPeriods?: boolean;
 }
 
 export interface AgentPayoutItem {
@@ -31,6 +33,7 @@ export interface AgentPayoutItem {
   totalSales: number;
   workingDays: number;
   presentDays: number;
+  absentDays?: number;
   finalPayout: number;
   amount: number;
   status: string; // 'Pending' | 'Processed' | 'Paid'
@@ -205,6 +208,8 @@ export const payoutService = {
     year?: number;
     search?: string;
     agentId?: number;
+    status?: string;
+    allPeriods?: boolean;
   }): Promise<AgentPayoutListResponse> => {
     return await apiClient.get<AgentPayoutListResponse>(
       API_ENDPOINTS.PAYOUTS.AGENT.LIST,

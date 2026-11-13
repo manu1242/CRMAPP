@@ -8,7 +8,6 @@ import {
   Alert,
   Modal,
   TextInput,
-  BackHandler
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,39 +22,25 @@ import {
   useUnlockTenantMutation
 } from '../../../superadmin/tenants/hooks/useTenants';
 import { useTheme } from '../../../contexts/ThemeContext';
-import BottomNav from '../../../superadmin/components/BottomNav';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 export default function TenantDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
+  const { bottomSpacing } = useBottomNavSpacing();
   const parsedId = typeof id === 'string' ? id : '';
   const { isDark } = useTheme();
 
-  // Handle Android physical back button override
-  useEffect(() => {
-    const backAction = () => {
-      router.replace('/superadmin/tenants-hub');
-      return true; // prevent default behavior
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction
-    );
-
-    return () => backHandler.remove();
-  }, [router]);
-
   // Theme colors
-  const bgColor = isDark ? '#0f172a' : '#f3f4f6';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const labelColor = isDark ? '#cbd5e1' : '#475569';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#f1f5f9';
-  const inputBg = isDark ? '#0f172a' : '#ffffff';
-  const modalBg = isDark ? '#1e293b' : '#ffffff';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const labelColor = isDark ? '#a1a1aa' : '#52525b';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
+  const inputBg = isDark ? '#1e1e1e' : '#ffffff';
+  const modalBg = isDark ? '#242424' : '#ffffff';
 
   // Get tenant details query
   const { data, isLoading, error, refetch } = useTenantDetailQuery(parsedId);
@@ -133,7 +118,7 @@ export default function TenantDetailScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: bgColor }} edges={['bottom', 'left', 'right']}>
         <View style={{ flex: 1, backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#0284c7" />
+          <ActivityIndicator size="large" color="#835CEE" />
           <Text style={{ color: subTextColor, fontSize: 12, fontWeight: '600', marginTop: 8 }}>Loading tenant details...</Text>
         </View>
       </SafeAreaView>
@@ -180,9 +165,9 @@ export default function TenantDetailScreen() {
       };
     }
     return {
-      text: '#0284c7',
-      bg: isDark ? '#1e3a8a30' : '#e0f2fe',
-      border: isDark ? '#1d4ed850' : '#bae6fd',
+      text: '#835CEE',
+      bg: isDark ? '#835CEE25' : '#835CEE15',
+      border: isDark ? '#835CEE50' : '#c4b5fd',
     };
   };
 
@@ -227,7 +212,7 @@ export default function TenantDetailScreen() {
         </View>
 
         {/* Content */}
-        <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}>
 
           {/* Main Card with status */}
           <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 20, marginBottom: 16 }}>
@@ -267,7 +252,7 @@ export default function TenantDetailScreen() {
             {/* Connection String */}
             {/* <View style={{ marginBottom: 16 }}>
               <Text style={{ color: subTextColor, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Isolated Database URL</Text>
-              <View style={{ backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderWidth: 1, borderColor: borderCol, borderRadius: 12, padding: 12, marginTop: 6 }}>
+              <View style={{ backgroundColor: isDark ? '#161616' : '#f4f4f5', borderWidth: 1, borderColor: borderCol, borderRadius: 12, padding: 12, marginTop: 6 }}>
                 <Text style={{ color: textColor, fontSize: 12, fontFamily: 'monospace' }} numberOfLines={3}>
                   {tenant.connectionString || 'Generates automatically on trial provisioning'}
                 </Text>
@@ -304,8 +289,8 @@ export default function TenantDetailScreen() {
             </Text>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <View style={{ backgroundColor: isDark ? '#0f172a' : '#f8fafc', padding: 8, borderRadius: 20 }}>
-                <Ionicons name="person" size={16} color={isDark ? '#cbd5e1' : '#64748b'} />
+              <View style={{ backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5', padding: 8, borderRadius: 20 }}>
+                <Ionicons name="person" size={16} color={isDark ? '#a1a1aa' : '#52525b'} />
               </View>
               <View>
                 <Text style={{ color: subTextColor, fontSize: 10, textTransform: 'uppercase' }}>Contact Person</Text>
@@ -314,8 +299,8 @@ export default function TenantDetailScreen() {
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <View style={{ backgroundColor: isDark ? '#0f172a' : '#f8fafc', padding: 8, borderRadius: 20 }}>
-                <Ionicons name="mail" size={16} color={isDark ? '#cbd5e1' : '#64748b'} />
+              <View style={{ backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5', padding: 8, borderRadius: 20 }}>
+                <Ionicons name="mail" size={16} color={isDark ? '#a1a1aa' : '#52525b'} />
               </View>
               <View>
                 <Text style={{ color: subTextColor, fontSize: 10, textTransform: 'uppercase' }}>Email Address</Text>
@@ -324,8 +309,8 @@ export default function TenantDetailScreen() {
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ backgroundColor: isDark ? '#0f172a' : '#f8fafc', padding: 8, borderRadius: 20 }}>
-                <Ionicons name="phone-portrait" size={16} color={isDark ? '#cbd5e1' : '#64748b'} />
+              <View style={{ backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5', padding: 8, borderRadius: 20 }}>
+                <Ionicons name="phone-portrait" size={16} color={isDark ? '#a1a1aa' : '#52525b'} />
               </View>
               <View>
                 <Text style={{ color: subTextColor, fontSize: 10, textTransform: 'uppercase' }}>Phone Number</Text>
@@ -466,14 +451,14 @@ export default function TenantDetailScreen() {
                   style={{
                     flex: 1,
                     borderWidth: 1,
-                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                    borderColor: isDark ? '#2e2e2e' : '#e4e4e7',
                     paddingVertical: 12,
                     borderRadius: 12,
                     alignItems: 'center',
-                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    backgroundColor: isDark ? '#242424' : '#ffffff',
                   }}
                 >
-                  <Text style={{ color: isDark ? '#cbd5e1' : '#475569', fontWeight: '700', fontSize: 12 }}>Cancel</Text>
+                  <Text style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: '700', fontSize: 12 }}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleSuspendSubmit}

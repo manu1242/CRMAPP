@@ -10,7 +10,8 @@ export const useOwnerSubscriptionsQuery = (params?: OwnerSubscriptionsFilterPara
   return useQuery({
     queryKey: ['ownerSubscriptions', params],
     queryFn: () => ownerSubscriptionsApi.getOwnerSubscriptions(params),
-    staleTime: 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   });
 };
 
@@ -19,6 +20,8 @@ export const useOwnerSubscriptionDetailQuery = (id?: number | string) => {
     queryKey: ['ownerSubscription', id],
     queryFn: () => ownerSubscriptionsApi.getOwnerSubscriptionById(id!),
     enabled: !!id,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   });
 };
 

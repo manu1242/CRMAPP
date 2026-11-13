@@ -1,17 +1,24 @@
+import 'react-native-gesture-handler';
 import React, { useEffect, useRef } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initRemoteConfig } from '../api/remoteConfig';
 import { DarkTheme, DefaultTheme, ThemeProvider as ExpoThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import NetInfo from '@react-native-community/netinfo';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, usePathname, useNavigationContainerRef } from 'expo-router';
 import Toast, { SuccessToast, ErrorToast, InfoToast } from 'react-native-toast-message';
 import { setupInterceptors } from '../api/interceptors';
+import { installSafeRouter, setActiveNavigationContext } from '../navigation/safeNavigation';
+
+// Globally install duplicate navigation protection and stack deduplication
+installSafeRouter();
 import { useAuthStore } from '../auth/store/authStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { NetworkProvider, useNetwork } from '../contexts/NetworkContext';
 import { CustomAlertProvider } from '../components/CustomAlertProvider';
+import { GlobalNavigationHandler } from '../components/GlobalNavigationHandler';
 import { DeviceNotificationService } from '../Services/DeviceNotificationService';
 
 import { WifiOff, X } from 'lucide-react-native';
@@ -22,27 +29,9 @@ import { wrapObserveRoot } from '../api/observe';
 setupInterceptors();
 
 import { QueryPersister } from '../api/queryPersister';
+import { queryClient } from '../api/queryClient';
 
 SplashScreen.preventAutoHideAsync();
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes stale time
-      gcTime: 24 * 60 * 60 * 1000, // 24 hours cache retention
-      refetchOnWindowFocus: false,
-      retry: (failureCount, error: any) => {
-        // Do not retry 4xx errors (unauthorized, forbidden, not found)
-        const status = error?.response?.status || error?.status;
-        if (status && status >= 400 && status < 500) {
-          return false;
-        }
-        return failureCount < 3;
-      },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // exponential backoff
-    },
-  },
-});
 
 // Configure TanStack onlineManager with NetInfo listener for network state changes
 onlineManager.setEventListener((setOnline) => {
@@ -123,6 +112,7 @@ function AuthGuardLayout() {
   const segments = useSegments();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isLoading = useAuthStore((state) => state.isLoading);
+  const authStatus = useAuthStore((state) => state.authStatus);
   const user = useAuthStore((state) => state.user);
   const isImpersonating = useAuthStore((state) => state.isImpersonating);
 
@@ -146,7 +136,9 @@ function AuthGuardLayout() {
   // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (isLoading) return; // Wait until session check is done
+    if (isLoading || authStatus === 'initializing' || authStatus === 'authenticating' || authStatus === 'loading-profile') {
+      return; // Wait until session/auth state machine has completely resolved
+    }
     if (suppressGuardRef.current) return; // Suppress during impersonation-stop transition
 
     // Universal public screens that should never be redirected away from
@@ -210,7 +202,7 @@ function AuthGuardLayout() {
         }
       }
     }
-  }, [isAuthenticated, isLoading, segments, user, isImpersonating]);
+  }, [isAuthenticated, isLoading, authStatus, segments, user, isImpersonating]);
 
   return null;
 }
@@ -222,7 +214,6 @@ import AdminBottomNav from '../admin/components/BottomNav';
 import { BottomMenuSheet } from '../admin/components/BottomMenuSheet';
 import { checkHeaderVisibility } from '../config/headerVisibility';
 import { View, StatusBar, Text, TouchableOpacity, Alert, Modal, ActivityIndicator, Platform } from 'react-native';
-import { BlurTargetView } from 'expo-blur';
 import * as SystemUI from 'expo-system-ui';
 import { NavigationBar } from 'expo-navigation-bar';
 import { LogOut } from 'lucide-react-native';
@@ -233,12 +224,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 function InnerLayout() {
   const router = useRouter();
+  const pathname = usePathname();
+  const navigationRef = useNavigationContainerRef();
   const { isDark } = useTheme();
   const { isConnected } = useNetwork();
   const segments = useSegments();
   const superTheme = getSuperAdminTheme(isDark);
   const adminTheme = getAdminTheme(isDark);
   const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isImpersonating = useAuthStore((state) => state.isImpersonating);
   const impersonatedUsername = useAuthStore((state) => state.impersonatedUsername);
   const stopImpersonation = useAuthStore((state) => state.stopImpersonation);
@@ -248,6 +242,11 @@ function InnerLayout() {
   const [isStopConfirmOpen, setIsStopConfirmOpen] = React.useState(false);
   const [isStopping, setIsStopping] = React.useState(false);
   const mainContainerRef = useRef<View>(null);
+
+  // Sync global safe navigation context with active pathname and navigation container
+  useEffect(() => {
+    setActiveNavigationContext(navigationRef, pathname);
+  }, [navigationRef, pathname]);
 
   const path = segments.join('/');
 
@@ -272,21 +271,6 @@ function InnerLayout() {
   }
   if (
     normalizedPath.includes('admin/salesunit/payments')
-  ) {
-    isHeaderVisible = true;
-  }
-  if (
-    normalizedPath.includes('admin/finance/expenses')
-  ) {
-    isHeaderVisible = true;
-  }
-  if (
-    normalizedPath.includes('admin/finance/revenue')
-  ) {
-    isHeaderVisible = true;
-  }
-  if (
-    normalizedPath.includes('admin/finance/profit')
   ) {
     isHeaderVisible = true;
   }
@@ -323,6 +307,23 @@ function InnerLayout() {
     }
   }, [activeBg]);
 
+  // Setup OS push notification response listener (tap navigation) and foreground real-time sync
+  useEffect(() => {
+    const subscription = DeviceNotificationService.setupNotificationResponseHandler(
+      router,
+      () => {
+        // Real-time invalidate notification cache so badge counts and notification lists update live
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-notifications'] });
+      }
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [router]);
+
   // Track when impersonation stops and navigate back to correct dashboard
   // Uses isLoading as a gate: navigates as soon as loading finishes after impersonation ends
   const wasImpersonatingRef = useRef(isImpersonating);
@@ -346,13 +347,17 @@ function InnerLayout() {
 
   const isPublicRoute = ['login', 'main-login', 'register', 'forgot-password', 'reset-password', 'index', '', 'privacy', 'refund-policy', 'terms'].includes(segments[0] as string) || segments[0] === undefined;
 
-  let activeTab: 'dashboard' | 'tenants' | 'inquiries' | 'subscriptions' | 'profile' = 'dashboard';
+  let activeTab: 'dashboard' | 'tenants' | 'inquiries' | 'subscriptions' | 'profile' | 'chatbot' | 'pending-properties' = 'dashboard';
   let adminActiveTab: 'dashboard' | 'users' | 'settings' | 'profile' = 'dashboard';
 
   if (path.includes('superadmin/dashboard')) {
     activeTab = 'dashboard';
   } else if (path.includes('superadmin/tenants') || path.includes('superadmin/create-tenant') || path.includes('superadmin/edit-tenant')) {
     activeTab = 'tenants';
+  } else if (path.includes('superadmin/chatbot')) {
+    activeTab = 'chatbot';
+  } else if (path.includes('superadmin/pending-properties')) {
+    activeTab = 'pending-properties';
   } else if (path.includes('superadmin/inquiries') || path.includes('superadmin/public-leads')) {
     activeTab = 'inquiries';
   } else if (path.includes('superadmin/subscriptions') || path.includes('superadmin/plans') || path.includes('superadmin/create-plan') || path.includes('superadmin/owner-plans') || path.includes('superadmin/owner-subscriptions')) {
@@ -376,16 +381,25 @@ function InnerLayout() {
   let headerComponent = null;
   let bottomNavComponent = null;
 
-  if (isSuperAdminFlow) {
-    headerComponent = !hideHeader ? <SuperAdminHeader /> : null;
-    bottomNavComponent = <SuperAdminBottomNav active={activeTab} />;
-  } else if (isAdminFlow) {
-    headerComponent = !hideHeader ? <AdminHeader onMenuPress={() => setIsMenuOpen(true)} /> : null;
-    bottomNavComponent = <AdminBottomNav active={adminActiveTab} />;
+  if (isAuthenticated && !isPublicRoute) {
+    if (isSuperAdminFlow) {
+      headerComponent = !hideHeader ? <SuperAdminHeader /> : null;
+      bottomNavComponent = <SuperAdminBottomNav active={activeTab} />;
+    } else if (isAdminFlow) {
+      headerComponent = !hideHeader ? <AdminHeader onMenuPress={() => setIsMenuOpen(true)} /> : null;
+      bottomNavComponent = <AdminBottomNav active={adminActiveTab} />;
+    }
   }
 
   const stackComponent = (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        gestureEnabled: true,
+        fullScreenGestureEnabled: Platform.OS === 'ios',
+        animation: Platform.OS === 'ios' ? 'default' : 'fade_from_bottom',
+      }}
+    >
       <Stack.Screen name="index" />
       <Stack.Screen name="main-login" />
       <Stack.Screen name="login" />
@@ -402,6 +416,7 @@ function InnerLayout() {
       <Stack.Screen name="admin/AdminNotification" />
       <Stack.Screen name="admin/PartnerDashboard" />
       <Stack.Screen name="admin/leads" />
+      <Stack.Screen name="admin/leads/LeadIntegrations" />
       <Stack.Screen name="admin/users" />
       <Stack.Screen name="admin/settings" />
       <Stack.Screen name="admin/paymentconfig/index" />
@@ -410,30 +425,34 @@ function InnerLayout() {
       <Stack.Screen name="admin/Tasks/index" />
       <Stack.Screen name="admin/unassigned/index" />
       <Stack.Screen name="admin/teammanagement/Agent" />
+      <Stack.Screen name="admin/teammanagement/AgentLeadTracking" />
       <Stack.Screen name="admin/teammanagement/CreateAgent" />
       <Stack.Screen name="admin/teammanagement/channelpartner/channel" />
       <Stack.Screen name="admin/teammanagement/channelpartner/createchannel" />
       <Stack.Screen name="admin/teammanagement/channelpartner/PartnerDetails" />
-      <Stack.Screen name="superadmin/dashboard" />
-      <Stack.Screen name="superadmin/tenants" />
-      <Stack.Screen name="superadmin/tenants-hub" />
-      <Stack.Screen name="superadmin/tenants/[id]" />
-      <Stack.Screen name="superadmin/create-tenant" />
-      <Stack.Screen name="superadmin/edit-tenant/[id]" />
-      <Stack.Screen name="superadmin/plans" />
-      <Stack.Screen name="superadmin/create-plan" />
-      <Stack.Screen name="superadmin/owner-plans" />
-      <Stack.Screen name="superadmin/owner-subscriptions" />
-      <Stack.Screen name="superadmin/subscriptions" />
-      <Stack.Screen name="superadmin/subscriptions-hub" />
-      <Stack.Screen name="superadmin/inquiries" />
-      <Stack.Screen name="superadmin/public-leads/index" />
-      <Stack.Screen name="superadmin/public-leads/[id]" />
-      <Stack.Screen name="superadmin/transactions" />
-      <Stack.Screen name="superadmin/payment-config" />
-      <Stack.Screen name="superadmin/settings" />
-      <Stack.Screen name="superadmin/profile" />
-      <Stack.Screen name="superadmin/notifications" />
+      {/* SuperAdmin routes: instant transitions with animation: 'none' */}
+      <Stack.Screen name="superadmin/dashboard" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/tenants" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/tenants-hub" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/tenants/[id]" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/create-tenant" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/edit-tenant/[id]" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/plans" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/create-plan" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/owner-plans" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/owner-subscriptions" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/subscriptions" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/subscriptions-hub" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/inquiries" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/public-leads/index" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/public-leads/[id]" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/chatbot/index" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/pending-properties/index" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/transactions" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/payment-config" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/settings" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/profile" options={{ animation: 'none' }} />
+      <Stack.Screen name="superadmin/notifications" options={{ animation: 'none' }} />
       <Stack.Screen name="admin/SalesUnit/quotation/[id]" />
       <Stack.Screen name="admin/SalesUnit/invoice/[id]" />
       <Stack.Screen name="admin/SalesUnit/invoice/GenerateInvoice" />
@@ -453,6 +472,7 @@ function InnerLayout() {
           {stackComponent}
         </View>
 
+        <GlobalNavigationHandler />
         <AuthGuardLayout />
         <Toast config={toastConfig} />
       </ExpoThemeProvider>
@@ -472,7 +492,7 @@ function InnerLayout() {
         style={{ backgroundColor: activeBg }}
         edges={safeAreaEdges}
       >
-        <BlurTargetView ref={mainContainerRef} style={{ flex: 1 }}>
+        <View ref={mainContainerRef} style={{ flex: 1 }}>
           {headerComponent}
           {!isConnected && (
             <View style={{
@@ -629,11 +649,18 @@ function InnerLayout() {
             {stackComponent}
           </View>
           {bottomNavComponent}
-        </BlurTargetView>
+        </View>
       </SafeAreaView>
       {isAdminFlow && (
         <BottomMenuSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} blurTargetRef={mainContainerRef} />
       )}
+      <GlobalNavigationHandler
+        isModalOpen={isMenuOpen || isStopConfirmOpen}
+        onCloseModal={() => {
+          if (isStopConfirmOpen) setIsStopConfirmOpen(false);
+          else if (isMenuOpen) setIsMenuOpen(false);
+        }}
+      />
       <AuthGuardLayout />
       <Toast config={toastConfig} />
     </ExpoThemeProvider>
@@ -660,17 +687,19 @@ function RootLayout() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <NetworkProvider>
-            <CustomAlertProvider>
-              <InnerLayout />
-            </CustomAlertProvider>
-          </NetworkProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <NetworkProvider>
+              <CustomAlertProvider>
+                <InnerLayout />
+              </CustomAlertProvider>
+            </NetworkProvider>
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
 

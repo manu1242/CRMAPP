@@ -1320,18 +1320,14 @@ export default function AdminDashboardContent() {
               { label: 'User Roles', icon: CheckSquare, color: '#10b981', route: '/admin/usemanagement/RolesManagement' },
               { label: 'Manage Users', icon: Users, color: '#8b5cf6', route: '/admin/usemanagement/ManageUsers' },
               { label: 'Settings', icon: SlidersHorizontal, color: '#f59e0b', route: '/admin/settings' },
-              { label: 'Log Actions', icon: MessageSquare, color: '#ec4899', sheet: 'quick' },
-              { label: 'App Metrics', icon: TrendingUp, color: '#06b6d4', sheet: 'notifications' },
+              // { label: 'Log Actions', icon: MessageSquare, color: '#ec4899', sheet: 'quick' },
+              // { label: 'App Metrics', icon: TrendingUp, color: '#06b6d4', sheet: 'notifications' },
             ].map((action, i) => (
               <TouchableOpacity
                 key={i}
                 onPress={() => {
                   if (action.route) {
                     router.push(action.route as any);
-                  } else if (action.sheet === 'quick') {
-                    setIsQuickActionSheetOpen(true);
-                  } else if (action.sheet === 'notifications') {
-                    setIsNotificationSheetOpen(true);
                   }
                 }}
                 style={{

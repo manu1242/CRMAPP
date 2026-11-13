@@ -23,8 +23,6 @@ interface AssignOwnerSubscriptionModalProps {
   isLoading?: boolean;
 }
 
-const PRESET_MONTHS = [1, 3, 6, 12];
-
 export const AssignOwnerSubscriptionModal: React.FC<AssignOwnerSubscriptionModalProps> = ({
   visible,
   onClose,
@@ -33,16 +31,14 @@ export const AssignOwnerSubscriptionModal: React.FC<AssignOwnerSubscriptionModal
 }) => {
   const { isDark } = useTheme();
 
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#cbd5e1';
-  const inputBg = isDark ? '#0f172a' : '#f8fafc';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
+  const inputBg = isDark ? '#1e1e1e' : '#f4f4f5';
 
   const [phone, setPhone] = useState('');
-  const [selectedMonths, setSelectedMonths] = useState<number>(1);
-  const [customMonths, setCustomMonths] = useState('');
-  const [isCustom, setIsCustom] = useState(false);
+  const [months, setMonths] = useState('');
   const [amountPaid, setAmountPaid] = useState('499');
   const [notes, setNotes] = useState('');
 
@@ -51,9 +47,7 @@ export const AssignOwnerSubscriptionModal: React.FC<AssignOwnerSubscriptionModal
   useEffect(() => {
     if (visible) {
       setPhone('');
-      setSelectedMonths(1);
-      setCustomMonths('');
-      setIsCustom(false);
+      setMonths('');
       setAmountPaid('499');
       setNotes('');
       setErrors({});
@@ -67,9 +61,9 @@ export const AssignOwnerSubscriptionModal: React.FC<AssignOwnerSubscriptionModal
       errs.phone = 'Enter a valid 10-digit mobile number';
     }
 
-    const effectiveMonths = isCustom ? parseInt(customMonths, 10) : selectedMonths;
-    if (!effectiveMonths || isNaN(effectiveMonths) || effectiveMonths <= 0) {
-      errs.months = 'Please specify valid duration in months';
+    const parsedMonths = parseInt(months.trim(), 10);
+    if (!months.trim() || isNaN(parsedMonths) || parsedMonths < 1 || parsedMonths > 120) {
+      errs.months = 'Enter a valid duration (1 - 120 months)';
     }
 
     if (amountPaid.trim() === '' || isNaN(Number(amountPaid)) || Number(amountPaid) < 0) {
@@ -83,11 +77,11 @@ export const AssignOwnerSubscriptionModal: React.FC<AssignOwnerSubscriptionModal
   const handleSubmit = () => {
     if (!validate()) return;
 
-    const effectiveMonths = isCustom ? parseInt(customMonths, 10) : selectedMonths;
+    const parsedMonths = parseInt(months.trim(), 10) || 1;
 
     const payload: AssignOwnerSubscriptionRequest = {
       ownerPhone: phone.trim().replace(/\D/g, ''),
-      months: effectiveMonths,
+      months: parsedMonths,
       amountPaid: parseFloat(amountPaid) || 0,
       notes: notes.trim() || undefined,
     };
@@ -109,8 +103,8 @@ export const AssignOwnerSubscriptionModal: React.FC<AssignOwnerSubscriptionModal
             {/* Header */}
             <View style={[styles.modalHeader, { borderBottomColor: borderCol }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={[styles.headerIconBox, { backgroundColor: isDark ? '#1e3a8a30' : '#eff6ff' }]}>
-                  <Ionicons name="person-add-outline" size={18} color="#3b82f6" />
+                <View style={[styles.headerIconBox, { backgroundColor: isDark ? '#835CEE25' : '#835CEE15' }]}>
+                  <Ionicons name="person-add-outline" size={18} color="#835CEE" />
                 </View>
                 <View>
                   <Text style={[styles.modalTitle, { color: textColor }]}>
@@ -167,76 +161,29 @@ export const AssignOwnerSubscriptionModal: React.FC<AssignOwnerSubscriptionModal
                 <Text style={[styles.label, { color: textColor }]}>
                   Duration (Months) <Text style={{ color: '#ef4444' }}>*</Text>
                 </Text>
-                <View style={styles.presetsRow}>
-                  {PRESET_MONTHS.map((m) => {
-                    const active = !isCustom && selectedMonths === m;
-                    return (
-                      <TouchableOpacity
-                        key={m}
-                        onPress={() => {
-                          setIsCustom(false);
-                          setSelectedMonths(m);
-                          if (errors.months) setErrors((prev) => ({ ...prev, months: '' }));
-                        }}
-                        style={[
-                          styles.presetChip,
-                          active
-                            ? { backgroundColor: '#2563eb', borderColor: '#2563eb' }
-                            : {
-                                backgroundColor: inputBg,
-                                borderColor: borderCol,
-                              },
-                        ]}
-                      >
-                        <Text style={[styles.presetText, { color: active ? '#ffffff' : textColor }]}>
-                          {m} {m === 1 ? 'Month' : 'Months'}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                  <TouchableOpacity
-                    onPress={() => {
-                      setIsCustom(true);
+                <View
+                  style={[
+                    styles.inputWithIcon,
+                    {
+                      backgroundColor: inputBg,
+                      borderColor: errors.months ? '#ef4444' : borderCol,
+                    },
+                  ]}
+                >
+                  <Ionicons name="calendar-outline" size={16} color={subTextColor} style={{ marginRight: 8 }} />
+                  <TextInput
+                    style={[styles.nestedInput, { color: textColor }]}
+                    placeholder="e.g. 1"
+                    placeholderTextColor={subTextColor}
+                    keyboardType="number-pad"
+                    value={months}
+                    onChangeText={(t) => {
+                      setMonths(t);
+                      if (errors.months) setErrors((prev) => ({ ...prev, months: '' }));
                     }}
-                    style={[
-                      styles.presetChip,
-                      isCustom
-                        ? { backgroundColor: '#2563eb', borderColor: '#2563eb' }
-                        : {
-                            backgroundColor: inputBg,
-                            borderColor: borderCol,
-                          },
-                    ]}
-                  >
-                    <Text style={[styles.presetText, { color: isCustom ? '#ffffff' : textColor }]}>
-                      Custom
-                    </Text>
-                  </TouchableOpacity>
+                  />
                 </View>
-
-                {isCustom && (
-                  <View style={{ marginTop: 8 }}>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          backgroundColor: inputBg,
-                          borderColor: errors.months ? '#ef4444' : borderCol,
-                          color: textColor,
-                        },
-                      ]}
-                      placeholder="Enter number of months (e.g. 2, 5)"
-                      placeholderTextColor={subTextColor}
-                      keyboardType="number-pad"
-                      value={customMonths}
-                      onChangeText={(t) => {
-                        setCustomMonths(t);
-                        if (errors.months) setErrors((prev) => ({ ...prev, months: '' }));
-                      }}
-                    />
-                    {errors.months ? <Text style={styles.errorText}>{errors.months}</Text> : null}
-                  </View>
-                )}
+                {errors.months ? <Text style={styles.errorText}>{errors.months}</Text> : null}
               </View>
 
               {/* Amount Paid */}
@@ -460,7 +407,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   saveButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#835CEE',
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 10,

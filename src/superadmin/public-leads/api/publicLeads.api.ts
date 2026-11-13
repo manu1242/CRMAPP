@@ -22,7 +22,7 @@ export const publicLeadsApi = {
 
     return apiClient.get<PublicLeadApiResponse<PublicLeadsPaginatedData>>(
       API_ENDPOINTS.PUBLIC_LEADS.BASE,
-      { params: queryParams }
+      queryParams
     );
   },
 

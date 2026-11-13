@@ -6,6 +6,8 @@ export const useSubscriptionsQuery = () => {
   return useQuery({
     queryKey: ['subscriptions'],
     queryFn: () => subscriptionsApi.getSubscriptions(),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   });
 };
 
@@ -17,6 +19,7 @@ export const useAssignSubscriptionMutation = () => {
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       queryClient.invalidateQueries({ queryKey: ['tenants'] }); // Invalidate tenants as their plans might have changed too
+      queryClient.invalidateQueries({ queryKey: ['superadmin-dashboard'] });
       Toast.show({
         type: 'success',
         text1: 'Success',

@@ -55,6 +55,8 @@ export default function AgentPayout() {
   const [month, setMonth] = useState(MONTHS[currentDate.getMonth()]);
   const [year, setYear] = useState(currentDate.getFullYear());
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Processed' | 'Paid'>('All');
+  const [allPeriods, setAllPeriods] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,9 +84,11 @@ export default function AgentPayout() {
 
       try {
         const response = await payoutService.getAgentPayouts({
-          month,
-          year,
+          month: allPeriods ? undefined : month,
+          year: allPeriods ? undefined : year,
           search: search.trim() || undefined,
+          status: statusFilter === 'All' ? undefined : statusFilter,
+          allPeriods,
         });
 
         if (response && response.success !== false) {
@@ -101,7 +105,7 @@ export default function AgentPayout() {
         setRefreshing(false);
       }
     },
-    [month, year, search]
+    [month, year, search, statusFilter, allPeriods]
   );
 
   useEffect(() => {
@@ -365,6 +369,57 @@ export default function AgentPayout() {
             />
           </View>
 
+          {/* Status & Period Filters */}
+          <View style={styles.filterRow}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusChipsScroll}>
+              {(['All', 'Pending', 'Approved', 'Processed', 'Paid'] as const).map((st) => {
+                const isSelected = statusFilter === st;
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    onPress={() => setStatusFilter(st)}
+                    style={[
+                      styles.filterChip,
+                      {
+                        backgroundColor: isSelected ? adminTheme.brand : adminTheme.inputBg,
+                        borderColor: isSelected ? adminTheme.brand : adminTheme.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        { color: isSelected ? '#ffffff' : adminTheme.textSecondary },
+                      ]}
+                    >
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+              <TouchableOpacity
+                onPress={() => setAllPeriods(!allPeriods)}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: allPeriods ? '#6366f1' : adminTheme.inputBg,
+                    borderColor: allPeriods ? '#6366f1' : adminTheme.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    { color: allPeriods ? '#ffffff' : adminTheme.textSecondary },
+                  ]}
+                >
+                  {allPeriods ? '✓ All Periods' : 'All Periods'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+
           {/* Process Monthly Payouts Button */}
           <TouchableOpacity
             onPress={handleProcessPayouts}
@@ -489,7 +544,7 @@ export default function AgentPayout() {
                     <View style={styles.metricPill}>
                       <Clock size={12} color={adminTheme.textSecondary} />
                       <Text style={[styles.metricText, { color: adminTheme.textSecondary }]}>
-                        Present: {item.presentDays}/{item.workingDays} days
+                        Present: {item.presentDays}/{item.workingDays}d • Absent: {item.absentDays ?? Math.max(0, (item.workingDays || 0) - (item.presentDays || 0))}d
                       </Text>
                     </View>
 
@@ -550,8 +605,22 @@ export default function AgentPayout() {
               No Agent Payouts Found
             </Text>
             <Text style={[styles.emptySubtitle, { color: adminTheme.textSecondary }]}>
-              No agent payout records match your selection. Click "Process Payouts" to compute.
+              No agent payout records found for {month} {year}. Click below to process payouts for all approved agents.
             </Text>
+            <TouchableOpacity
+              onPress={handleProcessPayouts}
+              disabled={processing}
+              style={[styles.emptyActionBtn, { backgroundColor: adminTheme.brand }]}
+            >
+              {processing ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Play size={14} color="#ffffff" />
+                  <Text style={styles.emptyActionBtnText}>Process Payouts for {month} {year}</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -808,6 +877,25 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 10,
   },
+  filterRow: {
+    marginTop: 2,
+  },
+  statusChipsScroll: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -974,6 +1062,22 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 11,
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
+    marginTop: 4,
+  },
+  emptyActionBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   // Modals

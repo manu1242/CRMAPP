@@ -19,10 +19,10 @@ export const OwnerSubscriptionCard: React.FC<OwnerSubscriptionCardProps> = ({
 }) => {
   const { isDark } = useTheme();
 
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
 
   const isExpired =
     subscription.status?.toLowerCase() === 'expired' ||
@@ -89,8 +89,8 @@ export const OwnerSubscriptionCard: React.FC<OwnerSubscriptionCardProps> = ({
       {/* Header Row: Phone & Status & Price */}
       <View style={styles.headerRow}>
         <View style={styles.phoneGroup}>
-          <View style={[styles.avatarBox, { backgroundColor: isDark ? '#1e3a8a30' : '#eff6ff' }]}>
-            <Ionicons name="phone-portrait-outline" size={18} color="#3b82f6" />
+          <View style={[styles.avatarBox, { backgroundColor: isDark ? '#835CEE25' : '#835CEE15' }]}>
+            <Ionicons name="phone-portrait-outline" size={18} color="#835CEE" />
           </View>
           <View>
             <TouchableOpacity
@@ -101,7 +101,7 @@ export const OwnerSubscriptionCard: React.FC<OwnerSubscriptionCardProps> = ({
               <Text style={[styles.phoneText, { color: textColor }]}>
                 {subscription.ownerPhone}
               </Text>
-              <Ionicons name="call-outline" size={13} color="#3b82f6" />
+              <Ionicons name="call-outline" size={13} color="#835CEE" />
             </TouchableOpacity>
             <View
               style={[
@@ -135,7 +135,7 @@ export const OwnerSubscriptionCard: React.FC<OwnerSubscriptionCardProps> = ({
       <View
         style={[
           styles.datesRow,
-          { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: borderCol },
+          { backgroundColor: isDark ? '#161616' : '#f4f4f5', borderColor: borderCol },
         ]}
       >
         <View style={styles.dateCol}>
@@ -191,8 +191,8 @@ export const OwnerSubscriptionCard: React.FC<OwnerSubscriptionCardProps> = ({
             value={subscription.isActive}
             onValueChange={() => onToggleStatus(subscription)}
             disabled={isToggling}
-            trackColor={{ false: isDark ? '#334155' : '#cbd5e1', true: '#93c5fd' }}
-            thumbColor={subscription.isActive ? '#2563eb' : isDark ? '#64748b' : '#f1f5f9'}
+            trackColor={{ false: isDark ? '#2e2e2e' : '#e4e4e7', true: '#c4b5fd' }}
+            thumbColor={subscription.isActive ? '#835CEE' : isDark ? '#71717a' : '#f4f4f5'}
             style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
           />
         </View>

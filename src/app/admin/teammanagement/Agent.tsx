@@ -35,15 +35,18 @@ import {
   Users,
   ChevronDown,
   Check,
+  TrendingUp,
 } from 'lucide-react-native';
 
 import { useAgents, useDeleteAgent } from '../../../admin/hooks/useAgents';
 import Toast from 'react-native-toast-message';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 export default function AgentListScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -218,6 +221,27 @@ export default function AgentListScreen() {
             onChangeText={setSearch}
           />
         </View>
+
+        {/* Lead Tracking Button */}
+        <TouchableOpacity
+          onPress={() => router.push('/admin/teammanagement/AgentLeadTracking')}
+          style={{
+            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+            borderColor: brandColor,
+            borderWidth: 1,
+            height: 40,
+            paddingHorizontal: 10,
+            borderRadius: 20,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+          }}
+          accessibilityLabel="Agent Lead Tracking"
+        >
+          <TrendingUp size={15} color={brandColor} />
+          <Text style={{ fontSize: 11, fontWeight: '700', color: brandColor }}>Tracking</Text>
+        </TouchableOpacity>
 
         {/* Onboard Button */}
         <TouchableOpacity
@@ -427,7 +451,8 @@ export default function AgentListScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing, flexGrow: 1, gap: 12 }}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[brandColor]} />}
           showsVerticalScrollIndicator={false}
         >

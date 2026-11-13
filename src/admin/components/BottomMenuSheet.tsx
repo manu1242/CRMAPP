@@ -90,6 +90,7 @@ export const MODULES: ModuleItem[] = [
       { label: 'Sales Pipeline', route: '/admin/sales' },
       { label: 'Tasks', route: '/admin/Tasks' },
       { label: 'Unassigned Leads', route: '/admin/unassigned' },
+      { label: 'Lead Integrations', route: '/admin/leads/LeadIntegrations' },
       { label: 'Properties', route: '/admin/properties' },
     ],
   },
@@ -129,6 +130,7 @@ export const MODULES: ModuleItem[] = [
     category: 'Human Resources',
     subLinks: [
       { label: 'Agent List', route: '/admin/teammanagement/Agent' },
+      { label: 'Agent Lead Tracking', route: '/admin/teammanagement/AgentLeadTracking' },
       { label: 'Channel Partner', route: '/admin/teammanagement/channelpartner/channel' },
     ],
   },
@@ -528,7 +530,7 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
 
   const handleNavigate = (route: string) => {
     onClose();
-    router.push(route as any);
+    router.navigate(route as any);
   };
 
   const handleModulePress = (module: ModuleItem) => {

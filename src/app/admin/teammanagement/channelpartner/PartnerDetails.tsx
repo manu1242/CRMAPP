@@ -460,7 +460,8 @@ export default function PartnerDetailsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 120 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 120, flexGrow: 1 }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[brandColor]} />}
         showsVerticalScrollIndicator={false}
       >

@@ -79,6 +79,7 @@ export interface FlatItem {
   propertyType: string;
   propertyGroup: string;
   areaSqft: number | null;
+  costPerSqft?: number | null;
   location: string;
   bedroomCount: number | null;
   bathroomCount: number | null;

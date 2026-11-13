@@ -9,6 +9,11 @@ import {
   Platform,
   RefreshControl,
   Image,
+  Modal,
+  Alert,
+  Vibration,
+  Dimensions,
+  GestureResponderEvent,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import {
@@ -26,6 +31,7 @@ import { PropertyImageItem } from '../../../admin/models/PropertyTypes';
 import { AuthImage } from '../../../components/AuthImage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 export default function ImagesScreen() {
   const { propertyId, propertyName } = useLocalSearchParams();
@@ -34,6 +40,7 @@ export default function ImagesScreen() {
 
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
   const textColor = adminTheme.textPrimary;
@@ -45,6 +52,41 @@ export default function ImagesScreen() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [actionImage, setActionImage] = useState<PropertyImageItem | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+
+  const handleLongPress = (img: PropertyImageItem, event?: GestureResponderEvent) => {
+    try {
+      Vibration.vibrate(50);
+    } catch {}
+
+    if (event?.nativeEvent) {
+      const { pageY, pageX } = event.nativeEvent;
+      const screenHeight = Dimensions.get('window').height;
+      const screenWidth = Dimensions.get('window').width;
+      const menuHeight = 120;
+      const menuWidth = 220;
+
+      let top = pageY - 10;
+      if (top + menuHeight > screenHeight - 50) {
+        top = Math.max(50, pageY - menuHeight - 10);
+      } else {
+        top = Math.max(50, top);
+      }
+
+      let left = pageX ? pageX - 60 : (screenWidth - menuWidth) / 2;
+      if (left + menuWidth > screenWidth - 16) {
+        left = screenWidth - menuWidth - 16;
+      }
+      left = Math.max(16, left);
+
+      setMenuPosition({ top, left });
+    } else {
+      setMenuPosition(null);
+    }
+
+    setActionImage(img);
+  };
 
   const { data: images = [], isLoading: loading, refetch: fetchImages } = useQuery({
     queryKey: ['property_images', propId],
@@ -115,34 +157,41 @@ export default function ImagesScreen() {
     }
   };
 
-  const handleDelete = async (uploadId: number, fileName: string) => {
-    const performDelete = async () => {
-      try {
-        const res = await PropertyService.deleteImage(uploadId);
-        if (res.success) {
-          Toast.show({ type: 'success', text1: 'Deleted', text2: `${fileName} deleted.` });
-          // Clear local cache for this specific image upload
-          await AsyncStorage.removeItem(`auth_image_upload_${uploadId}`);
-          queryClient.invalidateQueries({ queryKey: ['auth_image', `upload_${uploadId}`] });
-          queryClient.invalidateQueries({ queryKey: ['property_images', propId] });
-        } else {
-          Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Delete failed.' });
-        }
-      } catch (err: any) {
-        Toast.show({ type: 'error', text1: 'Error', text2: err.message });
-      }
-    };
-    if (Platform.OS === 'web') {
-      if (confirm(`Delete image "${fileName}"?`)) performDelete();
-    } else {
-      performDelete();
-    }
+  const handleDelete = (uploadId: number, fileName: string) => {
+    Alert.alert(
+      'Delete Photo',
+      `Are you sure you want to delete "${fileName}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await PropertyService.deleteImage(uploadId);
+              if (res.success) {
+                Toast.show({ type: 'success', text1: 'Deleted', text2: `${fileName} deleted.` });
+                // Clear local cache for this specific image upload
+                await AsyncStorage.removeItem(`auth_image_upload_${uploadId}`);
+                queryClient.invalidateQueries({ queryKey: ['auth_image', `upload_${uploadId}`] });
+                queryClient.invalidateQueries({ queryKey: ['property_images', propId] });
+              } else {
+                Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Delete failed.' });
+              }
+            } catch (err: any) {
+              Toast.show({ type: 'error', text1: 'Error', text2: err.message });
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -202,7 +251,13 @@ export default function ImagesScreen() {
             {/* Image Grid */}
             <View style={styles.imageGrid}>
               {images.map((img) => (
-                <View key={img.uploadId} style={[styles.imageCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                <TouchableOpacity
+                  key={img.uploadId}
+                  activeOpacity={0.88}
+                  onLongPress={(e) => handleLongPress(img, e)}
+                  delayLongPress={350}
+                  style={[styles.imageCard, { backgroundColor: cardBg, borderColor: borderCol }]}
+                >
                   {/* Image */}
                   <View style={styles.imageWrap}>
                     {(() => {
@@ -231,13 +286,6 @@ export default function ImagesScreen() {
                         />
                       );
                     })()}
-                    {/* Delete overlay button */}
-                    <TouchableOpacity
-                      style={styles.deleteOverlay}
-                      onPress={() => handleDelete(img.uploadId, img.fileName)}
-                    >
-                      <Trash2 size={14} color="#fff" />
-                    </TouchableOpacity>
                   </View>
 
                   {/* Footer */}
@@ -249,12 +297,82 @@ export default function ImagesScreen() {
                       by {img.uploadedBy || 'admin'}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           </>
         )}
       </ScrollView>
+
+      {/* Action Dropdown Modal on Long Press */}
+      <Modal
+        visible={actionImage !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setActionImage(null);
+          setMenuPosition(null);
+        }}
+      >
+        <TouchableOpacity
+          style={styles.dropdownOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setActionImage(null);
+            setMenuPosition(null);
+          }}
+        >
+          <View
+            style={[
+              styles.dropdownMenu,
+              {
+                backgroundColor: cardBg,
+                borderColor: borderCol,
+              },
+              menuPosition
+                ? {
+                    position: 'absolute',
+                    top: menuPosition.top,
+                    left: menuPosition.left,
+                  }
+                : {
+                    position: 'absolute',
+                    top: 180,
+                    alignSelf: 'center',
+                  },
+            ]}
+          >
+            <View style={styles.dropdownHeader}>
+              <Text style={[styles.dropdownTitle, { color: textColor }]} numberOfLines={1}>
+                Photo Options
+              </Text>
+              <Text style={[styles.dropdownSubtitle, { color: subTextColor }]} numberOfLines={1}>
+                {actionImage?.fileName}
+              </Text>
+            </View>
+
+            <View style={[styles.dropdownDivider, { backgroundColor: borderCol }]} />
+
+            {/* Delete Photo Option */}
+            <TouchableOpacity
+              style={styles.dropdownItem}
+              activeOpacity={0.7}
+              onPress={() => {
+                if (!actionImage) return;
+                const img = actionImage;
+                setActionImage(null);
+                setMenuPosition(null);
+                handleDelete(img.uploadId, img.fileName);
+              }}
+            >
+              <View style={[styles.dropdownIconCircle, { backgroundColor: '#ef444415' }]}>
+                <Trash2 size={16} color="#ef4444" />
+              </View>
+              <Text style={[styles.dropdownItemText, { color: '#ef4444' }]}>Delete Photo</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -337,5 +455,55 @@ const styles = StyleSheet.create({
   imageFooter: {
     padding: 8,
     borderTopWidth: 1,
+  },
+  dropdownOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  dropdownMenu: {
+    width: 230,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  dropdownHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  dropdownTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  dropdownSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  dropdownDivider: {
+    height: 1,
+    marginVertical: 4,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  dropdownIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

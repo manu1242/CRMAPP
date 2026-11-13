@@ -1,35 +1,37 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import * as service from "../services/RevenueService";
 import { CreateRevenueRequest, UpdateRevenueRequest } from "../models/RevenueTypes";
 
-// ─── Stale / GC times ────────────────────────────────────────────────────────
-// Revenue fetches the entire server-rendered HTML page and regex-parses it —
-// this is an expensive operation. Cache aggressively to minimise repeat scrapes.
-// 5 min stale keeps data fresh enough for financial review while avoiding
-// redundant full-page HTML parses on every focus/mount.
-const REVENUES_STALE_MS  = 5 * 60 * 1000;   // 5 minutes — expensive HTML parse
-const REVENUES_GC_MS     = 15 * 60 * 1000;  // 15 minutes
-const REVENUE_STALE_MS   = 5 * 60 * 1000;
-const REVENUE_GC_MS      = 10 * 60 * 1000;
+const REVENUES_STALE_MS = 3 * 60 * 1000;
+const REVENUES_GC_MS    = 8 * 60 * 1000;
+const REVENUE_STALE_MS  = 5 * 60 * 1000;
+const REVENUE_GC_MS     = 12 * 60 * 1000;
 
 /**
- * Hook to retrieve the complete list of revenues (manually created + system generated).
- * NOTE: The underlying service scrapes an HTML endpoint — staleTime is set high
- * to avoid redundant parses. A proper JSON API endpoint would be preferable long-term.
+ * Hook to retrieve the list of revenues with pagination, filters, sorting, and summary metrics.
  */
-export const useRevenues = () => {
+export const useRevenues = (
+  page: number = 1,
+  pageSize: number = 10,
+  type?: string,
+  search?: string,
+  fromDate?: string,
+  toDate?: string,
+  sort?: string
+) => {
   return useQuery({
-    queryKey: ["revenues"],
-    queryFn: () => service.getRevenues(),
+    queryKey: ["revenues", page, pageSize, type, search, fromDate, toDate, sort],
+    queryFn: () => service.getRevenues(page, pageSize, type, search, fromDate, toDate, sort),
     staleTime: REVENUES_STALE_MS,
     gcTime: REVENUES_GC_MS,
+    placeholderData: keepPreviousData,
   });
 };
 
 /**
  * Hook to retrieve detailed info for a single revenue record.
  */
-export const useRevenueDetails = (id: number, enabled: boolean = true) => {
+export const useRevenueDetails = (id: number | string, enabled: boolean = true) => {
   return useQuery({
     queryKey: ["revenueDetails", id],
     queryFn: () => service.getRevenueDetails(id),
@@ -40,15 +42,15 @@ export const useRevenueDetails = (id: number, enabled: boolean = true) => {
 };
 
 /**
- * Hook to record a new revenue entry.
+ * Hook to record a new manual revenue entry.
  */
 export const useRecordRevenue = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateRevenueRequest) => service.createRevenue(data),
     onSuccess: () => {
-      // Invalidate the revenue query to refresh list immediately
       queryClient.invalidateQueries({ queryKey: ["revenues"] });
+      queryClient.invalidateQueries({ queryKey: ["profitAnalytics"] });
     },
   });
 };
@@ -63,6 +65,7 @@ export const useUpdateRevenue = () => {
     onSuccess: (res, variables) => {
       queryClient.invalidateQueries({ queryKey: ["revenues"] });
       queryClient.invalidateQueries({ queryKey: ["revenueDetails", variables.revenueId] });
+      queryClient.invalidateQueries({ queryKey: ["profitAnalytics"] });
     },
   });
 };
@@ -73,9 +76,10 @@ export const useUpdateRevenue = () => {
 export const useDeleteRevenue = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => service.deleteRevenue(id),
+    mutationFn: (id: number | string) => service.deleteRevenue(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["revenues"] });
+      queryClient.invalidateQueries({ queryKey: ["profitAnalytics"] });
     },
   });
 };

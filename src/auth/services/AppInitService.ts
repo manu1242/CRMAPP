@@ -35,7 +35,7 @@ async function checkInternet(): Promise<boolean> {
   try {
     const res = await withTimeout(
       fetch('https://clients3.google.com/generate_204', { method: 'HEAD' }),
-      5000
+      3500
     );
     return res.status === 204 || res.ok;
   } catch {
@@ -50,17 +50,11 @@ interface HealthResult {
 }
  
 async function checkBackend(): Promise<HealthResult> {
-  // IMPORTANT: Use plain fetch() — NOT axiosInstance — so this request bypasses
-  // the auth response interceptor. Using axiosInstance here would trigger
-  // triggerSessionExpired() if the /api/health endpoint returns 401 (unauthenticated),
-  // which sets isHandlingSessionExpiry=true and silently swallows the 401 that
-  // initSession() later gets from profileApi.getCurrentProfile(), leaving
-  // isAuthenticated=true with a stale/invalid token.
   try {
     const baseUrl = getApiUrl().replace(/\/$/, '');
     const res = await withTimeout(
       fetch(`${baseUrl}/api/health`, { method: 'GET' }),
-      7000
+      3500
     );
 
     if (res.ok) {
@@ -78,7 +72,7 @@ async function checkBackend(): Promise<HealthResult> {
     // Any HTTP response (4xx, 5xx) means the server IS reachable
     return { reachable: true, maintenance: false };
   } catch {
-    // Network error / timeout → backend is truly down
+    // Network error / timeout
     return { reachable: false, maintenance: false };
   }
 }
@@ -96,14 +90,7 @@ async function loadToken(): Promise<boolean> {
 // ─── Step 5: Initialize session from stored token ────────────────────────────
 async function initSession(): Promise<boolean> {
   try {
-    // Reset the session expiry guard BEFORE calling initializeSession().
-    // The /api/health check above (even via plain fetch) or any prior request
-    // could have set isHandlingSessionExpiry=true. If it's still true when
-    // profileApi.getCurrentProfile() returns 401, triggerSessionExpired() would
-    // silently early-return, leaving isAuthenticated=true with an invalid token.
     resetSessionExpiryGuard();
-
-    // Dynamically import to avoid circular dependency at module load time
     const { useAuthStore } = await import('../store/authStore');
     await useAuthStore.getState().initializeSession();
     return useAuthStore.getState().isAuthenticated;
@@ -115,28 +102,31 @@ async function initSession(): Promise<boolean> {
 // ─── Public API ───────────────────────────────────────────────────────────────
 export const AppInitService = {
   /**
-   * Runs all boot initialization steps sequentially.
-   * Calls `onStatus(message)` before each step so the splash screen can show live feedback.
-   * Returns a structured AppInitResult for routing decisions.
+   * Runs boot initialization steps concurrently for fast app startup (<3.5s).
+   * Prevents app from stalling on the splash screen or blocking Google Play automated reviews.
    */
   run: async (onStatus: OnStatusUpdate): Promise<AppInitResult> => {
     // ── 0. Resolve API URL ────────────────────────────────────────────────────
-    onStatus('Connecting to server…');
+    onStatus('Starting up…');
     await initRemoteConfig().catch((err) => {
       console.warn('initRemoteConfig failed in AppInitService:', err);
     });
 
-    // ── 1. Internet ──────────────────────────────────────────────────────────
+    // ── 1, 2, 3: Run Internet & Backend checks concurrently ───────────────────
     onStatus('Checking connection…');
-    const hasInternet = await checkInternet();
+    const [internetSettled, backendSettled, tokenFound] = await Promise.all([
+      checkInternet().catch(() => false),
+      checkBackend().catch(() => ({ reachable: false, maintenance: false })),
+      loadToken().catch(() => false),
+    ]);
 
-    // ── 2 & 3. Backend + Maintenance ─────────────────────────────────────────
-    onStatus('Connecting to server…');
-    const { reachable: backendReachable, maintenance } = await checkBackend();
+    const hasInternet = internetSettled;
+    const { reachable: backendReachable, maintenance } = backendSettled;
 
-    if (!backendReachable) {
+    // If completely offline and no stored token, show offline screen
+    if (!hasInternet && !tokenFound) {
       return {
-        hasInternet, // If backend is unreachable, use the internet check to determine if the device is offline or the server is down
+        hasInternet: false,
         backendReachable: false,
         maintenance: false,
         tokenFound: false,
@@ -154,11 +144,7 @@ export const AppInitService = {
       };
     }
 
-    // ── 4. Load token ─────────────────────────────────────────────────────────
-    onStatus('Loading your profile…');
-    const tokenFound = await loadToken();
-
-    // ── 5. Initialize session (only if token exists) ───────────────────────────
+    // ── 4 & 5. Initialize session (only if token exists) ─────────────────────
     let sessionInitialized = false;
     if (tokenFound) {
       onStatus('Restoring your session…');

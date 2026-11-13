@@ -5,6 +5,7 @@ import { TokenStorage } from '../auth/storage/TokenStorage';
 import { SessionStorage } from '../auth/storage/SessionStorage';
 import { SecureStorage } from '../auth/storage/SecureStorage';
 import { useAuthStore } from '../auth/store/authStore';
+import { JwtService } from '../auth/services/JwtService';
 import {
   getIsHandlingSessionExpiry,
   setIsHandlingSessionExpiry,
@@ -83,6 +84,23 @@ export const setupInterceptors = () => {
         } else {
           (config.headers as any)['Authorization'] = `Bearer ${token}`;
         }
+
+        // Attach tenant identification headers for company requests
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser && currentUser.role?.trim()?.toLowerCase() !== 'superadmin' && currentUser.tenantId) {
+          const tenantIdVal = String(currentUser.tenantId);
+          if (config.headers.set) {
+            config.headers.set('X-Tenant-Id', tenantIdVal);
+            if (currentUser.subdomain) {
+              config.headers.set('X-Tenant-Subdomain', currentUser.subdomain.trim().toLowerCase());
+            }
+          } else {
+            (config.headers as any)['X-Tenant-Id'] = tenantIdVal;
+            if (currentUser.subdomain) {
+              (config.headers as any)['X-Tenant-Subdomain'] = currentUser.subdomain.trim().toLowerCase();
+            }
+          }
+        }
       }
 
       // DEV diagnostic: confirm token is present for leads requests
@@ -114,13 +132,16 @@ export const setupInterceptors = () => {
           console.warn(`[API] 401 Unauthorized: ${url}`);
         }
 
-        // Optional background endpoints: 401 here is a permissions issue, not session expiry.
-        const OPTIONAL_ENDPOINTS = [
+        // Optional or action endpoints where 401 is an action/route/permissions issue, NOT session expiry:
+        const NON_SESSION_EXPIRING_ENDPOINTS = [
           '/api/v1/notifications',
+          '/leads/update-assignment',
+          '/assign',
+          '/AssignExecutive',
         ];
-        const isOptional = OPTIONAL_ENDPOINTS.some((ep) => url.includes(ep));
-        if (isOptional) {
-          if (__DEV__) console.log(`[AUTH] 401 on optional endpoint — silently ignoring: ${url}`);
+        const isNonExpiring = NON_SESSION_EXPIRING_ENDPOINTS.some((ep) => url.includes(ep));
+        if (isNonExpiring) {
+          if (__DEV__) console.log(`[AUTH] 401 on non-expiring/action endpoint — passing error to caller: ${url}`);
           return Promise.reject(error);
         }
 
@@ -128,8 +149,15 @@ export const setupInterceptors = () => {
         if (__DEV__) {
           console.warn(`[AUTH DIAGNOSE] Non-optional 401 — url: ${url} | isAuthenticated: ${isAuthenticated}`);
         }
-        if (isAuthenticated) {
+
+        // Verify if token is actually expired via JWT exp claim before wiping session
+        const currentToken = await TokenStorage.getAccessToken();
+        const isTokenActuallyExpired = currentToken ? JwtService.isTokenExpired(currentToken) : true;
+
+        if (isAuthenticated && isTokenActuallyExpired) {
           await triggerSessionExpired();
+        } else if (isAuthenticated && !isTokenActuallyExpired) {
+          if (__DEV__) console.warn(`[AUTH] 401 received on ${url} but JWT token is still unexpired. Skipping session wipe.`);
         } else {
           if (__DEV__) console.log(`[AUTH] 401 on ${url} — user already unauthenticated, skipping expiry`);
         }

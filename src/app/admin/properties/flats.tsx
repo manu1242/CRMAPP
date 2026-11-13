@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,11 @@ import {
   StyleSheet,
   Platform,
   RefreshControl,
+  Modal,
+  Alert,
+  Vibration,
+  Dimensions,
+  GestureResponderEvent,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -34,9 +39,10 @@ import { getAdminTheme } from '../../../theme/adminTheme';
 import { PropertyService } from '../../../admin/services/PropertyService';
 import { FlatItem } from '../../../admin/models/PropertyTypes';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
-const FLAT_STATUSES = ['Available', 'Sold', 'Blocked'];
-const BHK_OPTIONS = ['1 BHK', '2 BHK', '3 BHK', '4 BHK', '5 BHK', 'Studio', 'Duplex'];
+const FLAT_STATUSES = ['All', 'Available', 'Booked', 'Sold'];
+const BHK_OPTIONS = ['All', '1 BHK', '2 BHK', '3 BHK', '4 BHK', '5 BHK', 'Studio', 'Duplex'];
 
 export default function FlatsScreen() {
   const router = useRouter();
@@ -46,6 +52,7 @@ export default function FlatsScreen() {
 
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
   const textColor = adminTheme.textPrimary;
@@ -56,12 +63,49 @@ export default function FlatsScreen() {
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
-  const [searchBhk, setSearchBhk] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBhk, setSelectedBhk] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [actionFlat, setActionFlat] = useState<FlatItem | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+
+  const handleLongPress = (flat: FlatItem, event?: GestureResponderEvent) => {
+    try {
+      Vibration.vibrate(50);
+    } catch {}
+
+    if (event?.nativeEvent) {
+      const { pageY, pageX } = event.nativeEvent;
+      const screenHeight = Dimensions.get('window').height;
+      const screenWidth = Dimensions.get('window').width;
+      const menuHeight = 150;
+      const menuWidth = 220;
+
+      let top = pageY - 10;
+      if (top + menuHeight > screenHeight - 50) {
+        top = Math.max(50, pageY - menuHeight - 10);
+      } else {
+        top = Math.max(50, top);
+      }
+
+      let left = pageX ? pageX - 60 : (screenWidth - menuWidth) / 2;
+      if (left + menuWidth > screenWidth - 16) {
+        left = screenWidth - menuWidth - 16;
+      }
+      left = Math.max(16, left);
+
+      setMenuPosition({ top, left });
+    } else {
+      setMenuPosition(null);
+    }
+
+    setActionFlat(flat);
+  };
 
   const { data: flats = [], isLoading: loading, refetch: fetchFlats } = useQuery({
-    queryKey: ['flats', propId, searchBhk],
+    queryKey: ['flats', propId],
     queryFn: async () => {
-      const res = await PropertyService.getFlats(propId, searchBhk);
+      const res = await PropertyService.getFlats(propId);
       if (!res.success) throw new Error('Failed to load flats.');
       return res.flats || [];
     },
@@ -72,6 +116,39 @@ export default function FlatsScreen() {
     setRefreshing(true);
     await fetchFlats();
     setRefreshing(false);
+  };
+
+  const filteredFlats = useMemo(() => {
+    if (!searchQuery.trim()) return flats;
+
+    const query = searchQuery.trim().toLowerCase();
+    const queryNormalized = query.replace(/\s+/g, '');
+
+    return flats.filter((flat) => {
+      const flatName = (flat.flatName || '').toLowerCase();
+      const blockName = (flat.blockName || '').toLowerCase();
+      const floorName = (flat.floorName || '').toLowerCase();
+      const bhk = (flat.bhk || '').toLowerCase();
+      const bhkNormalized = bhk.replace(/\s+/g, '');
+      const propType = (flat.propertyType || '').toLowerCase();
+
+      return (
+        flatName.includes(query) ||
+        blockName.includes(query) ||
+        floorName.includes(query) ||
+        bhk.includes(query) ||
+        bhkNormalized.includes(queryNormalized) ||
+        propType.includes(query)
+      );
+    });
+  }, [flats, searchQuery]);
+
+  const hasActiveFilters = searchQuery !== '' || selectedBhk !== 'All' || selectedStatus !== 'All';
+
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setSelectedBhk('All');
+    setSelectedStatus('All');
   };
 
   const openAddForm = () => {
@@ -88,25 +165,31 @@ export default function FlatsScreen() {
     });
   };
 
-  const handleDelete = async (flatId: number, flatName: string) => {
-    const performDelete = async () => {
-      try {
-        const res = await PropertyService.deleteFlat(flatId);
-        if (res.success) {
-          Toast.show({ type: 'success', text1: 'Deleted', text2: `${flatName} removed.` });
-          queryClient.invalidateQueries({ queryKey: ['flats', propId] });
-        } else {
-          Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Delete failed.' });
-        }
-      } catch (err: any) {
-        Toast.show({ type: 'error', text1: 'Error', text2: err.message });
-      }
-    };
-    if (Platform.OS === 'web') {
-      if (confirm(`Delete flat "${flatName}"?`)) performDelete();
-    } else {
-      performDelete();
-    }
+  const handleDelete = (flatId: number, flatName: string) => {
+    Alert.alert(
+      'Delete Flat',
+      `Are you sure you want to delete "${flatName}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await PropertyService.deleteFlat(flatId);
+              if (res.success) {
+                Toast.show({ type: 'success', text1: 'Deleted', text2: `${flatName} removed.` });
+                queryClient.invalidateQueries({ queryKey: ['flats', propId] });
+              } else {
+                Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Delete failed.' });
+              }
+            } catch (err: any) {
+              Toast.show({ type: 'error', text1: 'Error', text2: err.message });
+            }
+          },
+        },
+      ]
+    );
   };
 
   const getStatusColor = (status: string) => {
@@ -118,7 +201,8 @@ export default function FlatsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -128,14 +212,14 @@ export default function FlatsScreen() {
             <Search size={16} color={subTextColor} />
             <TextInput
               style={[styles.searchInput, { color: textColor }]}
-              placeholder="Filter by BHK (e.g. 2 BHK)"
+              placeholder="Search flat (e.g. 501, 2BHK, Block A)..."
               placeholderTextColor={subTextColor}
-              value={searchBhk}
-              onChangeText={(t) => { setSearchBhk(t); }}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
             />
-            {searchBhk !== '' && (
-              <TouchableOpacity onPress={() => { setSearchBhk(''); }}>
-                <X size={14} color={subTextColor} />
+            {searchQuery !== '' && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <X size={15} color={subTextColor} />
               </TouchableOpacity>
             )}
           </View>
@@ -151,21 +235,41 @@ export default function FlatsScreen() {
             <ActivityIndicator size="large" color={brandCol} />
             <Text style={{ color: subTextColor, marginTop: 10 }}>Loading flats...</Text>
           </View>
-        ) : flats.length === 0 ? (
+        ) : filteredFlats.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Layers size={48} color={subTextColor} />
-            <Text style={[styles.emptyTitle, { color: textColor }]}>No Flats Found</Text>
-            <Text style={{ color: subTextColor, textAlign: 'center', marginTop: 4, fontSize: 13 }}>
-              {searchBhk ? `No flats match "${searchBhk}"` : 'No flats added yet. Tap Add Flat to begin.'}
+            <Text style={[styles.emptyTitle, { color: textColor }]}>
+              {searchQuery.trim() ? 'No Matching Flats' : 'No Flats Found'}
             </Text>
+            <Text style={{ color: subTextColor, textAlign: 'center', marginTop: 4, fontSize: 13 }}>
+              {searchQuery.trim()
+                ? `No flats match "${searchQuery}". Try a different flat name or BHK.`
+                : 'No flats added yet. Tap Add Flat to begin.'}
+            </Text>
+            {searchQuery.trim() !== '' && (
+              <TouchableOpacity
+                style={{ backgroundColor: brandCol, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, marginTop: 12 }}
+                onPress={() => setSearchQuery('')}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Clear Search</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <View style={styles.flatsList}>
             <Text style={{ color: subTextColor, fontSize: 13, marginBottom: 10 }}>
-              {flats.length} flat{flats.length !== 1 ? 's' : ''} in inventory
+              {searchQuery.trim()
+                ? `Found ${filteredFlats.length} of ${flats.length} flat${flats.length !== 1 ? 's' : ''}`
+                : `${flats.length} flat${flats.length !== 1 ? 's' : ''} in inventory`}
             </Text>
-            {flats.map((flat) => (
-              <View key={flat.flatId} style={[styles.flatCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
+            {filteredFlats.map((flat) => (
+              <TouchableOpacity
+                key={flat.flatId}
+                activeOpacity={0.88}
+                onLongPress={(e) => handleLongPress(flat, e)}
+                delayLongPress={350}
+                style={[styles.flatCard, { backgroundColor: cardBg, borderColor: borderCol }]}
+              >
                 {/* Top Info Header */}
                 <View style={styles.flatCardHeader}>
                   <View style={{ flex: 1 }}>
@@ -193,22 +297,6 @@ export default function FlatsScreen() {
                     <Text style={{ color: subTextColor, fontSize: 12, marginTop: 2 }}>
                       {flat.bhk} • {flat.propertyType}
                     </Text>
-                  </View>
-
-                  {/* Edit/Delete Actions */}
-                  <View style={styles.flatCardActions}>
-                    <TouchableOpacity
-                      style={[styles.actionIconButton, { backgroundColor: inputBg }]}
-                      onPress={() => openEditForm(flat)}
-                    >
-                      <Edit size={14} color={brandCol} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.actionIconButton, { backgroundColor: '#ef444410' }]}
-                      onPress={() => handleDelete(flat.flatId, flat.flatName)}
-                    >
-                      <Trash2 size={14} color="#ef4444" />
-                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -243,11 +331,99 @@ export default function FlatsScreen() {
                     </View>
                   )}
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
       </ScrollView>
+
+      {/* Action Dropdown Modal on Long Press */}
+      <Modal
+        visible={actionFlat !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setActionFlat(null);
+          setMenuPosition(null);
+        }}
+      >
+        <TouchableOpacity
+          style={styles.dropdownOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setActionFlat(null);
+            setMenuPosition(null);
+          }}
+        >
+          <View
+            style={[
+              styles.dropdownMenu,
+              {
+                backgroundColor: cardBg,
+                borderColor: borderCol,
+              },
+              menuPosition
+                ? {
+                    position: 'absolute',
+                    top: menuPosition.top,
+                    left: menuPosition.left,
+                  }
+                : {
+                    position: 'absolute',
+                    top: 180,
+                    alignSelf: 'center',
+                  },
+            ]}
+          >
+            <View style={styles.dropdownHeader}>
+              <Text style={[styles.dropdownTitle, { color: textColor }]} numberOfLines={1}>
+                Flat {actionFlat?.flatName}
+              </Text>
+              <Text style={[styles.dropdownSubtitle, { color: subTextColor }]} numberOfLines={1}>
+                {actionFlat?.blockName ? `${actionFlat.blockName} Block • ` : ''}Floor {actionFlat?.floorName || '—'} • {actionFlat?.bhk || ''}
+              </Text>
+            </View>
+
+            <View style={[styles.dropdownDivider, { backgroundColor: borderCol }]} />
+
+            {/* Edit Option */}
+            <TouchableOpacity
+              style={styles.dropdownItem}
+              activeOpacity={0.7}
+              onPress={() => {
+                if (!actionFlat) return;
+                const flatToEdit = actionFlat;
+                setActionFlat(null);
+                setMenuPosition(null);
+                openEditForm(flatToEdit);
+              }}
+            >
+              <View style={[styles.dropdownIconCircle, { backgroundColor: brandCol + '15' }]}>
+                <Edit size={16} color={brandCol} />
+              </View>
+              <Text style={[styles.dropdownItemText, { color: textColor }]}>Edit Flat</Text>
+            </TouchableOpacity>
+
+            {/* Delete Option */}
+            <TouchableOpacity
+              style={styles.dropdownItem}
+              activeOpacity={0.7}
+              onPress={() => {
+                if (!actionFlat) return;
+                const flatToDelete = actionFlat;
+                setActionFlat(null);
+                setMenuPosition(null);
+                handleDelete(flatToDelete.flatId, flatToDelete.flatName);
+              }}
+            >
+              <View style={[styles.dropdownIconCircle, { backgroundColor: '#ef444415' }]}>
+                <Trash2 size={16} color="#ef4444" />
+              </View>
+              <Text style={[styles.dropdownItemText, { color: '#ef4444' }]}>Delete Flat</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -360,5 +536,63 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 20,
+  },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dropdownOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  dropdownMenu: {
+    width: 230,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  dropdownHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  dropdownTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  dropdownSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  dropdownDivider: {
+    height: 1,
+    marginVertical: 4,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  dropdownIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

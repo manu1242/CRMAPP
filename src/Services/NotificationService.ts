@@ -136,15 +136,53 @@ export const NotificationService = {
     }
   },
 
-  saveDeviceToken: async (token: string): Promise<{ success: boolean; message?: string }> => {
+  clearAllNotifications: async (): Promise<{ success: boolean; message?: string }> => {
+    try {
+      return await apiClient.delete<{ success: boolean; message?: string }>(
+        API_ENDPOINTS.NOTIFICATION.CLEAR_ALL
+      );
+    } catch {
+      return await apiClient.post<{ success: boolean; message?: string }>(
+        '/Notification/ClearAllNotifications'
+      );
+    }
+  },
+
+  clearNotification: async (id: number | string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      return await apiClient.delete<{ success: boolean; message?: string }>(
+        API_ENDPOINTS.NOTIFICATION.CLEAR_NOTIFICATION(id)
+      );
+    } catch {
+      return await apiClient.post<{ success: boolean; message?: string }>(
+        `/api/v1/notifications/clear/${id}`
+      );
+    }
+  },
+
+  saveDeviceToken: async (token: string, platform?: string): Promise<{ success: boolean; message?: string }> => {
     try {
       return await apiClient.post<{ success: boolean; message?: string }>(
         API_ENDPOINTS.NOTIFICATION.API_SAVE_TOKEN,
-        { token }
+        { token, platform: platform || 'Android' }
       );
     } catch {
       return await apiClient.post<{ success: boolean; message?: string }>(
         '/api/Notification/save-token',
+        { token, platform: platform || 'Android' }
+      );
+    }
+  },
+
+  unregisterDeviceToken: async (token: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      return await apiClient.post<{ success: boolean; message?: string }>(
+        API_ENDPOINTS.NOTIFICATION.API_UNREGISTER_TOKEN,
+        { token }
+      );
+    } catch {
+      return await apiClient.post<{ success: boolean; message?: string }>(
+        '/api/Notification/unregister-token',
         { token }
       );
     }

@@ -58,8 +58,12 @@ const MainLogin = () => {
                 router.replace('/superadmin/dashboard');
             } else if (role === 'partner') {
                 router.replace('/admin/PartnerDashboard');
-            } else {
+            } else if (role === 'admin' || role === 'agent' || role === 'sales') {
                 router.replace('/admin/dashboard');
+            } else if (user.tenantId && user.tenantId > 0) {
+                router.replace('/admin/dashboard');
+            } else {
+                router.replace('/select-workspace');
             }
         }
     }, [isAuthenticated, user, router]);
@@ -83,8 +87,12 @@ const MainLogin = () => {
                 router.replace('/superadmin/dashboard');
             } else if (role === 'partner') {
                 router.replace('/admin/PartnerDashboard');
-            } else {
+            } else if (role === 'admin' || role === 'agent' || role === 'sales') {
                 router.replace('/admin/dashboard');
+            } else if (currentUser?.tenantId && currentUser.tenantId > 0) {
+                router.replace('/admin/dashboard');
+            } else {
+                router.replace('/select-workspace');
             }
         }
     };

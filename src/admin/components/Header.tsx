@@ -6,6 +6,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../auth/store/authStore';
+import { triggerHaptic } from '../../utils/haptics';
 import { NotificationService } from '../../Services/NotificationService';
 import { useBrandingQuery } from '../hooks/useBranding';
 import { BrandingService } from '../services/BrandingService';
@@ -105,7 +106,10 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
 
         {/* Dark/Light Mode Toggle */}
         <TouchableOpacity
-          onPress={toggleTheme}
+          onPress={() => {
+            triggerHaptic('medium');
+            toggleTheme();
+          }}
           style={{ padding: 4 }}
           accessibilityRole="button"
           accessibilityLabel="Toggle dark/light mode"
@@ -120,7 +124,10 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
 
         {/* Notifications Icon (Navigates to dedicated screen) */}
         <TouchableOpacity
-          onPress={() => router.push('/admin/AdminNotification' as any)}
+          onPress={() => {
+            triggerHaptic('light');
+            router.navigate('/admin/AdminNotification' as any);
+          }}
           style={{ padding: 4, position: 'relative' }}
           accessibilityRole="button"
           accessibilityLabel="Notifications"
@@ -150,7 +157,10 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
 
         {/* Referral Wallet Icon */}
         <TouchableOpacity
-          onPress={handleOpenRewards}
+          onPress={() => {
+            triggerHaptic('light');
+            handleOpenRewards();
+          }}
           style={{ padding: 4 }}
           accessibilityRole="button"
           accessibilityLabel="Open referral wallet"
@@ -166,7 +176,10 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
 
         {/* User Avatar Button / Branding Image */}
         <TouchableOpacity
-          onPress={() => setIsUserMenuOpen(true)}
+          onPress={() => {
+            triggerHaptic('light');
+            setIsUserMenuOpen(true);
+          }}
           style={[avatarStyle, { overflow: 'hidden' }]}
           activeOpacity={0.8}
           accessibilityRole="button"

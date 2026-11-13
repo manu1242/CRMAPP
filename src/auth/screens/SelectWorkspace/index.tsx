@@ -24,6 +24,8 @@ export default function SelectWorkspaceScreen() {
       const normalizedRole = role?.toLowerCase();
       if (normalizedRole === 'superadmin') {
         router.replace('/superadmin/dashboard');
+      } else if (normalizedRole === 'partner') {
+        router.replace('/admin/PartnerDashboard');
       } else {
         router.replace('/admin/dashboard');
       }

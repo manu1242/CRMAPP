@@ -77,22 +77,22 @@ export default function EntryScreen() {
     // Short pause so user can read the last status message
     await new Promise((r) => setTimeout(r, 400));
 
-    if (!result.hasInternet) {
+    if (!result.hasInternet && !result.tokenFound) {
       setAppState('no-internet');
-      return;
-    }
-    if (!result.backendReachable) {
-      setAppState('server-down');
       return;
     }
     if (result.maintenance) {
       setAppState('maintenance');
       return;
     }
+    if (!result.backendReachable && result.tokenFound && !isAuthenticated) {
+      setAppState('server-down');
+      return;
+    }
 
-    // All checks passed — proceed to routing
+    // All checks passed or clean fallback for initial onboarding/login
     setAppState('routing');
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (initRanRef.current) return;
@@ -109,7 +109,9 @@ export default function EntryScreen() {
       const role = user?.role?.toLowerCase();
       if (role === 'superadmin') {
         router.replace('/superadmin/dashboard');
-      } else if (role === 'admin') {
+      } else if (role === 'partner') {
+        router.replace('/admin/PartnerDashboard');
+      } else if (role === 'admin' || role === 'agent' || role === 'sales') {
         router.replace('/admin/dashboard');
       } else {
         router.replace('/select-workspace');

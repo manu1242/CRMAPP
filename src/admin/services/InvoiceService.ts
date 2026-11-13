@@ -124,4 +124,7 @@ export async function generateInvoice(
   }
 }
 
+export { downloadInvoicePdf } from '../../utils/pdfDownloadHelper';
+
+
 

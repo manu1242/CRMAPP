@@ -242,8 +242,46 @@ export default function TermsAndConditionsScreen() {
       highlight: 'Our Privacy Policy forms an integral part of these Terms of Service.',
     },
     {
-      id: 'prohibited_uses',
+      id: 'account_lifecycle',
       number: '09',
+      title: 'Account Suspension, Deletion & Reactivation',
+      icon: ShieldCheck,
+      iconColor: '#8B5CF6',
+      points: [
+        {
+          title: 'Administrator Responsibilities',
+          text: 'Administrators are responsible for maintaining the security and appropriate use of their accounts.',
+        },
+        {
+          title: 'Initiating Account Deactivation',
+          text: 'An administrator may initiate account deactivation through the account settings available in the mobile application. Once the request is successfully processed, access to the account will be restricted.',
+        },
+        {
+          title: 'Sign-in Restrictions',
+          text: 'A deactivated or suspended account cannot sign in until the applicable account restrictions have been removed by an authorized Super Admin.',
+        },
+        {
+          title: 'Reactivation Review Process',
+          text: 'Administrators who wish to regain access may contact the Super Admin or authorized support team and request account reactivation. The Super Admin may review the request and reactivate eligible accounts in accordance with organizational policies.',
+        },
+        {
+          title: 'Restoration of Active Status',
+          text: 'Once an account has been reactivated and its status is Active, the administrator may sign in again using valid credentials.',
+        },
+        {
+          title: 'Distinction Between Deactivation and Deletion',
+          text: 'Account suspension or deactivation is distinct from permanent account deletion. Permanent deletion requests and the handling of associated personal data will be governed by our Privacy Policy and applicable legal requirements.',
+        },
+        {
+          title: 'Right to Restrict or Suspend',
+          text: 'We reserve the right to restrict or suspend accounts where necessary to protect application security, enforce organizational policies, or comply with applicable laws.',
+        },
+      ],
+      highlight: 'Deactivated or suspended accounts require Super Admin approval and status update to Active before signing in.',
+    },
+    {
+      id: 'prohibited_uses',
+      number: '10',
       title: 'Prohibited Uses of the Platform',
       icon: Ban,
       iconColor: '#EF4444',
@@ -277,7 +315,7 @@ export default function TermsAndConditionsScreen() {
     },
     {
       id: 'disclaimer',
-      number: '10',
+      number: '11',
       title: 'Disclaimer of Warranties & Limitation of Liability',
       icon: AlertTriangle,
       iconColor: '#EAB308',
@@ -299,7 +337,7 @@ export default function TermsAndConditionsScreen() {
     },
     {
       id: 'governing_law',
-      number: '11',
+      number: '12',
       title: 'Governing Law & Dispute Resolution',
       icon: Gavel,
       iconColor: '#0EA5E9',
@@ -318,7 +356,7 @@ export default function TermsAndConditionsScreen() {
     },
     {
       id: 'contact_terms',
-      number: '12',
+      number: '13',
       title: 'Questions & Contact Information',
       icon: Mail,
       iconColor: '#10B981',

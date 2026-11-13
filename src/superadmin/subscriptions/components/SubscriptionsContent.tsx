@@ -10,13 +10,16 @@ import {
   Modal,
   Pressable,
   FlatList,
+  Platform,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSubscriptionsQuery, useAssignSubscriptionMutation } from '../hooks/useSubscriptions';
 import { usePlansQuery } from '../../plans/hooks/usePlans';
 import { TenantSubscription } from '../api/subscriptions.api';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 // Date utility functions
 function formatDateDDMMYYYY(dateString: string | null) {
@@ -47,7 +50,7 @@ function isExpired(endDateString: string | null) {
 // Plan Badge Colors Helper
 const PLAN_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   Basic: { bg: '#fef3c7', text: '#d97706', border: '#fcd34d' },
-  Standard: { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
+  Standard: { bg: '#f3effe', text: '#835CEE', border: '#c4b5fd' },
   Advance: { bg: '#fff7ed', text: '#ea580c', border: '#ffedd5' },
   Premium: { bg: '#fdf4ff', text: '#9333ea', border: '#f3e8ff' },
   Enterprise: { bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' },
@@ -55,7 +58,7 @@ const PLAN_COLORS: Record<string, { bg: string; text: string; border: string }> 
 
 const PLAN_DARK_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   Basic: { bg: '#78350f20', text: '#f59e0b', border: '#d9770680' },
-  Standard: { bg: '#1e3a8a30', text: '#3b82f6', border: '#1d4ed850' },
+  Standard: { bg: '#835CEE30', text: '#a78bfa', border: '#835CEE50' },
   Advance: { bg: '#7c2d1230', text: '#f97316', border: '#ea580c50' },
   Premium: { bg: '#581c8730', text: '#a855f7', border: '#7e22ce50' },
   Enterprise: { bg: '#064e3b30', text: '#10b981', border: '#05966950' },
@@ -63,15 +66,15 @@ const PLAN_DARK_COLORS: Record<string, { bg: string; text: string; border: strin
 
 // Billing Cycle Badge Colors Helper
 const BILLING_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  monthly: { bg: '#eff6ff', text: '#3b82f6', border: '#dbeafe' },
+  monthly: { bg: '#f3effe', text: '#835CEE', border: '#c4b5fd' },
   annual: { bg: '#f0fdf4', text: '#16a34a', border: '#bbf7d0' },
-  Trial: { bg: '#f0f9ff', text: '#0284c7', border: '#e0f2fe' },
+  Trial: { bg: '#835CEE15', text: '#835CEE', border: '#835CEE30' },
 };
 
 const BILLING_DARK_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  monthly: { bg: '#1e3a8a30', text: '#3b82f6', border: '#1d4ed850' },
+  monthly: { bg: '#835CEE30', text: '#a78bfa', border: '#835CEE50' },
   annual: { bg: '#064e3b30', text: '#10b981', border: '#05966950' },
-  Trial: { bg: '#08334430', text: '#06b6d4', border: '#0891b250' },
+  Trial: { bg: '#835CEE25', text: '#a78bfa', border: '#835CEE40' },
 };
 
 function formatPrice(price: number) {
@@ -108,11 +111,11 @@ function DatePickerModal({ visible, title, initialValue, isDark, onConfirm, onCa
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const DAYS = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  const bg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const subText = isDark ? '#94a3b8' : '#64748b';
-  const border = isDark ? '#334155' : '#e2e8f0';
-  const selBg = isDark ? '#0f172a' : '#eff6ff';
+  const bg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subText = isDark ? '#a1a1aa' : '#52525b';
+  const border = isDark ? '#2e2e2e' : '#e4e4e7';
+  const selBg = isDark ? '#161616' : '#f3effe';
 
   function Column<T extends number | string>({
     items, selected, onSelect, label,
@@ -183,28 +186,30 @@ function DatePickerModal({ visible, title, initialValue, isDark, onConfirm, onCa
 // ──────────────────────────────────────────────────────────────────────────────
 
 export default function SubscriptionsContent() {
+  const router = useRouter();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Theme colors
-  const bgColor = isDark ? '#0f172a' : '#f3f4f6';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#f1f5f9';
-  const tableHeaderBg = isDark ? '#0f172a' : '#f1f5f9';
-  const inputBg = isDark ? '#0f172a' : '#ffffff';
-  const inputBorder = isDark ? '#334155' : '#cbd5e1';
-  const filterBarBg = isDark ? '#0f172a' : '#f8fafc';
-  const modalBg = isDark ? '#1e293b' : '#ffffff';
-  const staticLabelBg = isDark ? '#0f172a' : '#f1f5f9';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
+  const tableHeaderBg = isDark ? '#161616' : '#f4f4f5';
+  const inputBg = isDark ? '#1e1e1e' : '#ffffff';
+  const inputBorder = isDark ? '#2e2e2e' : '#e4e4e7';
+  const filterBarBg = isDark ? '#161616' : '#FFFFFF';
+  const modalBg = isDark ? '#242424' : '#ffffff';
+  const staticLabelBg = isDark ? '#1e1e1e' : '#f4f4f5';
 
   const getPlanColors = useCallback((planName: string) => {
     const config = isDark ? PLAN_DARK_COLORS : PLAN_COLORS;
     const key = Object.keys(config).find((k) =>
       planName.toLowerCase().includes(k.toLowerCase())
     );
-    return key ? config[key] : { bg: isDark ? '#1e293b' : '#f1f5f9', text: isDark ? '#cbd5e1' : '#475569', border: isDark ? '#334155' : '#cbd5e1' };
+    return key ? config[key] : { bg: isDark ? '#242424' : '#f4f4f5', text: isDark ? '#a1a1aa' : '#52525b', border: isDark ? '#2e2e2e' : '#e4e4e7' };
   }, [isDark]);
 
   const getBillingColors = useCallback((cycle: string) => {
@@ -212,7 +217,7 @@ export default function SubscriptionsContent() {
     const key = Object.keys(config).find((k) =>
       cycle.toLowerCase().includes(k.toLowerCase())
     );
-    return key ? config[key] : { bg: isDark ? '#1e293b' : '#f8fafc', text: isDark ? '#94a3b8' : '#64748b', border: isDark ? '#334155' : '#f1f5f9' };
+    return key ? config[key] : { bg: isDark ? '#242424' : '#f4f4f5', text: isDark ? '#a1a1aa' : '#52525b', border: isDark ? '#2e2e2e' : '#e4e4e7' };
   }, [isDark]);
 
   // Queries & Mutations
@@ -337,21 +342,52 @@ export default function SubscriptionsContent() {
   const [assignCycleDropdownOpen, setAssignCycleDropdownOpen] = useState(false);
 
   return (
-      <View style={{ flex: 1, backgroundColor: bgColor,marginBottom:50 }}>
-        {/* Title Section */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={{ backgroundColor: '#1e73be', padding: 10, borderRadius: 12 }}>
-            <Ionicons name="card" size={24} color="#fff" />
-          </View>
+      <View style={{ flex: 1, backgroundColor: bgColor, marginBottom: 50 }}>
+        {/* Title Section with Back Button */}
+        <View
+          style={{
+            paddingHorizontal: 16,
+            paddingTop: Platform.OS === 'android' ? Math.max(14, insets.top) : Math.max(10, insets.top),
+            paddingBottom: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: borderCol,
+          }}
+        >
+          <TouchableOpacity
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.navigate('/superadmin/subscriptions-hub');
+            }}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: cardBg,
+              borderWidth: 1,
+              borderColor: borderCol,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={20} color={textColor} />
+          </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontWeight: '800', fontSize: 18 }}>Tenant Subscriptions</Text>
-            <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2 }}>Manage and provision subscription plans for tenant workspaces</Text>
+            <Text style={{ color: textColor, fontWeight: '800', fontSize: 18 }} numberOfLines={1}>
+              Tenant Subscriptions
+            </Text>
+            <Text style={{ color: subTextColor, fontSize: 11, marginTop: 1 }} numberOfLines={1}>
+              Manage and provision subscription plans for tenant workspaces
+            </Text>
           </View>
         </View>
 
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={['#1e73be']} />
           }
@@ -514,7 +550,7 @@ export default function SubscriptionsContent() {
           </View>
 
           {/* Subscriptions List */}
-          {isLoading ? (
+          {(isLoading && !subsResponse) ? (
             <View style={{ paddingVertical: 80, justifyContent: 'center', alignItems: 'center' }}>
               <ActivityIndicator size="large" color="#1e73be" />
               <Text style={{ color: subTextColor, fontSize: 12, marginTop: 8, fontWeight: '600' }}>Loading subscriptions...</Text>
@@ -744,20 +780,20 @@ export default function SubscriptionsContent() {
                 </View>
               </ScrollView>
 
-              <View style={{ flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: borderCol, backgroundColor: isDark ? '#0f172a' : '#f8fafc' }}>
+              <View style={{ flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: borderCol, backgroundColor: isDark ? '#161616' : '#FFFFFF' }}>
                 <TouchableOpacity
                   onPress={() => setAssignModalOpen(false)}
                   style={{
                     flex: 1,
                     borderWidth: 1,
-                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                    borderColor: isDark ? '#2e2e2e' : '#e4e4e7',
                     paddingVertical: 12,
                     borderRadius: 12,
                     alignItems: 'center',
-                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    backgroundColor: isDark ? '#242424' : '#ffffff',
                   }}
                 >
-                  <Text style={{ color: isDark ? '#cbd5e1' : '#475569', fontWeight: '700', fontSize: 14 }}>Cancel</Text>
+                  <Text style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: '700', fontSize: 14 }}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -765,7 +801,7 @@ export default function SubscriptionsContent() {
                   disabled={assignPlanMutation.isPending}
                   style={{
                     flex: 1,
-                    backgroundColor: '#1e73be',
+                    backgroundColor: '#835CEE',
                     paddingVertical: 12,
                     borderRadius: 12,
                     alignItems: 'center',

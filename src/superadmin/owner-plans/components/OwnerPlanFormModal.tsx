@@ -35,11 +35,11 @@ export const OwnerPlanFormModal: React.FC<OwnerPlanFormModalProps> = ({
   const { isDark } = useTheme();
 
   // Theme colors
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#cbd5e1';
-  const inputBg = isDark ? '#0f172a' : '#f8fafc';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
+  const inputBg = isDark ? '#1e1e1e' : '#f4f4f5';
 
   // Form State
   const [planName, setPlanName] = useState('');
@@ -347,7 +347,7 @@ export const OwnerPlanFormModal: React.FC<OwnerPlanFormModalProps> = ({
                 style={[
                   styles.switchBox,
                   {
-                    backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+                    backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5',
                     borderColor: borderCol,
                   },
                 ]}
@@ -365,8 +365,8 @@ export const OwnerPlanFormModal: React.FC<OwnerPlanFormModalProps> = ({
                 <Switch
                   value={isActive}
                   onValueChange={setIsActive}
-                  trackColor={{ false: isDark ? '#334155' : '#cbd5e1', true: '#93c5fd' }}
-                  thumbColor={isActive ? '#2563eb' : isDark ? '#64748b' : '#f1f5f9'}
+                  trackColor={{ false: isDark ? '#2e2e2e' : '#e4e4e7', true: '#c4b5fd' }}
+                  thumbColor={isActive ? '#835CEE' : isDark ? '#71717a' : '#f4f4f5'}
                 />
               </View>
             </ScrollView>
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   saveButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#835CEE',
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 10,

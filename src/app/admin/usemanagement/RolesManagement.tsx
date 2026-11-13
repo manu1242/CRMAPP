@@ -32,11 +32,13 @@ import {
   RolePermissionsMatrixResponse,
 } from '../../../admin/services/roleManagementService';
 import { useRolePermissionsStore } from '../../../hooks/useRolePermissionsStore';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 export default function RolesManagement() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
@@ -155,7 +157,7 @@ export default function RolesManagement() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1, backgroundColor: bgColor}}>
       {/* Top Search & Actions Bar */}
       <View
         style={{
@@ -218,7 +220,8 @@ export default function RolesManagement() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing, flexGrow: 1 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchRoles(true)} />
         }

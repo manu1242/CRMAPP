@@ -118,3 +118,6 @@ export async function deletePayment(
     throw error;
   }
 }
+
+export { getPaymentReceiptPdfUrl, downloadPaymentReceiptPdf } from '../../utils/pdfDownloadHelper';
+

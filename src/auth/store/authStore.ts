@@ -11,11 +11,23 @@ import { SessionStorage } from '../storage/SessionStorage';
 import { profileApi } from '../api/profile.api';
 import { apiClient } from '../../api/apiClient';
 import { resetSessionExpiryGuard } from '../../api/sessionExpiryGuard';
+import { DeviceNotificationService } from '../../Services/DeviceNotificationService';
+import { queryClient } from '../../api/queryClient';
+import { QueryPersister } from '../../api/queryPersister';
+import { usePermissionStore } from '../../authorization/store/permissionStore';
+import { useRolePermissionsStore } from '../../hooks/useRolePermissionsStore';
+import { useLeadStore } from '../../admin/store/useLeadStore';
+import { useUserStore } from '../../admin/store/useUserStore';
+import { useTenantFilterStore } from '../../superadmin/tenants/store/tenantStore';
+import { setTenantSubdomain, clearTenantContext } from '../../api/remoteConfig';
+
+export type AuthStatus = 'initializing' | 'unauthenticated' | 'authenticating' | 'loading-profile' | 'authenticated';
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  authStatus: AuthStatus;
   error: string | null;
   isImpersonating: boolean;
   impersonatedUsername: string | null;
@@ -38,6 +50,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
+  authStatus: 'unauthenticated',
   error: null,
   isImpersonating: false,
   impersonatedUsername: null,
@@ -50,7 +63,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   setError: (error) => set({ error }),
 
   login: async (credentials) => {
-    set({ isLoading: true, error: null });
+    // 1. Immediately wipe previous session cache before starting authentication
+    try {
+      queryClient.cancelQueries();
+      queryClient.clear();
+      await QueryPersister.clearCache();
+    } catch {
+      // Ignore cache clearing errors
+    }
+
+    set({ isLoading: true, authStatus: 'authenticating', error: null });
     try {
       const response = await AuthService.login(credentials);
 
@@ -58,25 +80,76 @@ export const useAuthStore = create<AuthState>((set) => ({
         resetSessionExpiryGuard();
         const u = response.data.user;
         if (__DEV__) {
-          console.log('[AUTH] Login successful');
-          console.log('[AUTH] Token stored');
+          console.log('[AUTH] Login successful, loading authoritative profile...');
         }
+
+        set({ authStatus: 'loading-profile' });
+
+        // Build base user from login response
+        const isSuperAdminLogin = 
+          (u.role || '').trim().toLowerCase() === 'superadmin' || 
+          u.tenantId === 0 || 
+          (u.companyName || '').toLowerCase() === 'master';
+
+        let authoritativeUser: User = {
+          username: u.username,
+          role: isSuperAdminLogin ? 'SuperAdmin' : u.role,
+          tenantId: isSuperAdminLogin ? 0 : u.tenantId,
+          tenantName: isSuperAdminLogin ? 'Master' : u.companyName,
+          subdomain: isSuperAdminLogin ? '' : u.subdomain,
+          userId: u.userId,
+          email: u.email,
+          channelPartnerId: u.channelPartnerId,
+        };
+
+        // Query authoritative backend profile with the fresh token
+        try {
+          const profile = await profileApi.getCurrentProfile();
+          if (profile) {
+            const resolvedRole = isSuperAdminLogin 
+              ? 'SuperAdmin' 
+              : ((profile.role || u.role) ? (profile.role || u.role).trim() : u.role);
+
+            authoritativeUser = {
+              ...authoritativeUser,
+              ...profile,
+              // Strictly resolve role: SuperAdmin is never downgraded
+              role: resolvedRole,
+              tenantId: isSuperAdminLogin ? 0 : (profile.tenantId !== undefined ? profile.tenantId : u.tenantId),
+              tenantName: isSuperAdminLogin ? 'Master' : ((profile as any).companyName || profile.tenantName || u.companyName),
+              subdomain: isSuperAdminLogin ? '' : (profile.subdomain !== undefined ? profile.subdomain : u.subdomain),
+            };
+          }
+        } catch (profileErr) {
+          if (__DEV__) {
+            console.warn('[AUTH] Could not fetch /api/v1/profile, using login response:', profileErr);
+          }
+        }
+
+        // Persist session to local storage
+        await SessionStorage.saveUserSession(authoritativeUser);
+
+        // Dynamically route API base URL: SuperAdmin -> Platform URL; Company User -> Company Subdomain URL
+        if (authoritativeUser.role?.trim()?.toLowerCase() === 'superadmin') {
+          setTenantSubdomain(null);
+        } else if (authoritativeUser.subdomain) {
+          setTenantSubdomain(authoritativeUser.subdomain);
+        }
+
         set({
-          user: {
-            username: u.username,
-            role: u.role,
-            tenantId: u.tenantId,
-            tenantName: u.companyName,
-            subdomain: u.subdomain,
-            userId: u.userId,
-            email: u.email,
-            channelPartnerId: u.channelPartnerId,
-          },
+          user: authoritativeUser,
           isAuthenticated: true,
           isLoading: false,
+          authStatus: 'authenticated',
           pendingCredentials: null,
         });
-        Toast.show({ type: 'success', text1: 'Success', text2: `Welcome, ${u.username}!` });
+
+        // Register device push notification token for authenticated session
+        DeviceNotificationService.init().catch((err) => {
+          console.warn('[AUTH] Push notification registration error:', err?.message);
+        });
+
+        Toast.show({ type: 'success', text1: 'Success', text2: `Welcome, ${authoritativeUser.username}!` });
         return 'success';
       }
 
@@ -103,7 +176,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         toastTitle = 'Invalid Credentials';
       }
 
-      set({ error: displayMsg, isLoading: false, isAuthenticated: false, user: null });
+      set({ error: displayMsg, isLoading: false, authStatus: 'unauthenticated', isAuthenticated: false, user: null });
       Toast.show({ type: 'error', text1: toastTitle, text2: displayMsg, visibilityTime: 5000 });
       return 'error';
     }
@@ -115,32 +188,88 @@ export const useAuthStore = create<AuthState>((set) => ({
       Toast.show({ type: 'error', text1: 'Error', text2: 'Session expired. Please log in again.' });
       return 'error';
     }
-    set({ isLoading: true, error: null });
+
+    try {
+      queryClient.cancelQueries();
+      queryClient.clear();
+      await QueryPersister.clearCache();
+    } catch {
+      // Ignore cache clearing errors
+    }
+
+    set({ isLoading: true, authStatus: 'authenticating', error: null });
     try {
       const response = await AuthService.loginWithWorkspace(pendingCredentials, tenantId);
       if (isLoginSuccess(response)) {
         resetSessionExpiryGuard();
         const u = response.data.user;
         if (__DEV__) {
-          console.log('[AUTH] Login successful (workspace)');
-          console.log('[AUTH] Token stored');
+          console.log('[AUTH] Workspace login successful, loading authoritative profile...');
         }
+
+        set({ authStatus: 'loading-profile' });
+
+        const isSuperAdminLogin = 
+          (u.role || '').trim().toLowerCase() === 'superadmin' || 
+          u.tenantId === 0 || 
+          (u.companyName || '').toLowerCase() === 'master';
+
+        let authoritativeUser: User = {
+          username: u.username,
+          role: isSuperAdminLogin ? 'SuperAdmin' : u.role,
+          tenantId: isSuperAdminLogin ? 0 : u.tenantId,
+          tenantName: isSuperAdminLogin ? 'Master' : u.companyName,
+          subdomain: isSuperAdminLogin ? '' : u.subdomain,
+          userId: u.userId,
+          email: u.email,
+          channelPartnerId: u.channelPartnerId,
+        };
+
+        try {
+          const profile = await profileApi.getCurrentProfile();
+          if (profile) {
+            const resolvedRole = isSuperAdminLogin 
+              ? 'SuperAdmin' 
+              : ((profile.role || u.role) ? (profile.role || u.role).trim() : u.role);
+
+            authoritativeUser = {
+              ...authoritativeUser,
+              ...profile,
+              role: resolvedRole,
+              tenantId: isSuperAdminLogin ? 0 : (profile.tenantId !== undefined ? profile.tenantId : u.tenantId),
+              tenantName: isSuperAdminLogin ? 'Master' : ((profile as any).companyName || profile.tenantName || u.companyName),
+              subdomain: isSuperAdminLogin ? '' : (profile.subdomain !== undefined ? profile.subdomain : u.subdomain),
+            };
+          }
+        } catch (profileErr) {
+          if (__DEV__) {
+            console.warn('[AUTH] Could not fetch /api/v1/profile after workspace login:', profileErr);
+          }
+        }
+
+        await SessionStorage.saveUserSession(authoritativeUser);
+
+        // Dynamically route API base URL: SuperAdmin -> Platform URL; Company User -> Company Subdomain URL
+        if (authoritativeUser.role?.trim()?.toLowerCase() === 'superadmin') {
+          setTenantSubdomain(null);
+        } else if (authoritativeUser.subdomain) {
+          setTenantSubdomain(authoritativeUser.subdomain);
+        }
+
         set({
-          user: {
-            username:         u.username,
-            role:             u.role,
-            tenantId:         u.tenantId,
-            tenantName:       u.companyName,
-            subdomain:        u.subdomain,
-            userId:           u.userId,
-            email:            u.email,
-            channelPartnerId: u.channelPartnerId,
-          },
+          user: authoritativeUser,
           isAuthenticated: true,
           isLoading: false,
+          authStatus: 'authenticated',
           pendingCredentials: null,
         });
-        Toast.show({ type: 'success', text1: 'Success', text2: `Welcome, ${u.username}!` });
+
+        // Register device push notification token for authenticated session
+        DeviceNotificationService.init().catch((err) => {
+          console.warn('[AUTH] Push notification registration error:', err?.message);
+        });
+
+        Toast.show({ type: 'success', text1: 'Success', text2: `Welcome, ${authoritativeUser.username}!` });
         return 'success';
       }
       throw new Error('Unexpected response after workspace selection');
@@ -166,26 +295,52 @@ export const useAuthStore = create<AuthState>((set) => ({
         toastTitle = 'Invalid Credentials';
       }
 
-      set({ error: displayMsg, isLoading: false, isAuthenticated: false, user: null });
+      set({ error: displayMsg, isLoading: false, authStatus: 'unauthenticated', isAuthenticated: false, user: null });
       Toast.show({ type: 'error', text1: toastTitle, text2: displayMsg, visibilityTime: 5000 });
       return 'error';
     }
   },
 
   logout: async (skipToast = false) => {
-    set({ isLoading: true });
+    set({ isLoading: true, authStatus: 'unauthenticated' });
     if (__DEV__) {
-      console.log('[AUTH] Logging out...');
+      console.log('[AUTH] Logging out: cleaning queries, persisted cache, and stores...');
     }
     try {
-      await AuthService.logout();
-      // Clear impersonation settings as well
+      // 1. Invalidate running queries & clear in-memory TanStack query cache
+      queryClient.cancelQueries();
+      queryClient.clear();
+
+      // 2. Clear disk-persisted TanStack query cache
+      await QueryPersister.clearCache();
+
+      // 3. Unregister device push notification token from backend
+      await DeviceNotificationService.unregister().catch(() => {});
+
+      // 4. Invalidate tokens on backend
+      await AuthService.logout().catch(() => {});
+
+      // 5. Clear secure storage tokens and persisted user session
+      await TokenStorage.clearTokens();
+      await SessionStorage.clearUserSession();
+
+      // 6. Clear impersonation state
       await SecureStorage.removeItem('crm_original_admin_token');
       await SecureStorage.removeItem('crm_is_impersonating');
       await SecureStorage.removeItem('crm_impersonated_username');
 
+      // 7. Clear all role-specific global Zustand stores
+      usePermissionStore.setState({ permissions: [], isLoading: false, error: null });
+      useRolePermissionsStore.getState().clearCache();
+      useLeadStore.setState({ leads: [], totalCount: 0, selectedLeadDetails: null });
+      useUserStore.setState({ users: [], summary: null });
+      useTenantFilterStore.getState().resetFilters();
+
+      // 8. Reset dynamic tenant routing back to platform domain
+      clearTenantContext();
+
       if (__DEV__) {
-        console.log('[AUTH] Session cleared');
+        console.log('[AUTH] Session, storage, and caches wiped successfully');
       }
 
       if (!skipToast) {
@@ -202,6 +357,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: null,
         isAuthenticated: false,
         isLoading: false,
+        authStatus: 'unauthenticated',
         error: null,
         isImpersonating: false,
         impersonatedUsername: null,
@@ -212,10 +368,23 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   handleSessionExpired: () => {
+    queryClient.cancelQueries();
+    queryClient.clear();
+    QueryPersister.clearCache().catch(() => {});
+    TokenStorage.clearTokens().catch(() => {});
+    SessionStorage.clearUserSession().catch(() => {});
+    DeviceNotificationService.unregister().catch(() => {});
+    usePermissionStore.setState({ permissions: [], isLoading: false, error: null });
+    useRolePermissionsStore.getState().clearCache();
+    useLeadStore.setState({ leads: [], totalCount: 0, selectedLeadDetails: null });
+    useUserStore.setState({ users: [], summary: null });
+    useTenantFilterStore.getState().resetFilters();
+    clearTenantContext();
     set({
       user: null,
       isAuthenticated: false,
       isLoading: false,
+      authStatus: 'unauthenticated',
       isImpersonating: false,
       impersonatedUsername: null,
       pendingCredentials: null,
@@ -224,7 +393,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initializeSession: async () => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, authStatus: 'initializing', error: null });
     try {
       const user = await SessionService.initializeSession();
       const isImp = (await SecureStorage.getItem('crm_is_impersonating')) === 'true';
@@ -232,27 +401,47 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (user) {
         resetSessionExpiryGuard();
+        if (user.role?.trim()?.toLowerCase() === 'superadmin') {
+          setTenantSubdomain(null);
+        } else if (user.subdomain) {
+          setTenantSubdomain(user.subdomain);
+        }
         set({
           user,
           isAuthenticated: true,
           isLoading: false,
+          authStatus: 'authenticated',
           isImpersonating: isImp,
           impersonatedUsername: impUser,
         });
+        // Register device push token for restored session
+        DeviceNotificationService.init().catch((err) => {
+          console.warn('[AUTH] Session restore push init notice:', err?.message);
+        });
       } else {
+        clearTenantContext();
+        queryClient.cancelQueries();
+        queryClient.clear();
+        await QueryPersister.clearCache();
         set({
           user: null,
           isAuthenticated: false,
           isLoading: false,
+          authStatus: 'unauthenticated',
           isImpersonating: false,
           impersonatedUsername: null,
         });
       }
     } catch (err: any) {
+      clearTenantContext();
+      queryClient.cancelQueries();
+      queryClient.clear();
+      await QueryPersister.clearCache();
       set({
         user: null,
         isAuthenticated: false,
         isLoading: false,
+        authStatus: 'unauthenticated',
         error: 'Failed to restore session',
         isImpersonating: false,
         impersonatedUsername: null,
@@ -273,6 +462,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       await SecureStorage.setItem('crm_is_impersonating', 'true');
       await SecureStorage.setItem('crm_impersonated_username', targetUser.username || targetUser.email);
       await SessionStorage.saveUserSession(targetUser);
+      if (targetUser.role?.trim()?.toLowerCase() === 'superadmin') {
+        setTenantSubdomain(null);
+      } else if (targetUser.subdomain) {
+        setTenantSubdomain(targetUser.subdomain);
+      }
 
       set({
         user: targetUser,
@@ -280,6 +474,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isImpersonating: true,
         impersonatedUsername: targetUser.username || targetUser.email,
         isLoading: false,
+        authStatus: 'authenticated',
       });
 
       Toast.show({
@@ -319,6 +514,11 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       const freshAdmin = await profileApi.getCurrentProfile();
       await SessionStorage.saveUserSession(freshAdmin);
+      if (freshAdmin.role?.trim()?.toLowerCase() === 'superadmin') {
+        setTenantSubdomain(null);
+      } else if (freshAdmin.subdomain) {
+        setTenantSubdomain(freshAdmin.subdomain);
+      }
 
       set({
         user: freshAdmin,
@@ -326,6 +526,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isImpersonating: false,
         impersonatedUsername: null,
         isLoading: false,
+        authStatus: 'authenticated',
       });
 
       Toast.show({

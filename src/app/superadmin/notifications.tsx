@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,17 @@ import {
   RefreshControl,
   ActivityIndicator,
   StyleSheet,
+  Alert,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.5;
 import {
   ArrowLeft,
   Bell,
@@ -22,65 +30,112 @@ import {
   Settings,
   Shield,
   Building2,
+  Trash2,
 } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getSuperAdminTheme } from '../../theme/adminTheme';
 import { NotificationService } from '../../Services/NotificationService';
 import { Notification } from '../../authorization/models/Notification';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
+import { triggerHaptic } from '../../utils/haptics';
 
 export default function SuperAdminNotificationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
   const superTheme = getSuperAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
+  const queryClient = useQueryClient();
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: notifData,
+    isLoading,
+    isRefetching,
+    refetch,
+    error: queryError,
+  } = useQuery({
+    queryKey: ['superadmin-unread-notifications'],
+    queryFn: () => NotificationService.getNotifications(),
+    staleTime: 45 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
 
-  const fetchNotifications = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
-
-    try {
-      const res = await NotificationService.getNotifications();
-      setNotifications(res.notifications || []);
-      setUnreadCount(res.unreadCount || 0);
-    } catch (err: any) {
-      console.error('Failed to load superadmin notifications:', err);
-      setError(err?.message || 'Failed to fetch notifications');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+  const notifications: Notification[] = notifData?.notifications || [];
+  const unreadCount: number = notifData?.unreadCount ?? (notifData as any)?.count ?? 0;
+  const error = queryError ? (queryError as any).message || 'Failed to fetch notifications' : null;
 
   const handleMarkAllRead = async () => {
     try {
+      triggerHaptic('light');
       const res = await NotificationService.markAllAsRead();
       if (res && res.success) {
-        setUnreadCount(0);
-        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+        queryClient.invalidateQueries({ queryKey: ['superadmin-unread-notifications'] });
+        queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
       }
     } catch (err: any) {
       console.error('Failed to mark all as read:', err);
     }
   };
 
+  const handleClearAll = () => {
+    Alert.alert(
+      'Clear All Notifications',
+      'Are you sure you want to permanently clear all notifications?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              triggerHaptic('warning');
+              await NotificationService.clearAllNotifications();
+              queryClient.invalidateQueries({ queryKey: ['superadmin-unread-notifications'] });
+              queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+              queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            } catch (err: any) {
+              console.error('Failed to clear all notifications:', err);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const clearingIds = useRef(new Set<string | number>());
+
+  const handleClearSingle = async (notifId?: number | string) => {
+    if (!notifId || clearingIds.current.has(notifId)) return;
+    clearingIds.current.add(notifId);
+    try {
+      triggerHaptic('light');
+      // Instant optimistic cache update with zero lag
+      queryClient.setQueryData(['superadmin-unread-notifications'], (old: any) => {
+        if (!old) return old;
+        const currentList: Notification[] = old.notifications || [];
+        const nextList = currentList.filter((n: any) => (n.id || n.notificationId) !== notifId);
+        return {
+          ...old,
+          notifications: nextList,
+          unreadCount: Math.max(0, (old.unreadCount || 1) - 1),
+        };
+      });
+      await NotificationService.clearNotification(notifId);
+      queryClient.invalidateQueries({ queryKey: ['superadmin-unread-notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    } catch (err) {
+      console.error('Failed to clear alert:', err);
+    } finally {
+      clearingIds.current.delete(notifId);
+    }
+  };
+
   const getNotificationIcon = (title: string, message: string) => {
     const combined = (title + ' ' + message).toLowerCase();
     if (combined.includes('tenant') || combined.includes('company') || combined.includes('workspace')) {
-      return <Building2 size={16} color="#3b82f6" />;
+      return <Building2 size={16} color="#835CEE" />;
     }
     if (combined.includes('payment') || combined.includes('plan') || combined.includes('subscription') || combined.includes('invoice')) {
       return <IndianRupee size={16} color="#10b981" />;
@@ -131,28 +186,49 @@ export default function SuperAdminNotificationScreen() {
           )}
         </View>
 
-        {hasUnread && (
-          <TouchableOpacity
-            onPress={handleMarkAllRead}
-            activeOpacity={0.7}
-            style={[
-              styles.markAllBtn,
-              {
-                backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
-                borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : '#bfdbfe',
-              },
-            ]}
-          >
-            <CheckCheck size={13} color={superTheme.brand} />
-            <Text style={{ color: superTheme.brand, fontSize: 11, fontWeight: '700' }}>
-              Mark All Read
-            </Text>
-          </TouchableOpacity>
-        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {hasUnread && (
+            <TouchableOpacity
+              onPress={handleMarkAllRead}
+              activeOpacity={0.7}
+              style={[
+                styles.markAllBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
+                  borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : '#bfdbfe',
+                },
+              ]}
+            >
+              <CheckCheck size={13} color={superTheme.brand} />
+              <Text style={{ color: superTheme.brand, fontSize: 11, fontWeight: '700' }}>
+                Read All
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {notifications.length > 0 && (
+            <TouchableOpacity
+              onPress={handleClearAll}
+              activeOpacity={0.7}
+              style={[
+                styles.markAllBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
+                  borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca',
+                },
+              ]}
+            >
+              <Trash2 size={13} color="#ef4444" />
+              <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '700' }}>
+                Clear All
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* ── Content Area ── */}
-      {loading && !refreshing ? (
+      {isLoading && !notifData ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={superTheme.brand} />
           <Text style={[styles.loadingText, { color: superTheme.textSecondary }]}>
@@ -166,7 +242,7 @@ export default function SuperAdminNotificationScreen() {
             {error}
           </Text>
           <TouchableOpacity
-            onPress={() => fetchNotifications()}
+            onPress={() => refetch()}
             style={[styles.retryBtn, { backgroundColor: superTheme.brand }]}
             activeOpacity={0.8}
           >
@@ -178,8 +254,8 @@ export default function SuperAdminNotificationScreen() {
           contentContainerStyle={styles.emptyScroll}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => fetchNotifications(true)}
+              refreshing={isRefetching}
+              onRefresh={() => refetch()}
               colors={[superTheme.brand]}
               tintColor={superTheme.brand}
             />
@@ -204,12 +280,12 @@ export default function SuperAdminNotificationScreen() {
       ) : (
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+          contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => fetchNotifications(true)}
+              refreshing={isRefetching}
+              onRefresh={() => refetch()}
               colors={[superTheme.brand]}
               tintColor={superTheme.brand}
             />
@@ -218,55 +294,146 @@ export default function SuperAdminNotificationScreen() {
           <View style={{ backgroundColor: superTheme.cardBg }}>
             {notifications.map((item, index) => {
               const isUnread = index < unreadCount;
+              const notifId = item.id || (item as any).notificationId;
+
+              const renderRightActions = (
+                _progress: Animated.AnimatedInterpolation<number>,
+                dragX: Animated.AnimatedInterpolation<number>
+              ) => {
+                const scale = dragX.interpolate({
+                  inputRange: [-SWIPE_THRESHOLD, -40, 0],
+                  outputRange: [1, 0.8, 0],
+                  extrapolate: 'clamp',
+                });
+
+                return (
+                  <View
+                    style={{
+                      width: SCREEN_WIDTH,
+                      backgroundColor: '#ef4444',
+                      justifyContent: 'center',
+                      alignItems: 'flex-end',
+                      paddingRight: 24,
+                    }}
+                  >
+                    <Animated.View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        transform: [{ scale }],
+                      }}
+                    >
+                      <Trash2 size={20} color="#ffffff" strokeWidth={2.5} />
+                      <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>
+                        Delete
+                      </Text>
+                    </Animated.View>
+                  </View>
+                );
+              };
+
+              const renderLeftActions = (
+                _progress: Animated.AnimatedInterpolation<number>,
+                dragX: Animated.AnimatedInterpolation<number>
+              ) => {
+                const scale = dragX.interpolate({
+                  inputRange: [0, 40, SWIPE_THRESHOLD],
+                  outputRange: [0, 0.8, 1],
+                  extrapolate: 'clamp',
+                });
+
+                return (
+                  <View
+                    style={{
+                      width: SCREEN_WIDTH,
+                      backgroundColor: '#ef4444',
+                      justifyContent: 'center',
+                      alignItems: 'flex-start',
+                      paddingLeft: 24,
+                    }}
+                  >
+                    <Animated.View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        transform: [{ scale }],
+                      }}
+                    >
+                      <Trash2 size={20} color="#ffffff" strokeWidth={2.5} />
+                      <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>
+                        Delete
+                      </Text>
+                    </Animated.View>
+                  </View>
+                );
+              };
+
               return (
-                <View
-                  key={item.id || index}
-                  style={[
-                    styles.notificationRow,
-                    {
-                      borderColor: superTheme.border,
-                      backgroundColor: isUnread
-                        ? (isDark ? 'rgba(59, 130, 246, 0.06)' : '#f0f9ff')
-                        : 'transparent',
-                    },
-                  ]}
+                <Swipeable
+                  key={notifId || index}
+                  friction={1}
+                  enableTrackpadTwoFingerGesture
+                  activeOffsetX={[-25, 25]}
+                  failOffsetY={[-15, 15]}
+                  leftThreshold={SWIPE_THRESHOLD}
+                  rightThreshold={SWIPE_THRESHOLD}
+                  overshootRight={false}
+                  overshootLeft={false}
+                  renderRightActions={renderRightActions}
+                  renderLeftActions={renderLeftActions}
+                  onSwipeableWillOpen={() => handleClearSingle(notifId)}
+                  onSwipeableOpen={() => handleClearSingle(notifId)}
                 >
                   <View
                     style={[
-                      styles.iconCircle,
+                      styles.notificationRow,
                       {
-                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.03)',
+                        borderColor: superTheme.border,
+                        backgroundColor: isUnread
+                          ? (isDark ? 'rgba(59, 130, 246, 0.06)' : '#f0f9ff')
+                          : superTheme.cardBg,
                       },
                     ]}
                   >
-                    {getNotificationIcon(item.title, item.message)}
-                  </View>
+                    <View
+                      style={[
+                        styles.iconCircle,
+                        {
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.03)',
+                        },
+                      ]}
+                    >
+                      {getNotificationIcon(item.title, item.message)}
+                    </View>
 
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.titleRow}>
-                      <Text
-                        style={[styles.itemTitle, { color: superTheme.textPrimary }]}
-                        numberOfLines={1}
-                      >
-                        {item.title}
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.titleRow}>
+                        <Text
+                          style={[styles.itemTitle, { color: superTheme.textPrimary }]}
+                          numberOfLines={1}
+                        >
+                          {item.title}
+                        </Text>
+                        {isUnread && (
+                          <View style={[styles.newBadge, { backgroundColor: superTheme.brand }]}>
+                            <Text style={styles.newBadgeText}>NEW</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[styles.itemMessage, { color: superTheme.textSecondary }]}>
+                        {item.message}
                       </Text>
-                      {isUnread && (
-                        <View style={[styles.newBadge, { backgroundColor: superTheme.brand }]}>
-                          <Text style={styles.newBadgeText}>NEW</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={[styles.itemMessage, { color: superTheme.textSecondary }]}>
-                      {item.message}
-                    </Text>
-                    <View style={styles.timeRow}>
-                      <Clock size={10} color={superTheme.textMuted} />
-                      <Text style={[styles.timeText, { color: superTheme.textMuted }]}>
-                        {item.createdOn ? new Date(item.createdOn).toLocaleString() : ''}
-                      </Text>
+                      <View style={styles.timeRow}>
+                        <Clock size={10} color={superTheme.textMuted} />
+                        <Text style={[styles.timeText, { color: superTheme.textMuted }]}>
+                          {item.createdOn ? new Date(item.createdOn).toLocaleString() : ''}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
+                </Swipeable>
               );
             })}
           </View>

@@ -53,6 +53,8 @@ import {
 } from '../../../../admin/hooks/usePayments';
 import { useInvoices } from '../../../../admin/hooks/useInvoices';
 import { Invoice } from '../../../../admin/models/InvoiceTypes';
+import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
+import { downloadPaymentReceiptPdf } from '../../../../utils/pdfDownloadHelper';
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return 'N/A';
@@ -169,6 +171,7 @@ export default function PaymentsScreen() {
   const { isDark } = useTheme();
   const theme = getAdminTheme(isDark);
   const router = useRouter();
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Search, Date and Pagination State
   const [searchInput, setSearchInput] = useState('');
@@ -515,8 +518,9 @@ export default function PaymentsScreen() {
           keyExtractor={(item) => item.paymentId.toString()}
           contentContainerStyle={{
             paddingTop: headerHeight + 16,
-            paddingBottom: 110,
+            paddingBottom: Math.max(bottomSpacing, 110),
             paddingHorizontal: 16,
+            flexGrow: 1,
           }}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           renderItem={({ item }) => (
@@ -533,6 +537,20 @@ export default function PaymentsScreen() {
                   <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>{formatDate(item.paymentDate)}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TouchableOpacity
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      downloadPaymentReceiptPdf(item.paymentId, item.receiptNumber);
+                    }}
+                    style={{
+                      padding: 6,
+                      borderRadius: 8,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f0f4f8',
+                    }}
+                  >
+                    <Download size={15} color={theme.brand} />
+                  </TouchableOpacity>
                   <Eye size={15} color={theme.textSecondary} style={{ opacity: 0.8 }} />
                   <View style={[styles.methodBadge, { backgroundColor: getMethodColor(item.paymentMethod).bg }]}>
                     <Text style={[styles.methodText, { color: getMethodColor(item.paymentMethod).text }]}>{item.paymentMethod}</Text>
@@ -712,14 +730,33 @@ export default function PaymentsScreen() {
                 </View>
 
                 {/* Actions Grid */}
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                  <TouchableOpacity
+                    onPress={() => downloadPaymentReceiptPdf(selectedPayment.paymentId, selectedPayment.receiptNumber)}
+                    style={{
+                      flex: 1,
+                      minWidth: 120,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: '#10b981',
+                      paddingVertical: 12,
+                      borderRadius: 10,
+                      gap: 6
+                    }}
+                  >
+                    <Download size={14} color="#ffffff" />
+                    <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 12 }}>Download PDF</Text>
+                  </TouchableOpacity>
+
                   <TouchableOpacity
                     onPress={() => {
                       setDetailModalOpen(false);
                       router.push(`/admin/SalesUnit/invoice?search=${selectedPayment.invoiceNumber}`);
                     }}
                     style={{
-                      flex: 1.2,
+                      flex: 1,
+                      minWidth: 120,
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -738,7 +775,8 @@ export default function PaymentsScreen() {
                   <TouchableOpacity
                     onPress={() => setReceiptModalOpen(true)}
                     style={{
-                      flex: 1.2,
+                      flex: 1,
+                      minWidth: 120,
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -756,6 +794,7 @@ export default function PaymentsScreen() {
                     onPress={() => handleDeletePayment(selectedPayment.paymentId)}
                     style={{
                       flex: 1,
+                      minWidth: 100,
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -902,13 +941,13 @@ export default function PaymentsScreen() {
                 {/* PDF Action buttons */}
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 14, paddingHorizontal: 4 }}>
                   <TouchableOpacity
-                    onPress={() => {
-                      // Trigger download link alert
-                      Alert.alert(
-                        'PDF Download',
-                        `Receipt document Receipt_${receiptResponse.data?.payment.receiptNumber}.pdf has been prepared.`,
-                        [{ text: 'OK' }]
-                      );
+                    onPress={async () => {
+                      if (receiptResponse?.data?.payment) {
+                        await downloadPaymentReceiptPdf(
+                          receiptResponse.data.payment.paymentId,
+                          receiptResponse.data.payment.receiptNumber
+                        );
+                      }
                     }}
                     style={{
                       flex: 1,
@@ -922,7 +961,7 @@ export default function PaymentsScreen() {
                     }}
                   >
                     <Download size={16} color="#ffffff" />
-                    <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>Download PDF</Text>
+                    <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13 }}>Download PDF Receipt</Text>
                   </TouchableOpacity>
                 </View>
 

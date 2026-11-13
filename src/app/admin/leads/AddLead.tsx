@@ -36,6 +36,7 @@ import {
     useLeadDetailsQuery,
 } from '../../../admin/hooks/useLeadsQuery';
 import { AddLeadPayload } from '../../../admin/models/LeadTypes';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 // Initial Fallback Dropdown Option Values (used before API loads or as error recovery)
 const FALLBACK_STAGES = [
@@ -64,6 +65,7 @@ export default function AddLead() {
 
     const { isDark } = useTheme();
     const adminTheme = getAdminTheme(isDark);
+    const { bottomSpacing } = useBottomNavSpacing();
     const { width } = useWindowDimensions();
 
     // Responsive mode: columns on desktop, stack on mobile
@@ -478,7 +480,8 @@ export default function AddLead() {
             </View>
 
             <ScrollView
-                contentContainerStyle={styles.scrollContent}
+                style={{ flex: 1 }}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(bottomSpacing, 110), flexGrow: 1 }]}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >

@@ -1,27 +1,40 @@
 import axios from 'axios';
-import { getApiUrl } from './remoteConfig';
+import { getApiUrl, getPlatformApiUrl } from './remoteConfig';
 
 /**
- * Axios instance with a dynamic baseURL resolved from the remote config.
+ * Centralized Axios instance with dynamic multi-tenant baseURL resolution.
  *
- * The baseURL is NOT set at creation time. Instead, a request interceptor
- * reads getApiUrl() on every request so the correct URL is always used.
+ * Auth endpoints (login, workspace picker, password reset) always route to
+ * the central platform domain (e.g. https://uproptech.com).
  *
- * IMPORTANT: This interceptor is registered BEFORE setupInterceptors() is called
- * in _layout.tsx. Because Axios processes request interceptors in LIFO order,
- * the auth token interceptor (added later by setupInterceptors) will run FIRST,
- * then this baseURL interceptor runs SECOND. Both work correctly in this order.
+ * Post-auth endpoints dynamically route to the company-specific subdomain
+ * (e.g. https://hiriseenterprises.uproptech.com or https://srinainikaproperties.uproptech.com)
+ * or remain on the platform domain for SuperAdmin.
  */
 export const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
-  timeout: 10000, // 10s default timeout
+  timeout: Number(process.env.EXPO_PUBLIC_API_TIMEOUT) || 30000,
 });
 
-// Dynamically set baseURL on every request from the live remote-config value
 axiosInstance.interceptors.request.use((config) => {
-  config.baseURL = getApiUrl();
+  const url = config.url || '';
+  const isAuthEndpoint = (
+    url.includes('/api/v1/auth/login') ||
+    url.includes('/api/v1/auth/login-workspace') ||
+    url.includes('/account/forgotpassword') ||
+    url.includes('/account/resetpasswordwithtoken') ||
+    url.includes('/account/resetpassword') ||
+    url.includes('/api/v1/public/')
+  );
+
+  if (isAuthEndpoint) {
+    config.baseURL = getPlatformApiUrl();
+  } else {
+    config.baseURL = getApiUrl();
+  }
+
   return config;
 });

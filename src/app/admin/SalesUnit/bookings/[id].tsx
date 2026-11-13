@@ -12,11 +12,14 @@ import {
     ChevronLeft,
     FileText,
     Ban,
+    Download,
 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
 import { useBookingDetail, useCancelBooking } from '../../../../admin/hooks/useBookings';
+import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
+import { downloadBookingPdf } from '../../../../utils/pdfDownloadHelper';
 
 function formatDate(dateStr: string | null | undefined): string {
     if (!dateStr) return 'N/A';
@@ -42,6 +45,7 @@ export default function BookingDetailScreen() {
 
     const { isDark } = useTheme();
     const theme = getAdminTheme(isDark);
+    const { bottomSpacing } = useBottomNavSpacing();
 
     const { data: detailResponse, isLoading } = useBookingDetail(bookingId);
     const booking = detailResponse?.data;
@@ -119,13 +123,26 @@ export default function BookingDetailScreen() {
                         {booking.bookingNumber}
                     </Text>
                 </View>
-                <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
-                    <Text style={[styles.statusText, { color: statusColors.text }]}>{booking.status}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TouchableOpacity
+                        onPress={() => downloadBookingPdf(bookingId, booking.bookingNumber)}
+                        style={{
+                            padding: 6,
+                            borderRadius: 8,
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f0f4f8',
+                        }}
+                    >
+                        <Download size={17} color={theme.brand} />
+                    </TouchableOpacity>
+                    <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
+                        <Text style={[styles.statusText, { color: statusColors.text }]}>{booking.status}</Text>
+                    </View>
                 </View>
             </View>
 
             <ScrollView
-                contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+                style={{ flex: 1 }}
+                contentContainerStyle={{ padding: 16, paddingBottom: Math.max(bottomSpacing, 110), flexGrow: 1 }}
                 showsVerticalScrollIndicator={false}
             >
                 {/* ── Client & Property Info ─────────────────────────── */}
@@ -239,12 +256,23 @@ export default function BookingDetailScreen() {
                     </>
                 ) : null}
 
+                {/* ── Actions ────────────────────────────────────────── */}
+                <TouchableOpacity
+                    onPress={() => downloadBookingPdf(bookingId, booking.bookingNumber)}
+                    style={[styles.downloadBtn, { backgroundColor: '#10b981', marginTop: 24 }]}
+                >
+                    <Download size={16} color="#ffffff" />
+                    <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 13, marginLeft: 6 }}>
+                        Download PDF Confirmation
+                    </Text>
+                </TouchableOpacity>
+
                 {/* ── Cancel Action ─────────────────────────────────── */}
                 {booking.status !== 'Cancelled' && (
                     <TouchableOpacity
                         onPress={handleCancelBooking}
                         disabled={cancelBookingMutation.isPending}
-                        style={[styles.cancelBtn, { backgroundColor: '#fee2e2', marginTop: 24 }]}
+                        style={[styles.cancelBtn, { backgroundColor: '#fee2e2', marginTop: 10 }]}
                     >
                         {cancelBookingMutation.isPending ? (
                             <ActivityIndicator size="small" color="#dc2626" />
@@ -309,6 +337,13 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     cancelBtn: {
+        flexDirection: 'row',
+        height: 48,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    downloadBtn: {
         flexDirection: 'row',
         height: 48,
         borderRadius: 12,

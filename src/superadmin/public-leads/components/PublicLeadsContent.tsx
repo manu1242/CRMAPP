@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,27 @@ import {
   RefreshControl,
   Alert,
   StyleSheet,
+  Platform,
+  BackHandler,
 } from 'react-native';
-import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  Search,
+  X,
+  RefreshCw,
+  Trash2,
+  Inbox,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  CheckSquare,
+  Square,
+  Filter,
+  Plus,
+} from 'lucide-react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { getSuperAdminTheme } from '../../../theme/adminTheme';
 import {
   usePublicLeadsQuery,
   usePublicLeadStatsQuery,
@@ -19,27 +37,45 @@ import {
   useBulkDeletePublicLeadsMutation,
 } from '../hooks/usePublicLeads';
 import { PublicLeadItem, PublicLeadType } from '../models/publicLead';
-import { PublicLeadCard, getTypeColor } from './PublicLeadCard';
+import { PublicLeadCard } from './PublicLeadCard';
+import { PublicLeadStatsRow } from './PublicLeadStatsRow';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 const PAGE_SIZE = 15;
 
-const TYPE_TABS: { key: string; label: string; icon: any }[] = [
-  { key: 'All', label: 'All', icon: 'layers-outline' },
-  { key: 'Enquiry', label: 'Enquiries', icon: 'mail-outline' },
-  { key: 'Callback', label: 'Callbacks', icon: 'call-outline' },
-  { key: 'SiteVisit', label: 'Site Visits', icon: 'calendar-outline' },
-  { key: 'Support', label: 'Support', icon: 'help-buoy-outline' },
+const TYPE_PILLS = [
+  { key: 'All', label: 'All' },
+  { key: 'Enquiry', label: 'Enquiries' },
+  { key: 'Callback', label: 'Callbacks' },
+  { key: 'SiteVisit', label: 'Site Visits' },
+  { key: 'Support', label: 'Support' },
 ];
 
 export const PublicLeadsContent: React.FC = () => {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
+  const theme = getSuperAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
-  // Local state
+  // State
   const [page, setPage] = useState(1);
   const [selectedType, setSelectedType] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (router.canGoBack()) {
+        router.back();
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [router]);
 
   // Queries
   const {
@@ -59,19 +95,10 @@ export const PublicLeadsContent: React.FC = () => {
   const deleteMutation = useDeletePublicLeadMutation();
   const bulkDeleteMutation = useBulkDeletePublicLeadsMutation();
 
-  // Colors
-  const bgColor = isDark ? '#0f172a' : '#f8fafc';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
-  const inputBg = isDark ? '#1e293b' : '#ffffff';
-
   const paginatedData = leadsData?.data;
   const items: PublicLeadItem[] = Array.isArray(paginatedData?.items) ? paginatedData.items : [];
   const totalRecords = paginatedData?.totalRecords || items.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
-
   const stats = statsData?.data;
 
   // Handlers
@@ -93,15 +120,30 @@ export const PublicLeadsContent: React.FC = () => {
     }
   };
 
-  const handleBulkDelete = () => {
-    if (selectedLeadIds.length === 0) return;
+  const handleSingleDelete = (lead: PublicLeadItem) => {
     Alert.alert(
-      'Bulk Delete Leads',
-      `Are you sure you want to permanently delete ${selectedLeadIds.length} lead(s)?`,
+      'Delete Public Lead',
+      `Are you sure you want to delete lead #${lead.leadId} for "${lead.name}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteMutation.mutate(lead.leadId),
+        },
+      ]
+    );
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedLeadIds.length === 0) return;
+    Alert.alert(
+      'Bulk Delete Leads',
+      `Are you sure you want to permanently delete ${selectedLeadIds.length} public lead(s)?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
           style: 'destructive',
           onPress: async () => {
             await bulkDeleteMutation.mutateAsync(selectedLeadIds);
@@ -114,217 +156,179 @@ export const PublicLeadsContent: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Top Header */}
-      <View style={styles.topHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: textColor }]}>Public Leads & Inquiries</Text>
-          <Text style={[styles.subtitle, { color: subTextColor }]}>
-            Captured enquiries, callbacks, site visits & support requests
+    <View style={[styles.container, { backgroundColor: theme.primaryBg }]}>
+      {/* Top Header Row with Back Button */}
+      <View
+        style={[
+          styles.headerRow,
+          {
+            borderBottomColor: theme.border,
+            paddingTop: Platform.OS === 'android' ? Math.max(14, insets.top) : Math.max(10, insets.top),
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => {
+            if (router.canGoBack()) router.back();
+            else router.navigate('/superadmin/dashboard');
+          }}
+          style={[styles.backBtn, { backgroundColor: theme.cardBg, borderColor: theme.border }]}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={20} color={theme.textPrimary} />
+        </TouchableOpacity>
+
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={1} style={[styles.pageTitle, { color: theme.textPrimary }]}>
+            Public Leads
+          </Text>
+          <Text numberOfLines={1} style={[styles.pageSubtitle, { color: theme.textSecondary }]}>
+            Central website inquiries, callbacks & site visits
           </Text>
         </View>
 
-        <TouchableOpacity
-          onPress={() => {
-            const nextMode = !isSelectionMode;
-            setIsSelectionMode(nextMode);
-            if (!nextMode) setSelectedLeadIds([]);
-          }}
-          style={[
-            styles.selectModeBtn,
-            isSelectionMode
-              ? { backgroundColor: '#ef4444' }
-              : { backgroundColor: isDark ? '#334155' : '#e2e8f0' },
-          ]}
-          activeOpacity={0.8}
-        >
-          <Text
-            style={[
-              styles.selectModeBtnText,
-              { color: isSelectionMode ? '#ffffff' : textColor },
-            ]}
+        <View style={styles.headerActions}>
+          {/* Refresh Button */}
+          <TouchableOpacity
+            onPress={handleRefresh}
+            style={[styles.headerActionBtn, { backgroundColor: theme.cardBg, borderColor: theme.border }]}
+            activeOpacity={0.7}
           >
-            {isSelectionMode ? 'Cancel' : 'Select'}
-          </Text>
-        </TouchableOpacity>
+            <RefreshCw size={14} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          {/* Add Lead Button */}
+          <TouchableOpacity
+            onPress={() => router.push('/superadmin/create-tenant')}
+            style={[
+              styles.selectToggleBtn,
+              {
+                backgroundColor: theme.brand,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+              },
+            ]}
+            activeOpacity={0.8}
+          >
+            <Plus size={14} color="#ffffff" strokeWidth={2.5} />
+            <Text style={styles.selectToggleText}>Add Lead</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomSpacing + 20 }]}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={handleRefresh}
-            colors={['#2563eb']}
-            tintColor="#2563eb"
+            colors={[theme.brand]}
+            tintColor={theme.brand}
           />
         }
       >
-        {/* Stats Badges Row */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.statsScroll}
-        >
-          {/* Total */}
-          <View style={[styles.statBadgeCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <View style={[styles.statIconBox, { backgroundColor: isDark ? '#1e3a8a30' : '#eff6ff' }]}>
-              <Ionicons name="layers" size={14} color="#3b82f6" />
-            </View>
-            <View>
-              <Text style={[styles.statVal, { color: textColor }]}>
-                {stats?.totalLeads ?? totalRecords}
-              </Text>
-              <Text style={[styles.statLbl, { color: subTextColor }]}>Total Leads</Text>
-            </View>
-          </View>
-
-          {/* Enquiries */}
-          <View style={[styles.statBadgeCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <View style={[styles.statIconBox, { backgroundColor: isDark ? '#1e3a8a30' : '#eff6ff' }]}>
-              <Ionicons name="mail" size={14} color="#2563eb" />
-            </View>
-            <View>
-              <Text style={[styles.statVal, { color: '#2563eb' }]}>
-                {stats?.totalEnquiries ?? 0}
-              </Text>
-              <Text style={[styles.statLbl, { color: subTextColor }]}>Enquiries</Text>
-            </View>
-          </View>
-
-          {/* Callbacks */}
-          <View style={[styles.statBadgeCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <View style={[styles.statIconBox, { backgroundColor: isDark ? '#78350f30' : '#fffbeb' }]}>
-              <Ionicons name="call" size={14} color="#f59e0b" />
-            </View>
-            <View>
-              <Text style={[styles.statVal, { color: '#f59e0b' }]}>
-                {stats?.totalCallbacks ?? 0}
-              </Text>
-              <Text style={[styles.statLbl, { color: subTextColor }]}>Callbacks</Text>
-            </View>
-          </View>
-
-          {/* Site Visits */}
-          <View style={[styles.statBadgeCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <View style={[styles.statIconBox, { backgroundColor: isDark ? '#581c8730' : '#f5f3ff' }]}>
-              <Ionicons name="calendar" size={14} color="#8b5cf6" />
-            </View>
-            <View>
-              <Text style={[styles.statVal, { color: '#8b5cf6' }]}>
-                {stats?.totalSiteVisits ?? 0}
-              </Text>
-              <Text style={[styles.statLbl, { color: subTextColor }]}>Site Visits</Text>
-            </View>
-          </View>
-
-          {/* Support */}
-          <View style={[styles.statBadgeCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <View style={[styles.statIconBox, { backgroundColor: isDark ? '#7f1d1d30' : '#fef2f2' }]}>
-              <Ionicons name="help-buoy" size={14} color="#ef4444" />
-            </View>
-            <View>
-              <Text style={[styles.statVal, { color: '#ef4444' }]}>
-                {stats?.totalSupport ?? 0}
-              </Text>
-              <Text style={[styles.statLbl, { color: subTextColor }]}>Support</Text>
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* Search Bar */}
-        <View style={[styles.searchBox, { backgroundColor: inputBg, borderColor: borderCol }]}>
-          <Ionicons name="search-outline" size={18} color={subTextColor} style={{ marginRight: 8 }} />
-          <TextInput
-            style={[styles.searchInput, { color: textColor }]}
-            placeholder="Search by name, phone, message, or company..."
-            placeholderTextColor={subTextColor}
-            value={searchQuery}
-            onChangeText={(t) => {
-              setSearchQuery(t);
+        {/* KPI Stats Row (Web replica) */}
+        <View style={styles.statsSection}>
+          <PublicLeadStatsRow
+            stats={stats}
+            totalFallback={totalRecords}
+            selectedType={selectedType}
+            onSelectType={(type) => {
+              setSelectedType(type);
               setPage(1);
             }}
-            clearButtonMode="while-editing"
           />
-          {searchQuery ? (
-            <TouchableOpacity
-              onPress={() => {
-                setSearchQuery('');
-                setPage(1);
-              }}
-            >
-              <Ionicons name="close-circle" size={18} color={subTextColor} />
-            </TouchableOpacity>
-          ) : null}
         </View>
 
-        {/* Type Filter Tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.typeTabsScroll}
-        >
-          {TYPE_TABS.map((tab) => {
-            const active = selectedType === tab.key;
-            return (
+        {/* Search & Filter Bar */}
+        <View style={styles.filterSection}>
+          <View
+            style={[
+              styles.searchBar,
+              { backgroundColor: theme.cardBg, borderColor: theme.border },
+            ]}
+          >
+            <Search size={16} color={theme.textMuted} style={{ marginRight: 8 }} />
+            <TextInput
+              style={[styles.searchInput, { color: theme.textPrimary }]}
+              placeholder="Search by name, phone, message, company..."
+              placeholderTextColor={theme.textMuted}
+              value={searchQuery}
+              onChangeText={(t) => {
+                setSearchQuery(t);
+                setPage(1);
+              }}
+              clearButtonMode="while-editing"
+            />
+            {searchQuery ? (
               <TouchableOpacity
-                key={tab.key}
                 onPress={() => {
-                  setSelectedType(tab.key);
+                  setSearchQuery('');
                   setPage(1);
                 }}
-                style={[
-                  styles.tabChip,
-                  active
-                    ? { backgroundColor: '#2563eb', borderColor: '#2563eb' }
-                    : {
-                        backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                        borderColor: borderCol,
-                      },
-                ]}
-                activeOpacity={0.7}
               >
-                <Ionicons
-                  name={tab.icon}
-                  size={13}
-                  color={active ? '#ffffff' : subTextColor}
-                  style={{ marginRight: 4 }}
-                />
-                <Text
-                  style={[
-                    styles.tabChipText,
-                    { color: active ? '#ffffff' : textColor },
-                  ]}
-                >
-                  {tab.label}
-                </Text>
+                <X size={16} color={theme.textMuted} />
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+            ) : null}
+          </View>
 
-        {/* Multi-selection Toolbar */}
+          {/* Quick Action Pills */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.pillsScroll}
+          >
+            {TYPE_PILLS.map((pill) => {
+              const isActive = selectedType === pill.key;
+              return (
+                <TouchableOpacity
+                  key={pill.key}
+                  onPress={() => {
+                    setSelectedType(pill.key);
+                    setPage(1);
+                  }}
+                  style={[
+                    styles.pillChip,
+                    isActive
+                      ? { backgroundColor: theme.brand, borderColor: theme.brand }
+                      : { backgroundColor: theme.cardBg, borderColor: theme.border },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.pillText,
+                      { color: isActive ? '#ffffff' : theme.textSecondary },
+                    ]}
+                  >
+                    {pill.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Multi-Selection Toolbar */}
         {isSelectionMode && (
-          <View style={[styles.bulkBar, { backgroundColor: cardBg, borderColor: borderCol }]}>
+          <View style={[styles.bulkToolbar, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
             <TouchableOpacity onPress={handleSelectAll} style={styles.selectAllBtn}>
-              <Ionicons
-                name={
-                  selectedLeadIds.length === items.length && items.length > 0
-                    ? 'checkbox'
-                    : 'square-outline'
-                }
-                size={18}
-                color="#2563eb"
-              />
-              <Text style={[styles.selectAllText, { color: textColor }]}>
+              {selectedLeadIds.length === items.length && items.length > 0 ? (
+                <CheckSquare size={18} color={theme.brand} />
+              ) : (
+                <Square size={18} color={theme.textSecondary} />
+              )}
+              <Text style={[styles.selectAllText, { color: theme.textPrimary }]}>
                 {selectedLeadIds.length === items.length && items.length > 0
                   ? 'Deselect All'
                   : 'Select All'}
               </Text>
             </TouchableOpacity>
 
-            <Text style={[styles.selectedCountText, { color: subTextColor }]}>
+            <Text style={[styles.selectedCount, { color: theme.textSecondary }]}>
               {selectedLeadIds.length} Selected
             </Text>
 
@@ -335,63 +339,72 @@ export const PublicLeadsContent: React.FC = () => {
                 styles.bulkDeleteBtn,
                 { opacity: selectedLeadIds.length === 0 ? 0.4 : 1 },
               ]}
+              activeOpacity={0.8}
             >
               {bulkDeleteMutation.isPending ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <>
-                  <Ionicons name="trash" size={14} color="#ffffff" />
-                  <Text style={styles.bulkDeleteBtnText}>Delete ({selectedLeadIds.length})</Text>
+                  <Trash2 size={13} color="#ffffff" />
+                  <Text style={styles.bulkDeleteText}>Delete ({selectedLeadIds.length})</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Lead List Area */}
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2563eb" />
-            <Text style={[styles.loadingText, { color: subTextColor }]}>
-              Loading public leads & inquiries...
+        {/* Lead List Section */}
+        {(isLoading && !leadsData) ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={theme.brand} />
+            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+              Loading public leads...
             </Text>
           </View>
         ) : isError ? (
           <View
             style={[
-              styles.errorCard,
+              styles.errorBox,
               {
                 backgroundColor: isDark ? '#7f1d1d20' : '#fef2f2',
                 borderColor: isDark ? '#7f1d1d' : '#fecaca',
               },
             ]}
           >
-            <Ionicons name="alert-circle-outline" size={36} color="#ef4444" />
+            <AlertCircle size={36} color="#ef4444" />
             <Text style={styles.errorTitle}>Failed to load leads</Text>
-            <Text style={[styles.errorDesc, { color: subTextColor }]}>
-              An error occurred while communicating with the server.
+            <Text style={[styles.errorDesc, { color: theme.textSecondary }]}>
+              An error occurred while fetching public leads from the server.
             </Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={handleRefresh}>
-              <Ionicons name="refresh" size={14} color="#ffffff" style={{ marginRight: 6 }} />
-              <Text style={styles.retryBtnText}>Try Again</Text>
+            <TouchableOpacity
+              style={[styles.retryBtn, { backgroundColor: theme.brand }]}
+              onPress={handleRefresh}
+            >
+              <RefreshCw size={14} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.retryText}>Try Again</Text>
             </TouchableOpacity>
           </View>
         ) : items.length === 0 ? (
-          <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <FontAwesome5 name="inbox" size={44} color="#94a3b8" />
-            <Text style={[styles.emptyTitle, { color: textColor }]}>
+          <View
+            style={[
+              styles.emptyBox,
+              { backgroundColor: theme.cardBg, borderColor: theme.border },
+            ]}
+          >
+            <Inbox size={42} color={theme.textMuted} />
+            <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>
               {searchQuery || selectedType !== 'All'
-                ? 'No matching leads or inquiries'
-                : 'No Public Leads Received Yet'}
+                ? 'No matching leads'
+                : 'No Public Leads Yet'}
             </Text>
-            <Text style={[styles.emptyDesc, { color: subTextColor }]}>
+            <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>
               {searchQuery || selectedType !== 'All'
-                ? 'Try adjusting your search terms or filter selection.'
-                : 'Public inquiries submitted on your platform, callback requests and site visits will appear here.'}
+                ? 'Try adjusting your search query or switching the type filter.'
+                : 'Public inquiries submitted on the portal, callback requests, and site visits will appear here.'}
             </Text>
           </View>
         ) : (
-          <>
+          <View style={styles.listContainer}>
             {items.map((lead) => (
               <PublicLeadCard
                 key={lead.leadId}
@@ -399,10 +412,11 @@ export const PublicLeadsContent: React.FC = () => {
                 isSelected={selectedLeadIds.includes(lead.leadId)}
                 onToggleSelect={handleToggleSelect}
                 isSelectionMode={isSelectionMode}
+                onDelete={handleSingleDelete}
               />
             ))}
 
-            {/* Pagination Controls */}
+            {/* Pagination Row */}
             {totalPages > 1 && (
               <View style={styles.paginationRow}>
                 <TouchableOpacity
@@ -411,19 +425,20 @@ export const PublicLeadsContent: React.FC = () => {
                   style={[
                     styles.pageBtn,
                     {
-                      backgroundColor: cardBg,
-                      borderColor: borderCol,
-                      opacity: page <= 1 ? 0.4 : 1,
+                      backgroundColor: theme.cardBg,
+                      borderColor: theme.border,
+                      opacity: page <= 1 ? 0.35 : 1,
                     },
                   ]}
+                  activeOpacity={0.7}
                 >
-                  <Ionicons name="chevron-back" size={16} color={textColor} />
-                  <Text style={[styles.pageBtnText, { color: textColor }]}>Previous</Text>
+                  <ChevronLeft size={16} color={theme.textPrimary} />
+                  <Text style={[styles.pageBtnText, { color: theme.textPrimary }]}>Prev</Text>
                 </TouchableOpacity>
 
-                <Text style={[styles.pageIndicator, { color: subTextColor }]}>
-                  Page <Text style={{ fontWeight: '800', color: textColor }}>{page}</Text> of{' '}
-                  <Text style={{ fontWeight: '800', color: textColor }}>{totalPages}</Text>
+                <Text style={[styles.pageIndicator, { color: theme.textSecondary }]}>
+                  Page <Text style={{ fontWeight: '800', color: theme.textPrimary }}>{page}</Text> of{' '}
+                  <Text style={{ fontWeight: '800', color: theme.textPrimary }}>{totalPages}</Text>
                 </Text>
 
                 <TouchableOpacity
@@ -432,18 +447,19 @@ export const PublicLeadsContent: React.FC = () => {
                   style={[
                     styles.pageBtn,
                     {
-                      backgroundColor: cardBg,
-                      borderColor: borderCol,
-                      opacity: page >= totalPages ? 0.4 : 1,
+                      backgroundColor: theme.cardBg,
+                      borderColor: theme.border,
+                      opacity: page >= totalPages ? 0.35 : 1,
                     },
                   ]}
+                  activeOpacity={0.7}
                 >
-                  <Text style={[styles.pageBtnText, { color: textColor }]}>Next</Text>
-                  <Ionicons name="chevron-forward" size={16} color={textColor} />
+                  <Text style={[styles.pageBtnText, { color: theme.textPrimary }]}>Next</Text>
+                  <ChevronRight size={16} color={theme.textPrimary} />
                 </TouchableOpacity>
               </View>
             )}
-          </>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -454,108 +470,102 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  topHeader: {
+  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 16,
     paddingBottom: 10,
-    gap: 12,
+    borderBottomWidth: 1,
   },
-  title: {
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    marginRight: 10,
+  },
+  pageTitle: {
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
-  subtitle: {
-    fontSize: 11,
+  pageSubtitle: {
+    fontSize: 11.5,
+    fontWeight: '500',
     marginTop: 2,
-    lineHeight: 15,
   },
-  selectModeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  selectModeBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-  },
-  statsScroll: {
-    gap: 8,
-    paddingVertical: 8,
-  },
-  statBadgeCard: {
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    minWidth: 115,
   },
-  statIconBox: {
-    width: 28,
-    height: 28,
+  headerActionBtn: {
+    padding: 8,
     borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statVal: {
-    fontSize: 15,
-    fontWeight: '800',
+  selectToggleBtn: {
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 8,
   },
-  statLbl: {
-    fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+  selectToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
   },
-  searchBox: {
+  scrollContent: {
+    paddingTop: 12,
+  },
+  statsSection: {
+    marginBottom: 12,
+  },
+  filterSection: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    height: 40,
+    borderRadius: 10,
     borderWidth: 1,
     paddingHorizontal: 12,
-    height: 42,
-    marginTop: 6,
     marginBottom: 10,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-    height: 42,
+    padding: 0,
   },
-  typeTabsScroll: {
+  pillsScroll: {
     gap: 8,
-    paddingBottom: 12,
   },
-  tabChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  pillChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
   },
-  tabChipText: {
+  pillText: {
     fontSize: 12,
     fontWeight: '700',
   },
-  bulkBar: {
+  bulkToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
+    marginHorizontal: 16,
     marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   selectAllBtn: {
     flexDirection: 'row',
@@ -563,110 +573,111 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   selectAllText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
   },
-  selectedCountText: {
+  selectedCount: {
     fontSize: 12,
     fontWeight: '600',
   },
   bulkDeleteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     backgroundColor: '#ef4444',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 6,
   },
-  bulkDeleteBtnText: {
-    color: '#ffffff',
+  bulkDeleteText: {
     fontSize: 12,
     fontWeight: '700',
+    color: '#ffffff',
   },
-  loadingContainer: {
-    paddingVertical: 50,
+  listContainer: {
+    paddingTop: 2,
+  },
+  loadingBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    paddingVertical: 48,
   },
   loadingText: {
     fontSize: 13,
-    fontWeight: '600',
+    marginTop: 10,
+    fontWeight: '500',
   },
-  errorCard: {
-    borderRadius: 14,
-    borderWidth: 1,
+  errorBox: {
+    marginHorizontal: 16,
+    borderRadius: 12,
     padding: 24,
     alignItems: 'center',
-    marginTop: 16,
+    borderWidth: 1,
   },
   errorTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#ef4444',
     marginTop: 10,
   },
   errorDesc: {
-    fontSize: 12,
+    fontSize: 12.5,
     textAlign: 'center',
     marginTop: 4,
-    marginBottom: 14,
   },
   retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 8,
+    marginTop: 14,
   },
-  retryBtnText: {
-    color: '#ffffff',
+  retryText: {
     fontSize: 12,
     fontWeight: '700',
+    color: '#ffffff',
   },
-  emptyCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 32,
+  emptyBox: {
+    marginHorizontal: 16,
+    borderRadius: 12,
+    padding: 36,
     alignItems: 'center',
-    marginTop: 16,
+    borderWidth: 1,
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    marginTop: 16,
-    textAlign: 'center',
+    marginTop: 12,
   },
   emptyDesc: {
-    fontSize: 12,
+    fontSize: 12.5,
     textAlign: 'center',
     marginTop: 6,
-    paddingHorizontal: 20,
     lineHeight: 18,
   },
   paginationRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
   },
   pageBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
     borderWidth: 1,
   },
   pageBtnText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
   },
   pageIndicator: {
-    fontSize: 12,
+    fontSize: 12.5,
   },
 });

@@ -22,6 +22,8 @@ export const useTenantsQuery = (params: {
   return useQuery({
     queryKey: ['tenants', apiParams],
     queryFn: () => tenantApi.getTenants(apiParams),
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    gcTime: 15 * 60 * 1000,
   });
 };
 
@@ -30,6 +32,8 @@ export const useTenantDetailQuery = (id: string | number) => {
     queryKey: ['tenant', id],
     queryFn: () => tenantApi.getTenantById(id),
     enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   });
 };
 
@@ -40,6 +44,7 @@ export const useCreateTenantMutation = () => {
     mutationFn: (data: TenantCreateRequest) => tenantApi.createTenant(data),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
+      queryClient.invalidateQueries({ queryKey: ['superadmin-dashboard'] });
       Toast.show({
         type: 'success',
         text1: 'Success',
@@ -215,6 +220,8 @@ export const useSettingsQuery = () => {
   return useQuery({
     queryKey: ['saas-settings'],
     queryFn: settingsApi.getSettings,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 };
 

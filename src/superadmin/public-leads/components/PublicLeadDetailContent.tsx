@@ -9,14 +9,33 @@ import {
   Linking,
   StyleSheet,
 } from 'react-native';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import {
+  ArrowLeft,
+  Phone,
+  MessageCircle,
+  MessageSquare,
+  Trash2,
+  Building2,
+  Home,
+  UserCheck,
+  Calendar,
+  PhoneCall,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  LifeBuoy,
+  AlertCircle,
+  Mail,
+} from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { getSuperAdminTheme } from '../../../theme/adminTheme';
 import {
   usePublicLeadDetailQuery,
   useDeletePublicLeadMutation,
 } from '../hooks/usePublicLeads';
-import { getTypeColor } from './PublicLeadCard';
+import { getTypeBadgeConfig } from './PublicLeadCard';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 interface PublicLeadDetailContentProps {
   id: string | number;
@@ -25,20 +44,15 @@ interface PublicLeadDetailContentProps {
 export const PublicLeadDetailContent: React.FC<PublicLeadDetailContentProps> = ({ id }) => {
   const router = useRouter();
   const { isDark } = useTheme();
+  const theme = getSuperAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
-  const { data, isLoading, isError, refetch } = usePublicLeadDetailQuery(id);
+  const { data, isLoading, isError } = usePublicLeadDetailQuery(id);
   const deleteMutation = useDeletePublicLeadMutation();
 
   const lead = data?.data;
-
-  // Colors
-  const bgColor = isDark ? '#0f172a' : '#f8fafc';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#0f172a';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#e2e8f0';
-
-  const typeConfig = getTypeColor(lead?.type || 'Enquiry', isDark);
+  const typeConfig = getTypeBadgeConfig(lead?.type || 'Enquiry', isDark);
+  const TypeIcon = typeConfig.icon;
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return 'Not Specified';
@@ -54,6 +68,15 @@ export const PublicLeadDetailContent: React.FC<PublicLeadDetailContentProps> = (
     } catch {
       return dateStr;
     }
+  };
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'L';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   };
 
   const handleCall = () => {
@@ -97,23 +120,28 @@ export const PublicLeadDetailContent: React.FC<PublicLeadDetailContentProps> = (
 
   if (isLoading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: bgColor }]}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={[styles.loadingText, { color: subTextColor }]}>Loading lead details...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: theme.primaryBg }]}>
+        <ActivityIndicator size="large" color={theme.brand} />
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Loading lead details...
+        </Text>
       </View>
     );
   }
 
   if (isError || !lead) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: bgColor }]}>
-        <Ionicons name="alert-circle-outline" size={44} color="#ef4444" />
+      <View style={[styles.centerContainer, { backgroundColor: theme.primaryBg }]}>
+        <AlertCircle size={44} color="#ef4444" />
         <Text style={styles.errorTitle}>Lead Not Found</Text>
-        <Text style={[styles.errorDesc, { color: subTextColor }]}>
-          Unable to fetch details for lead ID #{id}.
+        <Text style={[styles.errorDesc, { color: theme.textSecondary }]}>
+          Unable to fetch details for public lead ID #{id}.
         </Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={16} color="#ffffff" style={{ marginRight: 6 }} />
+        <TouchableOpacity
+          style={[styles.backBtn, { backgroundColor: theme.brand }]}
+          onPress={() => router.back()}
+        >
+          <ArrowLeft size={16} color="#ffffff" style={{ marginRight: 6 }} />
           <Text style={styles.backBtnText}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -121,156 +149,192 @@ export const PublicLeadDetailContent: React.FC<PublicLeadDetailContentProps> = (
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: bgColor }]}>
+    <View style={[styles.container, { backgroundColor: theme.primaryBg }]}>
       {/* Top App Bar */}
-      <View style={[styles.appBar, { borderBottomColor: borderCol }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-          <Ionicons name="arrow-back" size={20} color={textColor} />
+      <View style={[styles.appBar, { borderBottomColor: theme.border, backgroundColor: theme.cardBg }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[styles.headerIconBtn, { backgroundColor: theme.primaryBg }]}
+          activeOpacity={0.7}
+        >
+          <ArrowLeft size={18} color={theme.textPrimary} />
         </TouchableOpacity>
-        <View style={{ flex: 1, marginLeft: 8 }}>
-          <Text style={[styles.appBarTitle, { color: textColor }]}>Lead #{lead.leadId}</Text>
-          <Text style={[styles.appBarSubtitle, { color: subTextColor }]}>Public Lead & Inquiry</Text>
+
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <Text style={[styles.appBarTitle, { color: theme.textPrimary }]}>
+            Lead #{lead.leadId}
+          </Text>
+          <Text style={[styles.appBarSubtitle, { color: theme.textSecondary }]}>
+            Public Lead & Inquiry Details
+          </Text>
         </View>
+
         <TouchableOpacity
           onPress={handleDelete}
           disabled={deleteMutation.isPending}
-          style={styles.deleteHeaderBtn}
+          style={[styles.deleteHeaderBtn, { backgroundColor: isDark ? '#7f1d1d25' : '#fef2f2' }]}
+          activeOpacity={0.7}
         >
-          <Ionicons name="trash-outline" size={18} color="#ef4444" />
+          <Trash2 size={16} color="#ef4444" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomSpacing + 24 }]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Customer Header Hero Card */}
-        <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+        <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
           <View style={styles.heroRow}>
+            {/* Avatar */}
             <View style={[styles.avatarBox, { backgroundColor: typeConfig.bg }]}>
-              <Ionicons name={typeConfig.icon} size={24} color={typeConfig.text} />
+              <Text style={[styles.avatarText, { color: typeConfig.text }]}>
+                {getInitials(lead.name)}
+              </Text>
             </View>
+
             <View style={{ flex: 1 }}>
-              <Text style={[styles.heroName, { color: textColor }]}>{lead.name}</Text>
-              <Text style={[styles.heroPhone, { color: subTextColor }]}>{lead.phone}</Text>
-              <View style={styles.badgeRow}>
+              <View style={styles.heroNameRow}>
+                <Text style={[styles.heroName, { color: theme.textPrimary }]} numberOfLines={1}>
+                  {lead.name}
+                </Text>
                 <View
                   style={[
                     styles.typeBadge,
                     { backgroundColor: typeConfig.bg, borderColor: typeConfig.border },
                   ]}
                 >
+                  <TypeIcon size={11} color={typeConfig.text} />
                   <Text style={[styles.typeBadgeText, { color: typeConfig.text }]}>
-                    {lead.type || 'Enquiry'}
+                    {typeConfig.label}
                   </Text>
                 </View>
-                {lead.status ? (
-                  <View style={[styles.statusBadge, { borderColor: borderCol }]}>
-                    <Text style={[styles.statusBadgeText, { color: textColor }]}>{lead.status}</Text>
-                  </View>
-                ) : null}
+              </View>
+
+              {lead.phone ? (
+                <Text style={[styles.heroPhone, { color: theme.textSecondary }]}>
+                  {lead.phone}
+                </Text>
+              ) : null}
+
+              <View style={styles.heroMetaRow}>
+                <Clock size={11} color={theme.textMuted} />
+                <Text style={[styles.heroDate, { color: theme.textMuted }]}>
+                  Received: {formatDate(lead.createdOn)}
+                </Text>
               </View>
             </View>
           </View>
 
           {/* Direct Action Buttons */}
-          <View style={[styles.actionsRow, { borderTopColor: borderCol }]}>
+          <View style={[styles.actionsRow, { borderTopColor: theme.border }]}>
             <TouchableOpacity onPress={handleCall} style={[styles.actionBtn, styles.callBtn]}>
-              <Ionicons name="call" size={15} color="#ffffff" />
+              <Phone size={14} color="#ffffff" />
               <Text style={styles.actionBtnText}>Call</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleWhatsApp} style={[styles.actionBtn, styles.waBtn]}>
-              <FontAwesome5 name="whatsapp" size={15} color="#ffffff" />
+              <MessageCircle size={14} color="#ffffff" />
               <Text style={styles.actionBtnText}>WhatsApp</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleSms} style={[styles.actionBtn, styles.smsBtn]}>
-              <Ionicons name="chatbubble-ellipses" size={15} color="#ffffff" />
+              <Mail size={14} color="#ffffff" />
               <Text style={styles.actionBtnText}>SMS</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Message Card */}
-        <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+        <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
           <View style={styles.cardHeader}>
-            <Ionicons name="chatbox-ellipses-outline" size={18} color="#2563eb" />
-            <Text style={[styles.cardTitle, { color: textColor }]}>Inquiry Message</Text>
+            <MessageSquare size={16} color={theme.brand} />
+            <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>Inquiry Message</Text>
           </View>
           <View
             style={[
               styles.messageContainer,
-              { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: borderCol },
+              {
+                backgroundColor: isDark ? 'rgba(22, 22, 22, 0.6)' : '#f4f4f5',
+                borderColor: theme.border,
+              },
             ]}
           >
-            <Text style={[styles.messageText, { color: textColor }]}>
-              {lead.message || 'No message provided with this lead.'}
+            <Text style={[styles.messageText, { color: theme.textPrimary }]}>
+              {lead.message ? `"${lead.message.trim()}"` : 'No message was submitted with this inquiry.'}
             </Text>
           </View>
         </View>
 
         {/* Attribution & Entity Details Card */}
-        <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+        <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
           <View style={styles.cardHeader}>
-            <Ionicons name="business-outline" size={18} color="#8b5cf6" />
-            <Text style={[styles.cardTitle, { color: textColor }]}>Attribution & Property</Text>
+            <Building2 size={16} color={theme.brand} />
+            <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>
+              Workspace & Property
+            </Text>
           </View>
 
           <View style={styles.infoGrid}>
             {/* Tenant / Company */}
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: subTextColor }]}>Tenant / Company</Text>
-              <Text style={[styles.infoValue, { color: textColor }]}>
-                {lead.tenantName || 'N/A'} {lead.tenantId ? `(ID: ${lead.tenantId})` : ''}
+            <View style={[styles.infoRow, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>
+                Tenant Workspace
+              </Text>
+              <Text style={[styles.infoValue, { color: theme.textPrimary }]}>
+                {lead.tenantName || 'Direct / Central'} {lead.tenantId ? `(#${lead.tenantId})` : ''}
               </Text>
             </View>
 
             {/* Property */}
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: subTextColor }]}>Property</Text>
-              <Text style={[styles.infoValue, { color: textColor }]}>
-                {lead.propertyName || 'N/A'} {lead.propertyId ? `(ID: ${lead.propertyId})` : ''}
+            <View style={[styles.infoRow, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>
+                Interested Property
+              </Text>
+              <Text style={[styles.infoValue, { color: theme.accent, fontWeight: '700' }]}>
+                {lead.propertyName || 'Direct / General Inquiry'}
               </Text>
             </View>
 
             {/* Assigned Agent */}
             <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: subTextColor }]}>Assigned Agent</Text>
-              <Text style={[styles.infoValue, { color: textColor }]}>
-                {lead.agentName || 'Central Team'} {lead.agentId ? `(ID: ${lead.agentId})` : ''}
+              <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>
+                Assigned Agent
+              </Text>
+              <Text style={[styles.infoValue, { color: theme.textPrimary }]}>
+                {lead.agentName || 'Central Team'}
               </Text>
             </View>
-
-            {/* Support */}
-            {lead.support ? (
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, { color: subTextColor }]}>Support</Text>
-                <Text style={[styles.infoValue, { color: textColor }]}>{lead.support}</Text>
-              </View>
-            ) : null}
           </View>
         </View>
 
         {/* Action & Schedule Details Card */}
-        <View style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}>
+        <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
           <View style={styles.cardHeader}>
-            <Ionicons name="calendar-outline" size={18} color="#f59e0b" />
-            <Text style={[styles.cardTitle, { color: textColor }]}>Schedule & Actions</Text>
+            <Calendar size={16} color="#f59e0b" />
+            <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>
+              Schedule & Specifics
+            </Text>
           </View>
 
           <View style={styles.infoGrid}>
             {/* Callback Requested */}
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: subTextColor }]}>Callback Requested</Text>
+            <View style={[styles.infoRow, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>
+                Callback Requested
+              </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons
-                  name={lead.callbackRequested ? 'checkmark-circle' : 'close-circle'}
-                  size={16}
-                  color={lead.callbackRequested ? '#10b981' : '#94a3b8'}
-                />
+                {lead.callbackRequested ? (
+                  <CheckCircle2 size={16} color="#10b981" />
+                ) : (
+                  <XCircle size={16} color={theme.textMuted} />
+                )}
                 <Text
                   style={[
                     styles.infoValue,
                     {
-                      color: lead.callbackRequested ? '#10b981' : subTextColor,
+                      color: lead.callbackRequested ? '#10b981' : theme.textSecondary,
                       fontWeight: '700',
                     },
                   ]}
@@ -282,33 +346,19 @@ export const PublicLeadDetailContent: React.FC<PublicLeadDetailContentProps> = (
 
             {/* Scheduled Site Visit Date */}
             <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: subTextColor }]}>Site Visit Date</Text>
+              <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>
+                Site Visit Date
+              </Text>
               <Text
                 style={[
                   styles.infoValue,
                   {
-                    color: lead.siteVisitDate ? '#8b5cf6' : textColor,
-                    fontWeight: lead.siteVisitDate ? '700' : '400',
+                    color: lead.siteVisitDate ? '#8b5cf6' : theme.textPrimary,
+                    fontWeight: lead.siteVisitDate ? '700' : '500',
                   },
                 ]}
               >
                 {formatDate(lead.siteVisitDate)}
-              </Text>
-            </View>
-
-            {/* Latest Action */}
-            {lead.latestAction ? (
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, { color: subTextColor }]}>Latest Action</Text>
-                <Text style={[styles.infoValue, { color: textColor }]}>{lead.latestAction}</Text>
-              </View>
-            ) : null}
-
-            {/* Created On */}
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: subTextColor }]}>Created On</Text>
-              <Text style={[styles.infoValue, { color: textColor }]}>
-                {formatDate(lead.createdOn)}
               </Text>
             </View>
           </View>
@@ -327,34 +377,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  errorTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#ef4444',
-  },
-  errorDesc: {
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginTop: 8,
-  },
-  backBtnText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
   },
   appBar: {
     flexDirection: 'row',
@@ -363,85 +385,101 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-  headerBtn: {
-    padding: 6,
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   appBarTitle: {
     fontSize: 16,
     fontWeight: '800',
   },
   appBarSubtitle: {
-    fontSize: 11,
+    fontSize: 11.5,
+    fontWeight: '500',
+    marginTop: 1,
   },
   deleteHeaderBtn: {
-    padding: 8,
+    width: 36,
+    height: 36,
     borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
     padding: 16,
-    gap: 14,
-    paddingBottom: 100,
+    gap: 12,
   },
   card: {
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 14,
     padding: 16,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
+    elevation: 1,
   },
   heroRow: {
     flexDirection: 'row',
-    gap: 12,
     alignItems: 'center',
+    gap: 14,
   },
   avatarBox: {
     width: 48,
     height: 48,
-    borderRadius: 14,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroName: {
+  avatarText: {
     fontSize: 18,
     fontWeight: '800',
   },
-  heroPhone: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  badgeRow: {
+  heroNameRow: {
     flexDirection: 'row',
-    gap: 6,
-    marginTop: 6,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  heroName: {
+    fontSize: 17,
+    fontWeight: '800',
+    flex: 1,
   },
   typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
-    borderWidth: 0.5,
+    borderWidth: 1,
   },
   typeBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
-    textTransform: 'uppercase',
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 0.5,
+  heroPhone: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    marginTop: 3,
   },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  heroDate: {
+    fontSize: 11.5,
+    fontWeight: '500',
   },
   actionsRow: {
     flexDirection: 'row',
     gap: 10,
     marginTop: 14,
-    paddingTop: 12,
+    paddingTop: 14,
     borderTopWidth: 1,
   },
   actionBtn: {
@@ -451,21 +489,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 9,
-    borderRadius: 10,
+    borderRadius: 8,
+  },
+  actionBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   callBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#835CEE',
   },
   waBtn: {
     backgroundColor: '#10b981',
   },
   smsBtn: {
-    backgroundColor: '#8b5cf6',
-  },
-  actionBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
+    backgroundColor: '#6366f1',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -478,27 +516,60 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   messageContainer: {
-    padding: 12,
     borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
   },
   messageText: {
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 19,
+    fontStyle: 'italic',
   },
   infoGrid: {
-    gap: 12,
+    gap: 2,
   },
   infoRow: {
-    gap: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 9,
+    borderBottomWidth: 1,
   },
   infoLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontSize: 12.5,
+    fontWeight: '500',
   },
   infoValue: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  loadingText: {
+    fontSize: 13.5,
+    marginTop: 12,
+    fontWeight: '500',
+  },
+  errorTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#ef4444',
+    marginTop: 12,
+  },
+  errorDesc: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  backBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
   },
 });

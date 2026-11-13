@@ -33,19 +33,14 @@ import {
 } from 'lucide-react-native';
 import { UnassignedLeadService } from '../../../admin/services/UnassignedLeadService';
 import { UnassignedLeadItem } from '../../../admin/models/UnassignedLeadTypes';
-
-// List of active organization users / executives for assignment selection
-const AGENT_OPTIONS = [
-  { id: 5, name: 'Executive Agent 5 (Rahul)', role: 'Agent' },
-  { id: 2, name: 'Ramesh Kumar', role: 'Agent' },
-  { id: 3, name: 'Neha Sharma', role: 'Agent' },
-  { id: 4, name: 'Sanjay Gupta', role: 'Manager' },
-];
+import { PropertyService } from '../../../admin/services/PropertyService';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 export default function UnassignedLeadsScreen() {
   const { isDark } = useTheme();
   const router = useRouter();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Color tokens
   const bgColor = adminTheme.primaryBg;
@@ -72,8 +67,27 @@ export default function UnassignedLeadsScreen() {
 
   // Assign Executive Modal state
   const [showAssignModal, setShowAssignModal] = useState<boolean>(false);
-  const [selectedExecutiveId, setSelectedExecutiveId] = useState<number>(5);
+  const [agentOptions, setAgentOptions] = useState<{ id: number; name: string; role: string }[]>([]);
+  const [selectedExecutiveId, setSelectedExecutiveId] = useState<number | null>(null);
   const [assignLoading, setAssignLoading] = useState<boolean>(false);
+
+  // Load dynamic agents from backend
+  useEffect(() => {
+    PropertyService.getExecutives().then((res) => {
+      if (res && res.success) {
+        const rawList = res.executives || (res as any).data || [];
+        const formatted = rawList.map((item: any) => ({
+          id: item.userId || item.id,
+          name: item.username || item.fullName || item.name || `User #${item.userId}`,
+          role: item.role || 'Sales',
+        }));
+        setAgentOptions(formatted);
+        if (formatted.length > 0) {
+          setSelectedExecutiveId(formatted[0].id);
+        }
+      }
+    }).catch(() => {});
+  }, []);
 
   // Delete Lead Modal state
   const [deleteLeadTarget, setDeleteLeadTarget] = useState<UnassignedLeadItem | null>(null);
@@ -140,7 +154,10 @@ export default function UnassignedLeadsScreen() {
 
   // Assign Executive action
   const handleAssignSubmit = async () => {
-    if (selectedLeadIds.length === 0) return;
+    if (selectedLeadIds.length === 0 || !selectedExecutiveId) {
+      Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please select an executive to assign' });
+      return;
+    }
     try {
       setAssignLoading(true);
       const res = await UnassignedLeadService.assignExecutive({
@@ -309,7 +326,8 @@ export default function UnassignedLeadsScreen() {
 
       {/* Main Content Area */}
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing, flexGrow: 1, gap: 12 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[brandCol]} />}
       >
         {loading ? (
@@ -607,44 +625,50 @@ export default function UnassignedLeadsScreen() {
 
             {/* Agent Options Selector */}
             <View style={{ gap: 8 }}>
-              {AGENT_OPTIONS.map((agent) => {
-                const isSelected = selectedExecutiveId === agent.id;
-                return (
-                  <TouchableOpacity
-                    key={agent.id}
-                    onPress={() => setSelectedExecutiveId(agent.id)}
-                    style={{
-                      padding: 12,
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: isSelected ? brandCol : borderCol,
-                      backgroundColor: isSelected ? adminTheme.badgeBg : bgColor,
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <View>
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: textColor }}>
-                        {agent.name}
-                      </Text>
-                      <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
-                        Role: {agent.role}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <View
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: 4,
-                          backgroundColor: brandCol,
-                        }}
-                      />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
+              {agentOptions.length === 0 ? (
+                <Text style={{ color: subTextColor, fontSize: 13, padding: 12 }}>
+                  Loading organization agents...
+                </Text>
+              ) : (
+                agentOptions.map((agent) => {
+                  const isSelected = selectedExecutiveId === agent.id;
+                  return (
+                    <TouchableOpacity
+                      key={agent.id}
+                      onPress={() => setSelectedExecutiveId(agent.id)}
+                      style={{
+                        padding: 12,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: isSelected ? brandCol : borderCol,
+                        backgroundColor: isSelected ? adminTheme.badgeBg : bgColor,
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <View>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: textColor }}>
+                          {agent.name}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                          Role: {agent.role}
+                        </Text>
+                      </View>
+                      {isSelected && (
+                        <View
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: brandCol,
+                          }}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </View>
 
             {/* Submit Assignment Button */}

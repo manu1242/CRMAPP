@@ -41,11 +41,13 @@ import ActiveConversations from '../../app/admin/chatbot/components/ActiveConver
 import OnlineAgents from '../../app/admin/chatbot/components/OnlineAgents';
 import RecentMessages from '../../app/admin/chatbot/components/RecentMessages';
 import NotificationsList from '../../app/admin/chatbot/components/NotificationsList';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 
 export default function ChatbotContent() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
@@ -269,7 +271,8 @@ export default function ChatbotContent() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{ padding: 16, paddingBottom: 50 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing, flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => fetchDashboardData(true)} colors={[brandColor]} />

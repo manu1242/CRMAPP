@@ -11,13 +11,19 @@ interface StatsCardProps {
   isDarkTheme?: boolean;
 }
 
-export default function StatsCard({ title, value, icon: Icon, color }: StatsCardProps) {
+export default function StatsCard({
+  title = '',
+  value = 0,
+  icon: Icon,
+  color = '#3b82f6',
+}: Partial<StatsCardProps> = {}) {
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
 
   const cardBg = adminTheme.cardBg;
   const textColor = adminTheme.textPrimary;
   const borderCol = adminTheme.border;
+  const safeTitle = typeof title === 'string' ? title.toUpperCase() : String(title ?? '');
 
   return (
     <View
@@ -31,11 +37,11 @@ export default function StatsCard({ title, value, icon: Icon, color }: StatsCard
     >
       <View style={styles.content}>
         <View style={styles.left}>
-          <Text style={[styles.title, { color }]}>{title.toUpperCase()}</Text>
-          <Text style={[styles.value, { color: textColor }]}>{value}</Text>
+          <Text style={[styles.title, { color }]}>{safeTitle}</Text>
+          <Text style={[styles.value, { color: textColor }]}>{value ?? 0}</Text>
         </View>
         <View style={styles.iconContainer}>
-          <Icon size={24} color={isDark ? '#e4e4e7' : '#18181b'} />
+          {Icon ? <Icon size={24} color={isDark ? '#e4e4e7' : '#18181b'} /> : null}
         </View>
       </View>
     </View>

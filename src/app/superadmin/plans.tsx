@@ -7,25 +7,27 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  BackHandler
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import Header from '../../superadmin/components/Header';
 import SidebarDrawer from '../../auth/components/SidebarDrawer';
 import { usePlansQuery, useDeletePlanMutation } from '../../superadmin/plans/hooks/usePlans';
 import { Plan } from '../../superadmin/plans/models/Plan';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 
 const PLAN_TYPE_COLORS: Record<string, { bg: string; border: string; badge: string; text: string }> = {
   Basic: { bg: '#f0fdf4', border: '#86efac', badge: '#16a34a', text: '#15803d' },
-  Standard: { bg: '#eff6ff', border: '#93c5fd', badge: '#2563eb', text: '#1d4ed8' },
+  Standard: { bg: '#f3effe', border: '#c4b5fd', badge: '#835CEE', text: '#6d45d4' },
   Enterprise: { bg: '#fdf4ff', border: '#c4b5fd', badge: '#9333ea', text: '#7e22ce' },
 };
 
 const PLAN_TYPE_DARK_COLORS: Record<string, { bg: string; border: string; badge: string; text: string }> = {
   Basic: { bg: '#062f17', border: '#15803d', badge: '#16a34a', text: '#86efac' },
-  Standard: { bg: '#0f2042', border: '#1d4ed8', badge: '#2563eb', text: '#93c5fd' },
+  Standard: { bg: '#835CEE25', border: '#835CEE50', badge: '#835CEE', text: '#a78bfa' },
   Enterprise: { bg: '#240b36', border: '#7e22ce', badge: '#9333ea', text: '#c4b5fd' },
 };
 
@@ -35,33 +37,20 @@ function formatPrice(price: number) {
 
 export default function PlansScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  // Handle Android physical back button override to go to subscriptions hub
-  useEffect(() => {
-    const backAction = () => {
-      router.replace('/superadmin/subscriptions-hub');
-      return true; // prevent default behavior
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction
-    );
-
-    return () => backHandler.remove();
-  }, [router]);
   const { data, isLoading, isError, refetch, isRefetching } = usePlansQuery();
   const deleteMutation = useDeletePlanMutation();
   const plans: Plan[] = data?.data ?? [];
   const { isDark } = useTheme();
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Theme colors
-  const bgColor = isDark ? '#0f172a' : '#f3f4f6';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#f1f5f9';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
 
   const getColors = (planType: string) => {
     const config = isDark ? PLAN_TYPE_DARK_COLORS : PLAN_TYPE_COLORS;
@@ -87,31 +76,65 @@ export default function PlansScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: textColor }}>Subscription Plans</Text>
-            <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2, fontWeight: '500' }}>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: Platform.OS === 'android' ? Math.max(14, insets.top) : Math.max(10, insets.top),
+          paddingBottom: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottomWidth: 1,
+          borderBottomColor: borderCol,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 }}>
+          <TouchableOpacity
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.navigate('/superadmin/subscriptions-hub');
+            }}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: cardBg,
+              borderWidth: 1,
+              borderColor: borderCol,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={20} color={textColor} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: textColor }} numberOfLines={1}>
+              Subscription Plans
+            </Text>
+            <Text style={{ color: subTextColor, fontSize: 11, marginTop: 1, fontWeight: '500' }} numberOfLines={1}>
               Manage SaaS pricing tiers
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => router.push('/superadmin/create-plan')}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#1e73be', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 }}
-          >
-            <Ionicons name="add-circle" size={16} color="#fff" />
-            <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 12 }}>New Plan</Text>
-          </TouchableOpacity>
         </View>
+        <TouchableOpacity
+          onPress={() => router.push('/superadmin/create-plan')}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#835CEE', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 }}
+        >
+          <Ionicons name="add-circle" size={16} color="#fff" />
+          <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 12 }}>New Plan</Text>
+        </TouchableOpacity>
+      </View>
 
         <ScrollView
           style={{ flex: 1, paddingHorizontal: 16 }}
-          contentContainerStyle={{ paddingBottom: 80, gap: 12 }}
+          contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1, gap: 12 }}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={['#0284c7']} />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={['#835CEE']} />
           }
         >
           {isLoading ? (
-            <ActivityIndicator style={{ marginTop: 64 }} size="large" color="#0284c7" />
+            <ActivityIndicator style={{ marginTop: 64 }} size="large" color="#835CEE" />
           ) : isError ? (
             <View style={{ padding: 16, backgroundColor: isDark ? '#7f1d1d20' : '#fef2f2', borderWidth: 1, borderColor: isDark ? '#7f1d1d' : '#fecaca', borderRadius: 12, alignItems: 'center', marginTop: 24 }}>
               <Text style={{ color: '#dc2626', fontWeight: '600', marginBottom: 8 }}>Failed to load plans</Text>
@@ -162,9 +185,9 @@ export default function PlansScreen() {
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                       <TouchableOpacity
                         onPress={() => router.push({ pathname: '/superadmin/create-plan', params: { id: plan.planId } })}
-                        style={{ padding: 8, backgroundColor: isDark ? '#1e293b' : '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#334155' : '#cbd5e1' }}
+                        style={{ padding: 8, backgroundColor: isDark ? '#242424' : '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#2e2e2e' : '#e4e4e7' }}
                       >
-                        <Ionicons name="create-outline" size={16} color={isDark ? '#cbd5e1' : '#475569'} />
+                        <Ionicons name="create-outline" size={16} color={isDark ? '#a1a1aa' : '#52525b'} />
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => handleDeletePlan(plan)}
@@ -177,15 +200,15 @@ export default function PlansScreen() {
 
                   {/* Pricing Row */}
                   <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                    <View style={{ flex: 1, backgroundColor: isDark ? '#0f172a' : '#ffffff', borderWidth: 1, borderColor: borderCol, borderRadius: 12, padding: 10, alignItems: 'center' }}>
+                    <View style={{ flex: 1, backgroundColor: isDark ? '#161616' : '#f4f4f5', borderWidth: 1, borderColor: borderCol, borderRadius: 12, padding: 10, alignItems: 'center' }}>
                       <Text style={{ color: subTextColor, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Monthly</Text>
                       <Text style={{ color: textColor, fontWeight: '700', fontSize: 14, marginTop: 2 }}>{formatPrice(plan.monthlyPrice)}</Text>
                     </View>
-                    <View style={{ flex: 1, backgroundColor: isDark ? '#0f172a' : '#ffffff', borderWidth: 1, borderColor: borderCol, borderRadius: 12, padding: 10, alignItems: 'center' }}>
+                    <View style={{ flex: 1, backgroundColor: isDark ? '#161616' : '#f4f4f5', borderWidth: 1, borderColor: borderCol, borderRadius: 12, padding: 10, alignItems: 'center' }}>
                       <Text style={{ color: subTextColor, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Yearly</Text>
                       <Text style={{ color: textColor, fontWeight: '700', fontSize: 14, marginTop: 2 }}>{formatPrice(plan.yearlyPrice)}</Text>
                     </View>
-                    <View style={{ flex: 1, backgroundColor: isDark ? '#0f172a' : '#ffffff', borderWidth: 1, borderColor: borderCol, borderRadius: 12, padding: 10, alignItems: 'center' }}>
+                    <View style={{ flex: 1, backgroundColor: isDark ? '#161616' : '#f4f4f5', borderWidth: 1, borderColor: borderCol, borderRadius: 12, padding: 10, alignItems: 'center' }}>
                       <Text style={{ color: subTextColor, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Support</Text>
                       <Text style={{ color: textColor, fontWeight: '700', fontSize: 12, marginTop: 2 }}>{plan.supportLevel}</Text>
                     </View>
@@ -200,7 +223,7 @@ export default function PlansScreen() {
                       { label: 'Partners', value: plan.maxPartners === -1 ? '∞' : plan.maxPartners },
                       { label: 'Storage', value: plan.maxStorageGB === -1 ? '∞' : `${plan.maxStorageGB}GB` },
                     ].map((item) => (
-                      <View key={item.label} style={{ backgroundColor: isDark ? '#0f172a' : '#ffffff', borderWidth: 1, borderColor: borderCol, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center' }}>
+                      <View key={item.label} style={{ backgroundColor: isDark ? '#161616' : '#f4f4f5', borderWidth: 1, borderColor: borderCol, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center' }}>
                         <Text style={{ color: textColor, fontWeight: '700', fontSize: 12 }}>{item.value}</Text>
                         <Text style={{ color: subTextColor, fontSize: 10 }}>{item.label}</Text>
                       </View>
@@ -231,9 +254,9 @@ function Chip({ label, color }: { label: string; color: string }) {
   const { isDark } = useTheme();
   return (
     <View style={{
-      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+      backgroundColor: isDark ? '#242424' : '#ffffff',
       borderWidth: 1,
-      borderColor: isDark ? '#334155' : '#e2e8f0',
+      borderColor: isDark ? '#2e2e2e' : '#e4e4e7',
       borderRadius: 20,
       paddingHorizontal: 8,
       paddingVertical: 2,

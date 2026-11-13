@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
-  BackHandler
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +15,7 @@ import SidebarDrawer from '../../auth/components/SidebarDrawer';
 import AppFooter from '../../auth/components/AppFooter';
 import Header from '../../superadmin/components/Header';
 import { useTheme } from '../../contexts/ThemeContext';
-import BottomNav from '../../superadmin/components/BottomNav';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 
 import { useTenantsQuery } from '../../superadmin/tenants/hooks/useTenants';
 import { useTenantFilterStore } from '../../superadmin/tenants/store/tenantStore';
@@ -28,30 +27,16 @@ export default function SuperAdminTenantsScreen() {
   const insets = useSafeAreaInsets();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { isDark } = useTheme();
-
-  // Handle Android physical back button override to go to tenants hub
-  useEffect(() => {
-    const backAction = () => {
-      router.replace('/superadmin/tenants-hub');
-      return true; // prevent default behavior
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction
-    );
-
-    return () => backHandler.remove();
-  }, [router]);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Theme colors
-  const bgColor = isDark ? '#0f172a' : '#f3f4f6';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#f1f5f9';
-  const paginationBg = isDark ? '#1e293b' : '#ffffff';
-  const paginationBorder = isDark ? '#334155' : '#f1f5f9';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
+  const paginationBg = isDark ? '#242424' : '#ffffff';
+  const paginationBorder = isDark ? '#2e2e2e' : '#e4e4e7';
 
   // Get filter settings from Zustand store
   const filters = useTenantFilterStore();
@@ -103,17 +88,17 @@ export default function SuperAdminTenantsScreen() {
       {/* Scroll Content */}
       <ScrollView
         style={{ flex: 1, paddingHorizontal: 16 }}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={handleRefresh}
-            colors={['#0284c7']}
+            colors={['#835CEE']}
           />
         }
       >
-        {isLoading ? (
-          <ActivityIndicator style={{ marginTop: 64 }} size="large" color="#0284c7" />
+        {(isLoading && !data) ? (
+          <ActivityIndicator style={{ marginTop: 64 }} size="large" color="#835CEE" />
         ) : error ? (
           <View style={{ padding: 16, backgroundColor: isDark ? '#7f1d1d20' : '#fef2f2', borderWidth: 1, borderColor: isDark ? '#7f1d1d' : '#fecaca', borderRadius: 12, alignItems: 'center', marginTop: 24 }}>
             <Text style={{ color: '#dc2626', fontWeight: '600', marginBottom: 8 }}>Error loading tenants</Text>
@@ -127,7 +112,7 @@ export default function SuperAdminTenantsScreen() {
           </View>
         ) : items.length === 0 ? (
           <View style={{ backgroundColor: cardBg, borderRadius: 12, borderWidth: 1, borderColor: borderCol, padding: 32, alignItems: 'center', marginTop: 16 }}>
-            <Ionicons name="business-outline" size={48} color="#94a3b8" />
+            <Ionicons name="business-outline" size={48} color={isDark ? '#71717a' : '#a1a1aa'} />
             <Text style={{ color: textColor, fontWeight: '700', fontSize: 16, marginTop: 16 }}>No Tenants Found</Text>
             <Text style={{ color: subTextColor, fontSize: 12, textAlign: 'center', marginTop: 8, paddingHorizontal: 24 }}>
               Try modifying your search query or filters. If this is a new setup, create your first tenant.
@@ -144,12 +129,12 @@ export default function SuperAdminTenantsScreen() {
               <TouchableOpacity
                 disabled={filters.page <= 1}
                 onPress={() => filters.setPage(filters.page - 1)}
-                style={{ padding: 8, borderRadius: 8, borderWidth: 1, borderColor: filters.page <= 1 ? (isDark ? '#1e293b' : '#f1f5f9') : (isDark ? '#334155' : '#e2e8f0'), backgroundColor: filters.page <= 1 ? (isDark ? '#0f172a' : '#f8fafc') : (isDark ? '#1e293b' : '#ffffff') }}
+                style={{ padding: 8, borderRadius: 8, borderWidth: 1, borderColor: filters.page <= 1 ? (isDark ? '#2e2e2e' : '#f4f4f5') : (isDark ? '#2e2e2e' : '#e4e4e7'), backgroundColor: filters.page <= 1 ? (isDark ? '#161616' : '#f4f4f5') : (isDark ? '#242424' : '#ffffff') }}
               >
                 <Ionicons
                   name="chevron-back"
                   size={16}
-                  color={filters.page <= 1 ? '#cbd5e1' : '#64748b'}
+                  color={filters.page <= 1 ? (isDark ? '#52525b' : '#a1a1aa') : (isDark ? '#a1a1aa' : '#52525b')}
                 />
               </TouchableOpacity>
 
@@ -160,12 +145,12 @@ export default function SuperAdminTenantsScreen() {
               <TouchableOpacity
                 disabled={filters.page >= totalPages}
                 onPress={() => filters.setPage(filters.page + 1)}
-                style={{ padding: 8, borderRadius: 8, borderWidth: 1, borderColor: filters.page >= totalPages ? (isDark ? '#1e293b' : '#f1f5f9') : (isDark ? '#334155' : '#e2e8f0'), backgroundColor: filters.page >= totalPages ? (isDark ? '#0f172a' : '#f8fafc') : (isDark ? '#1e293b' : '#ffffff') }}
+                style={{ padding: 8, borderRadius: 8, borderWidth: 1, borderColor: filters.page >= totalPages ? (isDark ? '#2e2e2e' : '#f4f4f5') : (isDark ? '#2e2e2e' : '#e4e4e7'), backgroundColor: filters.page >= totalPages ? (isDark ? '#161616' : '#f4f4f5') : (isDark ? '#242424' : '#ffffff') }}
               >
                 <Ionicons
                   name="chevron-forward"
                   size={16}
-                  color={filters.page >= totalPages ? '#cbd5e1' : '#64748b'}
+                  color={filters.page >= totalPages ? (isDark ? '#52525b' : '#a1a1aa') : (isDark ? '#a1a1aa' : '#52525b')}
                 />
               </TouchableOpacity>
             </View>

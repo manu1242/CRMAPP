@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
-  BackHandler,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -27,9 +26,11 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
 import { PropertyService } from '../../../admin/services/PropertyService';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
-const FLAT_STATUSES = ['Available', 'Sold', 'Blocked'];
+const FLAT_STATUSES = ['Available', 'Booked', 'Sold', 'Blocked'];
 const BHK_OPTIONS = ['1 BHK', '2 BHK', '3 BHK', '4 BHK', '5 BHK', 'Studio', 'Duplex'];
+const PROPERTY_TYPES = ['Apartment', 'Flat', 'Standalone', 'Villa', 'Commercial'];
 
 export default function AddFlatScreen() {
   const router = useRouter();
@@ -40,6 +41,7 @@ export default function AddFlatScreen() {
 
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
   const textColor = adminTheme.textPrimary;
@@ -59,16 +61,6 @@ export default function AddFlatScreen() {
     }
   };
 
-  useEffect(() => {
-    const onBackPress = () => {
-      handleGoBack();
-      return true;
-    };
-
-    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => backSubscription.remove();
-  }, []);
-
   const [form, setForm] = useState({
     blockName: '',
     floorName: '',
@@ -77,6 +69,7 @@ export default function AddFlatScreen() {
     propertyType: 'Apartment',
     propertyGroup: 'Residential',
     areaSqft: '',
+    costPerSqft: '',
     location: '',
     bedroomCount: '2',
     bathroomCount: '2',
@@ -86,9 +79,59 @@ export default function AddFlatScreen() {
   });
 
   const [isBhkOpen, setBhkOpen] = useState(false);
+  const [isPropertyTypeOpen, setPropertyTypeOpen] = useState(false);
   const [isStatusOpen, setStatusOpen] = useState(false);
+  const [isPriceManuallyEdited, setIsPriceManuallyEdited] = useState(false);
 
-  // Fetch flats using TanStack Query
+  // Fetch property details for auto-populating location on new flat
+  const { data: propertyData } = useQuery({
+    queryKey: ['property', propId],
+    queryFn: async () => {
+      const res = await PropertyService.getPropertyById(propId);
+      return res?.success ? res : null;
+    },
+    enabled: !isEditMode && !!propId,
+  });
+
+  useEffect(() => {
+    if (!isEditMode && propertyData?.location && !form.location) {
+      setForm((prev) => ({ ...prev, location: propertyData.location || '' }));
+    }
+  }, [propertyData, isEditMode]);
+
+  // Recalculate price when areaSqft or costPerSqft changes, unless price was manually entered
+  const handleAreaChange = (val: string) => {
+    setForm((prev) => {
+      const updated = { ...prev, areaSqft: val };
+      if (!isPriceManuallyEdited && val && prev.costPerSqft) {
+        const area = parseFloat(val);
+        const rate = parseFloat(prev.costPerSqft);
+        if (!isNaN(area) && !isNaN(rate)) {
+          updated.price = (area * rate).toFixed(2);
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleCostPerSqftChange = (val: string) => {
+    setForm((prev) => {
+      const updated = { ...prev, costPerSqft: val };
+      if (!isPriceManuallyEdited && val && prev.areaSqft) {
+        const area = parseFloat(prev.areaSqft);
+        const rate = parseFloat(val);
+        if (!isNaN(area) && !isNaN(rate)) {
+          updated.price = (area * rate).toFixed(2);
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handlePriceChange = (val: string) => {
+    setIsPriceManuallyEdited(true);
+    setForm((prev) => ({ ...prev, price: val }));
+  };
   const { data: flats = [], isLoading: loading } = useQuery({
     queryKey: ['flats', propId],
     queryFn: async () => {
@@ -111,6 +154,7 @@ export default function AddFlatScreen() {
           propertyType: flat.propertyType || 'Apartment',
           propertyGroup: flat.propertyGroup || 'Residential',
           areaSqft: flat.areaSqft ? flat.areaSqft.toString() : '',
+          costPerSqft: flat.costPerSqft ? flat.costPerSqft.toString() : '',
           location: flat.location || '',
           bedroomCount: flat.bedroomCount ? flat.bedroomCount.toString() : '2',
           bathroomCount: flat.bathroomCount ? flat.bathroomCount.toString() : '2',
@@ -118,6 +162,7 @@ export default function AddFlatScreen() {
           flatStatus: flat.flatStatus || 'Available',
           price: flat.price ? flat.price.toString() : '',
         });
+        if (flat.price) setIsPriceManuallyEdited(true);
       }
     }
   }, [flats, isEditMode, fId]);
@@ -138,6 +183,7 @@ export default function AddFlatScreen() {
     formData.append('propertyType', form.propertyType);
     formData.append('propertyGroup', form.propertyGroup);
     formData.append('areaSqft', form.areaSqft);
+    formData.append('costPerSqft', form.costPerSqft);
     formData.append('location', form.location);
     formData.append('bedroomCount', form.bedroomCount);
     formData.append('bathroomCount', form.bathroomCount);
@@ -195,7 +241,8 @@ export default function AddFlatScreen() {
         </Text>
       </View>
       <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: Math.max(bottomSpacing, 120), flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -236,14 +283,14 @@ export default function AddFlatScreen() {
             </View>
           </View>
 
-          {/* Row 2: BHK + Area + Price */}
+          {/* Row 2: BHK + Property Type */}
           <View style={styles.formRow}>
             {/* BHK Dropdown */}
-            <View style={{ flex: 1, zIndex: 20 }}>
-              <Text style={[styles.label, { color: subTextColor }]}>BHK</Text>
+            <View style={{ flex: 1, zIndex: 25 }}>
+              <Text style={[styles.label, { color: subTextColor }]}>BHK *</Text>
               <TouchableOpacity
                 style={[styles.formInput, styles.selectInput, { backgroundColor: inputBg, borderColor: isBhkOpen ? brandCol : borderCol }]}
-                onPress={() => { setBhkOpen(!isBhkOpen); setStatusOpen(false); }}
+                onPress={() => { setBhkOpen(!isBhkOpen); setPropertyTypeOpen(false); setStatusOpen(false); }}
               >
                 <Text style={{ color: textColor, fontSize: 13, flex: 1 }}>{form.bhk}</Text>
                 {isBhkOpen ? <ChevronUp size={13} color={subTextColor} /> : <ChevronDown size={13} color={subTextColor} />}
@@ -264,12 +311,41 @@ export default function AddFlatScreen() {
               )}
             </View>
 
+            {/* Property Type Dropdown */}
+            <View style={{ flex: 1, zIndex: 20 }}>
+              <Text style={[styles.label, { color: subTextColor }]}>Property Type *</Text>
+              <TouchableOpacity
+                style={[styles.formInput, styles.selectInput, { backgroundColor: inputBg, borderColor: isPropertyTypeOpen ? brandCol : borderCol }]}
+                onPress={() => { setPropertyTypeOpen(!isPropertyTypeOpen); setBhkOpen(false); setStatusOpen(false); }}
+              >
+                <Text style={{ color: textColor, fontSize: 13, flex: 1 }}>{form.propertyType}</Text>
+                {isPropertyTypeOpen ? <ChevronUp size={13} color={subTextColor} /> : <ChevronDown size={13} color={subTextColor} />}
+              </TouchableOpacity>
+              {isPropertyTypeOpen && (
+                <View style={[styles.miniDropdown, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                  {PROPERTY_TYPES.map((pt) => (
+                    <TouchableOpacity
+                      key={pt}
+                      style={[styles.miniDropdownItem, { backgroundColor: form.propertyType === pt ? borderCol : 'transparent' }]}
+                      onPress={() => { setForm({ ...form, propertyType: pt }); setPropertyTypeOpen(false); }}
+                    >
+                      <Text style={{ color: textColor, fontSize: 12 }}>{pt}</Text>
+                      {form.propertyType === pt && <Check size={11} color={brandCol} />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Row 3: Area + Cost Per Sqft + Price */}
+          <View style={styles.formRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.label, { color: subTextColor }]}>Area (Sqft)</Text>
+              <Text style={[styles.label, { color: subTextColor }]}>Area (Sqft) *</Text>
               <TextInput
                 style={[styles.formInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
                 value={form.areaSqft}
-                onChangeText={(t) => setForm({ ...form, areaSqft: t })}
+                onChangeText={handleAreaChange}
                 placeholder="e.g. 1200"
                 placeholderTextColor={subTextColor}
                 keyboardType="numeric"
@@ -277,26 +353,38 @@ export default function AddFlatScreen() {
             </View>
 
             <View style={{ flex: 1 }}>
-              <Text style={[styles.label, { color: subTextColor }]}>Price (₹)</Text>
+              <Text style={[styles.label, { color: subTextColor }]}>Cost / Sqft (₹)</Text>
+              <TextInput
+                style={[styles.formInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
+                value={form.costPerSqft}
+                onChangeText={handleCostPerSqftChange}
+                placeholder="e.g. 5000"
+                placeholderTextColor={subTextColor}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.label, { color: subTextColor }]}>Total Price (₹) *</Text>
               <TextInput
                 style={[styles.formInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
                 value={form.price}
-                onChangeText={(t) => setForm({ ...form, price: t })}
-                placeholder="e.g. 5500000"
+                onChangeText={handlePriceChange}
+                placeholder="Auto-calculated"
                 placeholderTextColor={subTextColor}
                 keyboardType="numeric"
               />
             </View>
           </View>
 
-          {/* Row 3: Status + Parking + Bedrooms */}
+          {/* Row 4: Status + Parking + Bedrooms + Bathrooms */}
           <View style={styles.formRow}>
             {/* Status Dropdown */}
             <View style={{ flex: 1, zIndex: 10 }}>
-              <Text style={[styles.label, { color: subTextColor }]}>Status</Text>
+              <Text style={[styles.label, { color: subTextColor }]}>Flat Status *</Text>
               <TouchableOpacity
                 style={[styles.formInput, styles.selectInput, { backgroundColor: inputBg, borderColor: isStatusOpen ? brandCol : borderCol }]}
-                onPress={() => { setStatusOpen(!isStatusOpen); setBhkOpen(false); }}
+                onPress={() => { setStatusOpen(!isStatusOpen); setBhkOpen(false); setPropertyTypeOpen(false); }}
               >
                 <Text style={{ color: textColor, fontSize: 13, flex: 1 }}>
                   {form.flatStatus}
@@ -341,9 +429,12 @@ export default function AddFlatScreen() {
                 </TouchableOpacity>
               </View>
             </View>
+          </View>
 
+          {/* Row 5: Bedrooms + Bathrooms + Location */}
+          <View style={styles.formRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.label, { color: subTextColor }]}>Bedrooms</Text>
+              <Text style={[styles.label, { color: subTextColor }]}>Bedrooms *</Text>
               <TextInput
                 style={[styles.formInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
                 value={form.bedroomCount}
@@ -351,6 +442,29 @@ export default function AddFlatScreen() {
                 placeholder="2"
                 placeholderTextColor={subTextColor}
                 keyboardType="numeric"
+              />
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.label, { color: subTextColor }]}>Bathrooms *</Text>
+              <TextInput
+                style={[styles.formInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
+                value={form.bathroomCount}
+                onChangeText={(t) => setForm({ ...form, bathroomCount: t })}
+                placeholder="2"
+                placeholderTextColor={subTextColor}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.label, { color: subTextColor }]}>Location</Text>
+              <TextInput
+                style={[styles.formInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
+                value={form.location}
+                onChangeText={(t) => setForm({ ...form, location: t })}
+                placeholder="e.g. Hyderabad"
+                placeholderTextColor={subTextColor}
               />
             </View>
           </View>

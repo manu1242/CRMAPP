@@ -8,7 +8,7 @@ import {
   Switch,
   ActivityIndicator,
   StatusBar,
-  BackHandler,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useCreatePlanMutation, useUpdatePlanMutation, usePlanDetailQuery } from '../../superadmin/plans/hooks/usePlans';
 import { PlanCreateRequest } from '../../superadmin/plans/models/Plan';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 
 // ─── Reusable form field components ───────────────────────────────────────────
 function FieldLabel({ label, required }: { label: string; required?: boolean }) {
@@ -46,9 +47,9 @@ function TextField({
   required?: boolean;
 }) {
   const { isDark } = useTheme();
-  const inputBg = isDark ? '#0f172a' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const borderCol = isDark ? '#334155' : '#cbd5e1';
+  const inputBg = isDark ? '#1e1e1e' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
 
   return (
     <View style={{ marginBottom: 16 }}>
@@ -78,13 +79,13 @@ function TextField({
 function ToggleRow({ label, value, onValueChange }: { label: string; value: boolean; onValueChange: (v: boolean) => void }) {
   const { isDark } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: isDark ? '#334155' : '#f1f5f9' }}>
-      <Text style={{ color: isDark ? '#cbd5e1' : '#475569', fontSize: 14, fontWeight: '500', flex: 1 }}>{label}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: isDark ? '#2e2e2e' : '#f4f4f5' }}>
+      <Text style={{ color: isDark ? '#a1a1aa' : '#52525b', fontSize: 14, fontWeight: '500', flex: 1 }}>{label}</Text>
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: isDark ? '#1e293b' : '#e2e8f0', true: '#bfdbfe' }}
-        thumbColor={value ? '#1e73be' : (isDark ? '#475569' : '#94a3b8')}
+        trackColor={{ false: isDark ? '#2e2e2e' : '#e4e4e7', true: '#c4b5fd' }}
+        thumbColor={value ? '#835CEE' : (isDark ? '#71717a' : '#a1a1aa')}
       />
     </View>
   );
@@ -92,7 +93,7 @@ function ToggleRow({ label, value, onValueChange }: { label: string; value: bool
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <Text style={{ color: '#1e73be', fontWeight: '700', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12, marginTop: 4 }}>
+    <Text style={{ color: '#835CEE', fontWeight: '700', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12, marginTop: 4 }}>
       {title}
     </Text>
   );
@@ -135,14 +136,15 @@ export default function CreateEditPlanScreen() {
   const isEdit = !!editId;
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Theme colors
-  const bgColor = isDark ? '#0f172a' : '#f3f4f6';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#f1f5f9';
-  const headerBg = isDark ? '#1e293b' : '#0f172a';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
+  const headerBg = isDark ? '#161616' : '#FFFFFF';
 
   // For edit mode, prefill from API
   const { data: existingPlan } = usePlanDetailQuery(editId ?? 0);
@@ -179,21 +181,6 @@ export default function CreateEditPlanScreen() {
     }
   }, [existingPlan, isEdit]);
 
-  // Handle Android physical back button override to go to plans list
-  useEffect(() => {
-    const backAction = () => {
-      router.replace('/superadmin/plans');
-      return true; // prevent default behavior
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction
-    );
-
-    return () => backHandler.remove();
-  }, [router]);
-
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const createMutation = useCreatePlanMutation();
@@ -228,19 +215,51 @@ export default function CreateEditPlanScreen() {
   return (
     <View style={{ flex: 1, marginBottom:80, backgroundColor: bgColor }}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
-        {/* Title Block */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: textColor }}>
-            {isEdit ? 'Edit Plan' : 'Create New Plan'}
-          </Text>
-          <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2, fontWeight: '500' }}>
-            {isEdit ? 'Update the subscription plan details' : 'Define a new SaaS subscription tier'}
-          </Text>
+        {/* Title Block with Back Button */}
+        <View
+          style={{
+            paddingHorizontal: 16,
+            paddingTop: Platform.OS === 'android' ? Math.max(14, insets.top) : Math.max(10, insets.top),
+            paddingBottom: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: borderCol,
+          }}
+        >
+          <TouchableOpacity
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.navigate('/superadmin/plans');
+            }}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: cardBg,
+              borderWidth: 1,
+              borderColor: borderCol,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={20} color={textColor} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: textColor }} numberOfLines={1}>
+              {isEdit ? 'Edit Plan' : 'Create New Plan'}
+            </Text>
+            <Text style={{ color: subTextColor, fontSize: 11, marginTop: 1, fontWeight: '500' }} numberOfLines={1}>
+              {isEdit ? 'Update the subscription plan details' : 'Define a new SaaS subscription tier'}
+            </Text>
+          </View>
         </View>
 
         <ScrollView
           style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }}
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 20, 32), gap: 12 }}
+          contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1, gap: 12 }}
           showsVerticalScrollIndicator={false}
         >
           {/* ── Basic Details ── */}
@@ -275,8 +294,8 @@ export default function CreateEditPlanScreen() {
                       paddingVertical: 10,
                       borderRadius: 10,
                       borderWidth: 1,
-                      borderColor: form.planType === t ? '#1e73be' : borderCol,
-                      backgroundColor: form.planType === t ? '#1e73be' : (isDark ? '#0f172a' : '#ffffff'),
+                      borderColor: form.planType === t ? '#835CEE' : borderCol,
+                      backgroundColor: form.planType === t ? '#835CEE' : (isDark ? '#1e1e1e' : '#ffffff'),
                       alignItems: 'center',
                     }}
                   >
@@ -301,8 +320,8 @@ export default function CreateEditPlanScreen() {
                       paddingVertical: 8,
                       borderRadius: 8,
                       borderWidth: 1,
-                      borderColor: form.supportLevel === s ? '#1e73be' : borderCol,
-                      backgroundColor: form.supportLevel === s ? '#1e73be' : (isDark ? '#0f172a' : '#ffffff'),
+                      borderColor: form.supportLevel === s ? '#835CEE' : borderCol,
+                      backgroundColor: form.supportLevel === s ? '#835CEE' : (isDark ? '#1e1e1e' : '#ffffff'),
                     }}
                   >
                     <Text style={{ fontSize: 12, fontWeight: '600', color: form.supportLevel === s ? '#ffffff' : (isDark ? '#cbd5e1' : '#475569') }}>
@@ -403,21 +422,21 @@ export default function CreateEditPlanScreen() {
               style={{
                 flex: 1,
                 borderWidth: 1,
-                borderColor: isDark ? '#334155' : '#e2e8f0',
+                borderColor: isDark ? '#2e2e2e' : '#e4e4e7',
                 paddingVertical: 12,
                 borderRadius: 10,
                 alignItems: 'center',
-                backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                backgroundColor: isDark ? '#242424' : '#ffffff',
               }}
             >
-              <Text style={{ color: isDark ? '#cbd5e1' : '#475569', fontWeight: '700', fontSize: 14 }}>Cancel</Text>
+              <Text style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: '700', fontSize: 14 }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleSubmit}
               disabled={isPending}
               style={{
                 flex: 2,
-                backgroundColor: '#1e73be',
+                backgroundColor: '#835CEE',
                 paddingVertical: 12,
                 borderRadius: 10,
                 alignItems: 'center',

@@ -31,7 +31,7 @@ export const apiClient = {
     const response = await axiosInstance.post<T>(url, formData, {
       ...config,
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Accept': 'application/json',
         ...config?.headers,
       },
       transformRequest: (data) => data,
@@ -43,7 +43,7 @@ export const apiClient = {
     const response = await axiosInstance.put<T>(url, formData, {
       ...config,
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Accept': 'application/json',
         ...config?.headers,
       },
       transformRequest: (data) => data,

@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  BackHandler,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,11 +13,12 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useCreateTenantMutation } from '../../superadmin/tenants/hooks/useTenants';
 import { TenantFormFields } from '../../superadmin/tenants/components/TenantFormFields';
 import { useTheme } from '../../contexts/ThemeContext';
-import BottomNav from '../../superadmin/components/BottomNav';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 
 export default function CreateTenantScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { bottomSpacing } = useBottomNavSpacing();
   const params = useLocalSearchParams<{
     companyName?: string;
     subdomain?: string;
@@ -44,11 +44,11 @@ export default function CreateTenantScreen() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Theme colors
-  const bgColor = isDark ? '#0f172a' : '#f3f4f6';
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const textColor = isDark ? '#f1f5f9' : '#1e293b';
-  const subTextColor = isDark ? '#94a3b8' : '#64748b';
-  const borderCol = isDark ? '#334155' : '#f1f5f9';
+  const bgColor = isDark ? '#161616' : '#FFFFFF';
+  const cardBg = isDark ? '#242424' : '#ffffff';
+  const textColor = isDark ? '#FFFFFF' : '#0a0a0a';
+  const subTextColor = isDark ? '#a1a1aa' : '#52525b';
+  const borderCol = isDark ? '#2e2e2e' : '#e4e4e7';
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
@@ -78,21 +78,6 @@ export default function CreateTenantScreen() {
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
-
-  // Handle Android physical back button override
-  useEffect(() => {
-    const backAction = () => {
-      router.replace('/superadmin/tenants-hub');
-      return true; // prevent default behavior
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction
-    );
-
-    return () => backHandler.remove();
-  }, [router]);
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
@@ -128,7 +113,7 @@ export default function CreateTenantScreen() {
         </View>
 
         {/* Form Container */}
-        <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }} contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}>
           <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: borderCol }}>
               <Ionicons name="business-outline" size={16} color="#1e73be" />
@@ -149,14 +134,14 @@ export default function CreateTenantScreen() {
                 style={{
                   flex: 1,
                   borderWidth: 1,
-                  borderColor: isDark ? '#334155' : '#e2e8f0',
+                  borderColor: isDark ? '#2e2e2e' : '#e4e4e7',
                   paddingVertical: 12,
                   borderRadius: 12,
                   alignItems: 'center',
-                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                  backgroundColor: isDark ? '#242424' : '#ffffff',
                 }}
               >
-                <Text style={{ color: isDark ? '#cbd5e1' : '#475569', fontWeight: '700', fontSize: 14 }}>Cancel</Text>
+                <Text style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: '700', fontSize: 14 }}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -164,7 +149,7 @@ export default function CreateTenantScreen() {
                 disabled={createMutation.isPending}
                 style={{
                   flex: 1,
-                  backgroundColor: '#1e73be',
+                  backgroundColor: '#835CEE',
                   paddingVertical: 12,
                   borderRadius: 12,
                   alignItems: 'center',

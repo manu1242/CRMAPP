@@ -38,12 +38,28 @@ export const API_ENDPOINTS = {
     BY_ID: (id: number | string) => `/api/v1/superadmin/public-leads/${id}`,
     BULK_DELETE: '/api/v1/superadmin/public-leads/bulk-delete',
   },
+  SUPERADMIN_CHATBOT: {
+    CONVERSATIONS: '/api/v1/superadmin/chatbot-conversations',
+    STATS: '/api/v1/superadmin/chatbot-conversations/stats',
+    TRANSCRIPT: (sessionId: string | number) => `/api/v1/superadmin/chatbot-conversations/${sessionId}`,
+    CLOSE: (sessionId: string | number) => `/api/v1/superadmin/chatbot-conversations/${sessionId}/close`,
+    SEND_MESSAGE: (sessionId: string | number) => `/api/v1/superadmin/chatbot-conversations/${sessionId}/send-message`,
+  },
+  PENDING_PROPERTIES: {
+    BASE: '/api/v1/superadmin/pending-properties',
+    STATS: '/api/v1/superadmin/pending-properties/stats',
+    BY_ID: (id: number | string) => `/api/v1/superadmin/pending-properties/${id}`,
+    MODERATE: (id: number | string) => `/api/v1/superadmin/pending-properties/${id}/moderate`,
+  },
   NOTIFICATION: {
     GET_NOTIFICATIONS: '/api/v1/notifications',
     GET_UNREAD_COUNT: '/api/v1/notifications/unread-count',
     MARK_ALL_READ: '/api/v1/notifications/read-all',
     MARK_AS_READ: (notificationId: number | string) => `/api/v1/notifications/${notificationId}/read`,
+    CLEAR_ALL: '/api/v1/notifications/clear-all',
+    CLEAR_NOTIFICATION: (id: number | string) => `/api/v1/notifications/clear/${id}`,
     API_SAVE_TOKEN: '/api/v1/notifications/save-token',
+    API_UNREGISTER_TOKEN: '/api/v1/notifications/unregister-token',
     API_TEST_NOTIFICATION: '/api/v1/notifications/test-notification',
   },
   TENANTS: {
@@ -89,8 +105,14 @@ export const API_ENDPOINTS = {
     SAVE: '/Leads/SaveLead',
     ADD_LEAD: (id?: number | string) => `/api/v1/leads/`,
     ADD_OPTIONS: (id?: number | string) => `/api/v1/leads/form-options`,
+    FORM_OPTIONS: '/api/v1/leads/form-options',
     BY_ID: (id: number | string) => `/api/v1/leads/${id}`,
     DETAILS: (id: number | string) => `/api/v1/leads/${id}/details`,
+
+    // Assignment
+    ASSIGN: (id: number | string) => `/api/v1/leads/${id}/assign`,
+    ASSIGN_BULK: '/api/v1/leads/assign',
+    UPDATE_ASSIGNMENT: '/api/v1/leads/assign',
 
     // Notes
     GET_NOTES: (leadId: number | string) => `/api/v1/leads/${leadId}/notes`,
@@ -118,6 +140,15 @@ export const API_ENDPOINTS = {
 
     // Activities / Timeline
     GET_ACTIVITIES: (leadId: number | string) => `/api/v1/leads/${leadId}/activities`,
+
+    // Stages
+    GET_STAGES: '/api/v1/sales-pipeline/stages',
+    UPDATE_STAGE: (id: number | string) => `/api/v1/leads/${id}/stage`,
+    CREATE_STAGE: '/leads/create-stage',
+
+    // Agent Tracking
+    AGENT_TRACKING: '/api/v1/leads/agent-tracking',
+    AGENT_TRACKING_ASSIGN: '/api/v1/leads/agent-tracking/assign',
   },
   SALES_PIPELINE: {
     STAGES: '/api/v1/sales-pipeline/stages',
@@ -157,7 +188,8 @@ export const API_ENDPOINTS = {
     GET_DOCUMENTS: (propertyId: string | number) => `/api/v1/properties/${propertyId}/documents`,
     UPLOAD_DOCUMENT: '/api/v1/properties/UploadDocument',
     DELETE_DOCUMENT: (documentId?: string | number) => documentId ? `/api/v1/properties/documents/${documentId}` : '/api/v1/properties/DeleteDocument',
-    DOWNLOAD_DOCUMENT: (documentId: string | number) => `/Properties/DownloadDocument?documentId=${documentId}`,
+    DOWNLOAD_DOCUMENT: (documentId: string | number) => `/api/v1/properties/documents/${documentId}/download`,
+    DOWNLOAD_DOCUMENT_FALLBACK: (documentId: string | number) => `/Properties/DownloadDocument?documentId=${documentId}`,
   },
   PORTAL_PROPERTIES: {
     LIST: '/api/p_Properties',
@@ -165,12 +197,16 @@ export const API_ENDPOINTS = {
     FEATURED: '/api/p_Properties/featured',
   },
   QUOTATIONS: {
-    GET_QUOATATIONS: '/api/v1/quotations'
+    GET_QUOATATIONS: '/api/v1/quotations',
+    BASE: '/api/v1/quotations',
+    BY_ID: (id: number | string) => `/api/v1/quotations/${id}`,
+    DOWNLOAD_PDF: (id: number | string) => `/api/v1/quotations/${id}/download`,
   },
   BOOKINGS: {
     BASE: '/api/v1/bookings',
     BY_ID: (id: number | string) => `/api/v1/bookings/${id}`,
     CANCEL: (id: number | string) => `/api/v1/bookings/${id}/cancel`,
+    DOWNLOAD_PDF: (id: number | string) => `/api/v1/bookings/${id}/download`,
   },
   FILES: {
     UPLOAD: '/api/v1/files/upload',
@@ -194,6 +230,13 @@ export const API_ENDPOINTS = {
   EXPENSES: {
     BASE: '/api/v1/expenses',
     BY_ID: (id: number | string) => `/api/v1/expenses/${id}`,
+  },
+  REVENUE: {
+    BASE: '/api/v1/revenue',
+    BY_ID: (id: number | string) => `/api/v1/revenue/${id}`,
+  },
+  PROFIT: {
+    BASE: '/api/v1/profit',
   },
   AGENTS: {
     BASE: '/api/v1/AgentsApi',
@@ -339,5 +382,15 @@ export const API_ENDPOINTS = {
     RECENT_ACTIVITIES: '/api/v1/dashboard/recent-activities',
     FOLLOW_UPS: '/api/v1/dashboard/follow-ups',
     ADMIN_ANALYTICS: '/api/v1/dashboard/admin',
+  },
+  INTEGRATIONS: {
+    BASE: '/api/v1/integrations',
+    BY_PLATFORM: (platform: string) => `/api/v1/integrations/${platform}`,
+    SAVE: '/api/v1/integrations/save',
+    TOGGLE: (platform: string) => `/api/v1/integrations/${platform}/toggle`,
+    SYNC: (platform: string) => `/api/v1/integrations/${platform}/sync`,
+    TEST_SYNC: (platform: string) => `/api/v1/integrations/${platform}/test-sync`,
+    SYNC_ALL: '/api/v1/integrations/sync-all',
+    CLEAR_TEST_LEADS: '/api/v1/integrations/clear-test-leads',
   },
 };

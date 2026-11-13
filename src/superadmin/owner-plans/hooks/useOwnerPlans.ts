@@ -7,7 +7,8 @@ export const useOwnerPlansQuery = (onlyActive?: boolean) => {
   return useQuery({
     queryKey: ['ownerPlans', { onlyActive }],
     queryFn: () => ownerPlansApi.getOwnerPlans(onlyActive),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 };
 
@@ -16,6 +17,8 @@ export const useOwnerPlanDetailQuery = (id?: number | string) => {
     queryKey: ['ownerPlan', id],
     queryFn: () => ownerPlansApi.getOwnerPlanById(id!),
     enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 };
 

@@ -29,6 +29,9 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
 import { useSalesPipelineStore } from '../../../admin/store/useSalesPipelineStore';
 import { LeadItem } from '../../../admin/models/LeadTypes';
+import PipelineStageCard from '../../../admin/components/PipelineStageCard';
+import LeadStatusBadge from '../../../admin/components/LeadStatusBadge';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 // Safe date formatter
 function formatDate(dateStr: string | null | undefined): string {
@@ -50,6 +53,7 @@ export default function SalesPipelineScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const {
     stages,
@@ -140,7 +144,8 @@ export default function SalesPipelineScreen() {
 
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -220,107 +225,13 @@ export default function SalesPipelineScreen() {
 
             {/* Leads List Cards */}
             {activeLeads.length > 0 ? (
-              activeLeads.map((lead: LeadItem) => {
-                const initial = (lead.fullName || lead.name || 'L').charAt(0).toUpperCase();
-                const requirementText = [lead.type, lead.bhk, lead.propertyType]
-                  .filter(Boolean)
-                  .join(' · ') || lead.requirement || 'N/A';
-                const agentText = lead.assignedToAgentName || (lead.assignedToAgentId ? `Agent #${lead.assignedToAgentId}` : 'Admin');
-
-                return (
-                  <TouchableOpacity
-                    key={lead.leadId}
-                    activeOpacity={0.7}
-                    onPress={() => router.push(`/admin/leads/${lead.leadId}`)}
-                    style={[styles.leadCard, { backgroundColor: cardBg, borderColor: borderCol }]}
-                  >
-                    {/* Header Row */}
-                    <View style={styles.cardHeader}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                        <View style={styles.avatarCircle}>
-                          <Text style={styles.avatarText}>{initial}</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <Text style={[styles.leadName, { color: textColor }]} numberOfLines={1}>
-                              {lead.fullName || lead.name || 'Unnamed Lead'}
-                            </Text>
-                            {renderRatingBadge(lead.rating)}
-                          </View>
-                          <Text style={[styles.leadSubtitle, { color: subTextColor }]}>
-                            Lead #{lead.leadId} · {lead.source || 'Website'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Status Badge */}
-                      <View style={[styles.statusBadge, { backgroundColor: adminTheme.badgeBg }]}>
-                        <Text style={[styles.statusText, { color: adminTheme.badgeText }]}>
-                          {lead.status || 'Active'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Divider Line */}
-                    <View style={[styles.divider, { backgroundColor: borderCol }]} />
-
-                    {/* Contact & Property Info */}
-                    <View style={{ gap: 8 }}>
-                      <View style={{ flexDirection: 'row', gap: 16 }}>
-                        {lead.email ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
-                            <Mail size={12} color={subTextColor} />
-                            <Text style={{ fontSize: 12, color: subTextColor }} numberOfLines={1}>
-                              {lead.email}
-                            </Text>
-                          </View>
-                        ) : null}
-                        {lead.phone ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
-                            <Phone size={12} color={subTextColor} />
-                            <Text style={{ fontSize: 12, color: subTextColor }} numberOfLines={1}>
-                              {lead.phone}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                        <View style={{ flex: 1, paddingRight: 8 }}>
-                          <Text style={{ fontSize: 11, color: subTextColor }}>Requirement:</Text>
-                          <Text style={{ fontSize: 12, fontWeight: '600', color: textColor }} numberOfLines={1}>
-                            {requirementText}
-                          </Text>
-                        </View>
-                        <View style={{ alignItems: 'flex-end' }}>
-                          <Text style={{ fontSize: 11, color: subTextColor }}>Created:</Text>
-                          <Text style={{ fontSize: 12, fontWeight: '500', color: textColor }}>
-                            {formatDate(lead.createdDate || lead.createdOn)}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Bottom Action Row: Move Stage */}
-                    <View style={[styles.cardActionRow, { borderTopColor: borderCol }]}>
-                      <Text style={{ fontSize: 11, color: subTextColor }}>
-                        Assigned: <Text style={{ color: textColor, fontWeight: '500' }}>{agentText}</Text>
-                      </Text>
-
-                      <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleOpenMoveModal(lead);
-                        }}
-                        style={styles.moveStageBtn}
-                      >
-                        <ArrowRightLeft size={12} color={brandCol} />
-                        <Text style={[styles.moveStageBtnText, { color: brandCol }]}>Move Stage</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
+              activeLeads.map((lead: LeadItem) => (
+                <PipelineStageCard
+                  key={lead.leadId}
+                  lead={lead}
+                  onMoveStage={(selectedLead) => handleOpenMoveModal(selectedLead)}
+                />
+              ))
             ) : (
               /* Empty Stage Placeholder */
               <View style={[styles.emptyContainer, { backgroundColor: cardBg, borderColor: borderCol }]}>

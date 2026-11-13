@@ -2,16 +2,16 @@ import React from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { PublicLeadDetailContent } from '../../../superadmin/public-leads/components/PublicLeadDetailContent';
+import { getSuperAdminTheme } from '../../../theme/adminTheme';
+import { PublicLeadDetailContent } from '../../../superadmin/public-leads';
 
 export default function PublicLeadDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark } = useTheme();
-
-  const bgColor = isDark ? '#0f172a' : '#f8fafc';
+  const theme = getSuperAdminTheme(isDark);
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1, backgroundColor: theme.primaryBg }}>
       <PublicLeadDetailContent id={id} />
     </View>
   );

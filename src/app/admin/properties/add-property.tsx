@@ -9,7 +9,6 @@ import {
   StyleSheet,
   Platform,
   Image,
-  BackHandler,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -36,6 +35,7 @@ import { PropertyService } from '../../../admin/services/PropertyService';
 import { ExecutiveItem } from '../../../admin/models/PropertyTypes';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 const PURCHASE_TYPES = ['Sale', 'Rent', 'Lease'];
 
@@ -47,6 +47,7 @@ export default function AddPropertyScreen() {
 
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
   const textColor = adminTheme.textPrimary;
@@ -65,16 +66,6 @@ export default function AddPropertyScreen() {
       router.replace('/admin/properties' as any);
     }
   };
-
-  useEffect(() => {
-    const onBackPress = () => {
-      handleGoBack();
-      return true;
-    };
-
-    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => backSubscription.remove();
-  }, []);
 
   // Form state
   const [form, setForm] = useState({
@@ -261,7 +252,8 @@ export default function AddPropertyScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: Math.max(bottomSpacing, 120), flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

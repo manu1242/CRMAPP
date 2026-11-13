@@ -36,6 +36,7 @@ import {
   PartnerDashboardData,
 } from '../services/PartnerDashboardService';
 import AppFooter from '../../auth/components/AppFooter';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -390,6 +391,7 @@ function CommissionTrendChart({ data, width, height, subTextColor }: LineChartPr
 export default function PartnerDashboardContent() {
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
   const user = useAuthStore((s) => s.user);
   const isImpersonating = useAuthStore((s) => s.isImpersonating);
 
@@ -506,7 +508,7 @@ export default function PartnerDashboardContent() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: bgColor }}
-      contentContainerStyle={{ paddingBottom: 32 }}
+      contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}

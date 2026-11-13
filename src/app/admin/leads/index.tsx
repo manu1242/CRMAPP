@@ -27,6 +27,8 @@ import { getAdminTheme } from '../../../theme/adminTheme';
 import { useLeadsQuery } from '../../../admin/hooks/useLeadsQuery';
 import ConnectionStateView from '../../components/ConnectionStateView';
 import { LeadItem } from '../../../admin/models/LeadTypes';
+import LeadCard from '../../../admin/components/LeadCard';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 const STATUS_OPTIONS = ['All', 'Active', 'New', 'Contacted', 'Qualified', 'Lost'];
 
@@ -69,6 +71,7 @@ export default function LeadsScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
@@ -166,7 +169,8 @@ export default function LeadsScreen() {
 
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -278,123 +282,18 @@ export default function LeadsScreen() {
             </View>
           ) : (
             /* Leads List Cards */
-            <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 14 }}>
+            <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
               {leads.length > 0 ? (
-                leads.map((lead: LeadItem) => {
-                  const initial = (lead.fullName || 'L').charAt(0).toUpperCase();
-
-                  const formattedDate = formatDate(lead.createdDate);
-                  const formattedFollowUp = formatDateTime(lead.followUpDate);
-
-                  const requirementText = [lead.type, lead.bhk, lead.propertyType]
-                    .filter(Boolean)
-                    .join(' · ') || lead.requirement || 'N/A';
-
-                  const agentText = lead.assignedToAgentName || (lead.assignedToAgentId ? `Agent #${lead.assignedToAgentId}` : 'Admin');
-
-                  return (
-                    <TouchableOpacity
-                      key={lead.leadId}
-                      activeOpacity={0.7}
-                      onPress={() => router.push(`/admin/leads/${lead.leadId}`)}
-                      style={[styles.leadCard, { backgroundColor: cardBg, borderColor: borderCol }]}
-                    >
-                      {/* Header Row */}
-                      <View style={styles.cardHeader}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-                          <View style={styles.avatarCircle}>
-                            <Text style={styles.avatarText}>{initial}</Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.leadName, { color: textColor }]} numberOfLines={1}>
-                              {lead.fullName || 'Unnamed Lead'}
-                            </Text>
-                            <Text style={[styles.leadSubtitle, { color: subTextColor }]}>
-                              Lead #{lead.leadId} · {lead.source || 'Website'}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Status Badge */}
-                        <View style={styles.statusBadge}>
-                          <Text style={styles.statusText}>{lead.status || 'Active'}</Text>
-                        </View>
-                      </View>
-
-                      {/* Stage Pill Tag */}
-                      {lead.stage ? (
-                        <View style={styles.stageTag}>
-                          <FileText size={14} color="#c084fc" />
-                          <Text style={styles.stageTagText}>{lead.stage}</Text>
-                        </View>
-                      ) : null}
-
-                      {/* Divider Line */}
-                      <View style={[styles.divider, { backgroundColor: borderCol }]} />
-
-                      {/* 2-Column Info Grid */}
-                      <View style={{ gap: 14 }}>
-                        {/* Row 1: Email & Phone */}
-                        <View style={{ flexDirection: 'row' }}>
-                          <View style={{ flex: 1.2, paddingRight: 8 }}>
-                            <Text style={[styles.gridLabel, { color: subTextColor }]}>Email</Text>
-                            <Text style={[styles.gridValue, { color: textColor }]} numberOfLines={1}>
-                              {lead.email || 'N/A'}
-                            </Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.gridLabel, { color: subTextColor }]}>Phone</Text>
-                            <Text style={[styles.gridValue, { color: textColor }]}>
-                              {lead.phone || 'N/A'}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Row 2: Requirement & Location */}
-                        <View style={{ flexDirection: 'row' }}>
-                          <View style={{ flex: 1.2, paddingRight: 8 }}>
-                            <Text style={[styles.gridLabel, { color: subTextColor }]}>Requirement</Text>
-                            <Text style={[styles.gridValue, { color: textColor }]} numberOfLines={1}>
-                              {requirementText}
-                            </Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.gridLabel, { color: subTextColor }]}>Location</Text>
-                            <Text style={[styles.gridValue, { color: textColor }]} numberOfLines={1}>
-                              {lead.preferredLocation || 'N/A'}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Row 3: Agent & Created */}
-                        <View style={{ flexDirection: 'row' }}>
-                          <View style={{ flex: 1.2, paddingRight: 8 }}>
-                            <Text style={[styles.gridLabel, { color: subTextColor }]}>Agent</Text>
-                            <Text style={[styles.gridValue, { color: textColor }]} numberOfLines={1}>
-                              {agentText}
-                            </Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.gridLabel, { color: subTextColor }]}>Created</Text>
-                            <Text style={[styles.gridValue, { color: textColor }]}>
-                              {formattedDate}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-
-                      {/* Follow-up Banner */}
-                      {formattedFollowUp ? (
-                        <View style={styles.followUpBanner}>
-                          <CalendarCheck size={16} color="#fbbf24" />
-                          <Text style={styles.followUpText}>
-                            Follow-up · {formattedFollowUp}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })
+                leads.map((lead: LeadItem) => (
+                  <LeadCard
+                    key={lead.leadId}
+                    lead={lead}
+                    canAssign={true}
+                    canEditStage={true}
+                    onAssignmentChange={() => refetch()}
+                    onStageChange={() => refetch()}
+                  />
+                ))
               ) : (
                 /* Empty State */
                 <View style={[styles.emptyContainer, { backgroundColor: cardBg, borderColor: borderCol }]}>

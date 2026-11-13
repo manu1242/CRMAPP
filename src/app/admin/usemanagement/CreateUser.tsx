@@ -18,11 +18,13 @@ import {
     Plus,
 } from 'lucide-react-native';
 import { userManagementService } from '../../../admin/services/userManagementService';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 export default function CreateUser() {
     const router = useRouter();
     const { isDark } = useTheme();
     const adminTheme = getAdminTheme(isDark);
+    const { bottomSpacing } = useBottomNavSpacing();
 
     const bgColor = adminTheme.primaryBg;
     const cardBg = adminTheme.cardBg;
@@ -114,7 +116,8 @@ export default function CreateUser() {
             </View>
 
             <ScrollView
-                contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+                style={{ flex: 1 }}
+                contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing, flexGrow: 1 }}
                 showsVerticalScrollIndicator={false}
             >
                 <View

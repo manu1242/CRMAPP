@@ -19,6 +19,7 @@ import { useAgent, useDeleteAgent, useUploadAgentDocument, useDeleteAgentDocumen
 import { AgentsService } from '../../../admin/services/Agentservice';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 import {
   ArrowLeft,
   Edit2,
@@ -45,6 +46,7 @@ export default function AgentDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const { data, isLoading, refetch, isRefetching, error } = useAgent(id);
   const deleteAgentMutation = useDeleteAgent();
@@ -396,7 +398,8 @@ export default function AgentDetailsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: bottomSpacing, flexGrow: 1 }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[brandColor]} />}
         showsVerticalScrollIndicator={false}
       >
