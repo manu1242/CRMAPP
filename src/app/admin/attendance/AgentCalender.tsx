@@ -46,6 +46,7 @@ import {
   DateIntervalsData,
 } from '../../../Services/attendanceService';
 import { DeviceNotificationService } from '../../../Services/DeviceNotificationService';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -54,6 +55,7 @@ export default function AgentCalender() {
   const params = useLocalSearchParams();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const routeAgentId = (params.agentId as string) || '';
 
@@ -403,7 +405,7 @@ export default function AgentCalender() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomSpacing + 20 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

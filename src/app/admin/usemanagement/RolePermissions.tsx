@@ -57,10 +57,12 @@ import {
     RolePermissionsMatrixResponse,
 } from '../../../admin/services/roleManagementService';
 import { useRolePermissionsStore } from '../../../hooks/useRolePermissionsStore';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 export default function RolePermissions() {
     const router = useRouter();
     const { roleName } = useLocalSearchParams<{ roleName: string }>();
+    const { bottomSpacing } = useBottomNavSpacing();
 
     const { isDark } = useTheme();
     const adminTheme = getAdminTheme(isDark);
@@ -259,7 +261,7 @@ export default function RolePermissions() {
 
                     <ScrollView
                         style={{ flex: 1 }}
-                        contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+                        contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing + 20 }}
                         showsVerticalScrollIndicator={false}
                     >
                         {permissionsMatrix.modules && permissionsMatrix.modules.length > 0 ? (
@@ -399,7 +401,7 @@ export default function RolePermissions() {
                             style={{
                                 flexDirection: 'row',
                                 gap: 12,
-                                paddingBottom: 120,
+                                paddingBottom: Math.max(bottomSpacing, 20),
                                 backgroundColor: cardBg,
                                 borderTopWidth: 1,
                                 borderTopColor: borderCol,

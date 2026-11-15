@@ -257,7 +257,20 @@ export const payoutService = {
   },
 
   /**
-   * 1.5 Generate Agent Payslip
+   * 1.5 Recalculate Agent Payouts
+   */
+  recalculateAgentPayouts: async (payload: {
+    month: string;
+    year: number;
+  }): Promise<{ success: boolean; message: string }> => {
+    return await apiClient.post<{ success: boolean; message: string }>(
+      API_ENDPOINTS.PAYOUTS.AGENT.RECALCULATE,
+      payload
+    );
+  },
+
+  /**
+   * 1.6 Generate Agent Payslip
    */
   getAgentPayslip: async (params: {
     agentId: number | string;

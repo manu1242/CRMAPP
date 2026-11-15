@@ -42,6 +42,7 @@ import {
   AgentOverviewData,
   AgentOverviewItem,
 } from '../../../Services/attendanceService';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 const ROLES = ['All', 'Agent', 'Sales'];
 const PERFORMANCE_OPTIONS = [
@@ -56,6 +57,7 @@ export default function AgentAttendance() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -159,7 +161,7 @@ export default function AgentAttendance() {
   return (
     <View style={[styles.container, { backgroundColor: adminTheme.primaryBg }]}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomSpacing + 20 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

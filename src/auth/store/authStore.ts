@@ -5,6 +5,7 @@ import { User } from '../models/User';
 import { LoginRequest } from '../models/LoginRequest';
 import { AuthService } from '../services/AuthService';
 import { SessionService } from '../services/SessionService';
+import { JwtService } from '../services/JwtService';
 import { SecureStorage } from '../storage/SecureStorage';
 import { TokenStorage } from '../storage/TokenStorage';
 import { SessionStorage } from '../storage/SessionStorage';
@@ -31,7 +32,7 @@ interface AuthState {
   error: string | null;
   isImpersonating: boolean;
   impersonatedUsername: string | null;
-  pendingCredentials: { username: string; password: string } | null;
+  pendingCredentials: { username: string; password: string; rememberMe?: boolean } | null;
   pendingWorkspaces: any[];
   setUser: (user: User | null) => void;
   setAuthenticated: (isAuthenticated: boolean) => void;
@@ -143,6 +144,9 @@ export const useAuthStore = create<AuthState>((set) => ({
           authStatus: 'authenticated',
           pendingCredentials: null,
         });
+
+        // Fetch live role-based permissions immediately
+        usePermissionStore.getState().fetchMyPermissions(true).catch(() => {});
 
         // Register device push notification token for authenticated session
         DeviceNotificationService.init().catch((err) => {
@@ -264,6 +268,9 @@ export const useAuthStore = create<AuthState>((set) => ({
           pendingCredentials: null,
         });
 
+        // Fetch live role-based permissions immediately
+        usePermissionStore.getState().fetchMyPermissions(true).catch(() => {});
+
         // Register device push notification token for authenticated session
         DeviceNotificationService.init().catch((err) => {
           console.warn('[AUTH] Push notification registration error:', err?.message);
@@ -330,7 +337,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       await SecureStorage.removeItem('crm_impersonated_username');
 
       // 7. Clear all role-specific global Zustand stores
-      usePermissionStore.setState({ permissions: [], isLoading: false, error: null });
+      usePermissionStore.getState().resetPermissions();
       useRolePermissionsStore.getState().clearCache();
       useLeadStore.setState({ leads: [], totalCount: 0, selectedLeadDetails: null });
       useUserStore.setState({ users: [], summary: null });
@@ -374,7 +381,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     TokenStorage.clearTokens().catch(() => {});
     SessionStorage.clearUserSession().catch(() => {});
     DeviceNotificationService.unregister().catch(() => {});
-    usePermissionStore.setState({ permissions: [], isLoading: false, error: null });
+    usePermissionStore.getState().resetPermissions();
     useRolePermissionsStore.getState().clearCache();
     useLeadStore.setState({ leads: [], totalCount: 0, selectedLeadDetails: null });
     useUserStore.setState({ users: [], summary: null });
@@ -414,6 +421,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           isImpersonating: isImp,
           impersonatedUsername: impUser,
         });
+        // Synchronize permissions on session restore
+        usePermissionStore.getState().fetchMyPermissions().catch(() => {});
         // Register device push token for restored session
         DeviceNotificationService.init().catch((err) => {
           console.warn('[AUTH] Session restore push init notice:', err?.message);
@@ -461,26 +470,48 @@ export const useAuthStore = create<AuthState>((set) => ({
       await TokenStorage.saveTokens(token, '');
       await SecureStorage.setItem('crm_is_impersonating', 'true');
       await SecureStorage.setItem('crm_impersonated_username', targetUser.username || targetUser.email);
-      await SessionStorage.saveUserSession(targetUser);
-      if (targetUser.role?.trim()?.toLowerCase() === 'superadmin') {
+
+      // Extract tenantId, subdomain, channelPartnerId from JWT token claims to guarantee completeness
+      let finalTargetUser = { ...targetUser };
+      const claims: any = JwtService.decodeToken(token);
+      if (claims) {
+        const rawTenantId = claims.TenantId || claims.tenantId;
+        if (rawTenantId && Number(rawTenantId) > 0) {
+          finalTargetUser.tenantId = Number(rawTenantId);
+        }
+        const claimSubdomain = claims.Subdomain || claims.subdomain;
+        if (claimSubdomain) {
+          finalTargetUser.subdomain = claimSubdomain;
+        }
+        const claimCpId = claims.ChannelPartnerId || claims.channelPartnerId;
+        if (claimCpId) {
+          finalTargetUser.channelPartnerId = claimCpId;
+        }
+      }
+
+      await SessionStorage.saveUserSession(finalTargetUser);
+      if (finalTargetUser.role?.trim()?.toLowerCase() === 'superadmin') {
         setTenantSubdomain(null);
-      } else if (targetUser.subdomain) {
-        setTenantSubdomain(targetUser.subdomain);
+      } else if (finalTargetUser.subdomain) {
+        setTenantSubdomain(finalTargetUser.subdomain);
       }
 
       set({
-        user: targetUser,
+        user: finalTargetUser,
         isAuthenticated: true,
         isImpersonating: true,
-        impersonatedUsername: targetUser.username || targetUser.email,
+        impersonatedUsername: finalTargetUser.username || finalTargetUser.email,
         isLoading: false,
         authStatus: 'authenticated',
       });
 
+      // Fetch live permissions for the impersonated user context
+      usePermissionStore.getState().fetchMyPermissions(true).catch(() => {});
+
       Toast.show({
         type: 'success',
         text1: 'Impersonation Started',
-        text2: `Logged in as ${targetUser.username || targetUser.email}`,
+        text2: `Logged in as ${finalTargetUser.username || finalTargetUser.email}`,
       });
     } catch (err: any) {
       console.error('Error starting impersonation:', err);
@@ -507,14 +538,42 @@ export const useAuthStore = create<AuthState>((set) => ({
       await SecureStorage.removeItem('crm_impersonated_username');
 
       try {
-        await apiClient.post('/account/stopimpersonation');
+        await apiClient.post('/api/v1/usermanagement/Impersonate/exit');
       } catch (e) {
         // Backend notification optional
       }
 
-      const freshAdmin = await profileApi.getCurrentProfile();
+      const originalClaims: any = JwtService.decodeToken(originalToken);
+      const isSuperAdminRestored =
+        originalClaims?.IsSuperAdmin === 'true' ||
+        originalClaims?.role?.toLowerCase() === 'superadmin' ||
+        originalClaims?.Role?.toLowerCase() === 'superadmin';
+
+      let freshAdmin: any;
+      try {
+        freshAdmin = await profileApi.getCurrentProfile();
+      } catch (profileErr) {
+        freshAdmin = {
+          userId: Number(originalClaims?.UserId || originalClaims?.sub || 1),
+          username: originalClaims?.name || originalClaims?.unique_name || 'Admin',
+          email: originalClaims?.email || '',
+          role: isSuperAdminRestored ? 'SuperAdmin' : 'Admin',
+          tenantId: isSuperAdminRestored ? 0 : Number(originalClaims?.TenantId || 0),
+          subdomain: isSuperAdminRestored ? '' : (originalClaims?.Subdomain || ''),
+        };
+      }
+
+      if (isSuperAdminRestored) {
+        freshAdmin = {
+          ...freshAdmin,
+          role: 'SuperAdmin',
+          tenantId: 0,
+          subdomain: '',
+        };
+      }
+
       await SessionStorage.saveUserSession(freshAdmin);
-      if (freshAdmin.role?.trim()?.toLowerCase() === 'superadmin') {
+      if (freshAdmin.role?.trim()?.toLowerCase() === 'superadmin' || isSuperAdminRestored) {
         setTenantSubdomain(null);
       } else if (freshAdmin.subdomain) {
         setTenantSubdomain(freshAdmin.subdomain);
@@ -528,6 +587,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
         authStatus: 'authenticated',
       });
+
+      // Restore original admin permissions immediately
+      usePermissionStore.getState().fetchMyPermissions(true).catch(() => {});
 
       Toast.show({
         type: 'success',

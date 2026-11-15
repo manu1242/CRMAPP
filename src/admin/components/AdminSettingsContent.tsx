@@ -22,6 +22,7 @@ import {
   FileText,
   HelpCircle,
   RotateCcw,
+  UserCheck,
 } from 'lucide-react-native';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { useUpdateStore } from '../../hooks/useUpdateStore';
@@ -64,12 +65,13 @@ export default function AdminSettingsContent() {
         items: [
           { title: 'Company Information', icon: Settings, desc: 'General app settings and configurations', route: '/admin/settings/systemsettings/setting', color: '#3b82f6' },
           { title: 'Email Settings', icon: Mail, desc: 'Configure SMTP, mail server, and templates', route: '/admin/settings/emailconfig/EmailConfig', color: '#eab308' },
+          { title: 'User Impersonation', icon: UserCheck, desc: 'Login as any user to test permissions and experience', route: '/admin/usemanagement/ManageUsers', color: '#8b5cf6' },
         ],
       },
       {
-        title: 'Financial Settings',
+        title: 'Payment & Banking',
         items: [
-          { title: 'Payment Gateways', icon: CreditCard, desc: 'Manage Razorpay, Stripe, and other gateways', route: '/admin/paymentconfig', color: '#ec4899' },
+          { title: 'Payment Gateways', icon: CreditCard, desc: 'Manage Razorpay, Cashfree, and other gateways', route: '/admin/paymentconfig', color: '#ec4899' },
           { title: 'Bank Accounts', icon: Landmark, desc: 'Organization bank details & payouts setup', route: '/admin/bankaccountconfig', color: '#8b5cf6' },
         ],
       },

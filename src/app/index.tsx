@@ -106,12 +106,14 @@ export default function EntryScreen() {
     if (onboardingCompleted === null) return;
 
     if (isAuthenticated) {
-      const role = user?.role?.toLowerCase();
+      const role = user?.role?.trim()?.toLowerCase();
       if (role === 'superadmin') {
         router.replace('/superadmin/dashboard');
       } else if (role === 'partner') {
         router.replace('/admin/PartnerDashboard');
-      } else if (role === 'admin' || role === 'agent' || role === 'sales') {
+      } else if (role === 'agent' || role === 'sales') {
+        router.replace({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
+      } else if (role === 'admin') {
         router.replace('/admin/dashboard');
       } else {
         router.replace('/select-workspace');

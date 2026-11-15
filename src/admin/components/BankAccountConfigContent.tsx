@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 import {
   ArrowLeft,
   Plus,
@@ -44,6 +45,7 @@ export default function BankAccountConfigContent() {
   const borderCol = adminTheme.border;
   const inputBg = adminTheme.inputBg || (isDark ? '#1e293b' : '#f8fafc');
   const brandColor = adminTheme.brand || '#8b5cf6';
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,7 +254,7 @@ export default function BankAccountConfigContent() {
 
       {/* Main List */}
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 160 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing + 20 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchBankAccounts(true)} colors={[brandColor]} />

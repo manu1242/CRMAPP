@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useLogin } from '../../hooks/useLogin';
 import { useAuthStore } from '../../store/authStore';
+import { SecureStorage } from '../../storage/SecureStorage';
+import RememberMe from '../RememberMe';
 
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
@@ -17,18 +19,56 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
+  useEffect(() => {
+    let isMounted = true;
+    const loadRemembered = async () => {
+      try {
+        const [savedRemember, savedUsername] = await Promise.all([
+          SecureStorage.getItem('crm_remember_me'),
+          SecureStorage.getItem('crm_remembered_username'),
+        ]);
+        if (isMounted && savedRemember === 'true' && savedUsername) {
+          setUsername(savedUsername);
+          setRememberMe(true);
+        }
+      } catch {
+        // Ignore read error
+      }
+    };
+    loadRemembered();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleSubmit = async () => {
     if (!username || !password) return;
-    const result = await login({ username, password, rememberMe });
+    const trimmedUsername = username.trim();
+
+    try {
+      if (rememberMe) {
+        await SecureStorage.setItem('crm_remember_me', 'true');
+        await SecureStorage.setItem('crm_remembered_username', trimmedUsername);
+      } else {
+        await SecureStorage.removeItem('crm_remember_me');
+        await SecureStorage.removeItem('crm_remembered_username');
+      }
+    } catch {
+      // Ignore write error
+    }
+
+    const result = await login({ username: trimmedUsername, password, rememberMe });
     if (result === 'pick_workspace') {
       router.replace('/select-workspace');
     } else if (result === 'success') {
       const user = useAuthStore.getState().user;
-      const role = user?.role?.toLowerCase();
+      const role = user?.role?.trim()?.toLowerCase();
       if (role === 'superadmin') {
         router.replace('/superadmin/dashboard');
-      } else if (role === 'admin') {
-        router.replace('/admin/dashboard');
+      } else if (role === 'partner') {
+        router.replace('/admin/PartnerDashboard');
+      } else if (role === 'agent' || role === 'sales') {
+        router.replace({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
       } else {
         router.replace('/admin/dashboard');
       }
@@ -82,6 +122,8 @@ export default function LoginForm() {
         keyboardAppearance={isDark ? 'dark' : 'light'}
         secureTextEntry
       />
+
+      <RememberMe checked={rememberMe} onChange={setRememberMe} />
 
       {error ? <Text className="text-red-500 mb-3">{error}</Text> : null}
 

@@ -152,13 +152,11 @@ function AuthGuardLayout() {
       // User is logged in but on a public/auth screen — send to dashboard
       if (role === 'superadmin') {
         router.replace('/superadmin/dashboard');
-      } else if (role === 'admin' || role === 'partner' || role === 'agent' || role === 'sales' || isImpersonating) {
-        // Redirect to correct dashboard based on role
-        if (role === 'partner') {
-          router.replace('/admin/PartnerDashboard');
-        } else {
-          router.replace('/admin/dashboard');
-        }
+      } else if (role === 'partner') {
+        router.replace('/admin/PartnerDashboard');
+      } else if (role || isImpersonating) {
+        // Any tenant role (Admin, Manager, Agent, Sales, custom roles)
+        router.replace('/admin/dashboard');
       } else {
         router.replace('/select-workspace');
       }
@@ -168,37 +166,28 @@ function AuthGuardLayout() {
     } else if (isAuthenticated && !inPublicRoute) {
       // Namespace guards
       if (segments[0] === 'superadmin' && role !== 'superadmin') {
-        Toast.show({
-          type: 'error',
-          text1: 'Unauthorized',
-          text2: 'You do not have permission to access superadmin pages.',
-        });
-        if (role === 'admin' || isImpersonating) {
+        if (!isImpersonating) {
+          Toast.show({
+            type: 'error',
+            text1: 'Unauthorized',
+            text2: 'You do not have permission to access superadmin pages.',
+          });
+        }
+        if (role === 'partner') {
+          router.replace('/admin/PartnerDashboard');
+        } else {
           router.replace('/admin/dashboard');
-        } else {
-          router.replace('/select-workspace');
         }
-      } else if (segments[0] === 'admin' && !['admin', 'partner', 'agent', 'sales'].includes(role || '') && !isImpersonating) {
-        // Skip warning if user is impersonating, allowing them to test the admin panel
-        Toast.show({
-          type: 'error',
-          text1: 'Unauthorized',
-          text2: 'You do not have permission to access admin pages.',
-        });
-        if (role === 'superadmin') {
-          router.replace('/superadmin/dashboard');
-        } else {
-          router.replace('/select-workspace');
-        }
+      } else if (segments[0] === 'admin' && role === 'superadmin' && !isImpersonating) {
+        // Superadmin outside impersonation goes to superadmin dashboard
+        router.replace('/superadmin/dashboard');
       } else if (segments[0] === 'select-workspace') {
         if (role === 'superadmin') {
           router.replace('/superadmin/dashboard');
-        } else if (role === 'admin' || role === 'partner' || role === 'agent' || role === 'sales' || isImpersonating) {
-          if (role === 'partner') {
-            router.replace('/admin/PartnerDashboard');
-          } else {
-            router.replace('/admin/dashboard');
-          }
+        } else if (role === 'partner') {
+          router.replace('/admin/PartnerDashboard');
+        } else if (role || isImpersonating) {
+          router.replace('/admin/dashboard');
         }
       }
     }
@@ -279,6 +268,9 @@ function InnerLayout() {
   ) {
     isHeaderVisible = true;
   }
+  if (normalizedPath.includes('payout')) {
+    isHeaderVisible = false;
+  }
 
   const hideHeader = !isHeaderVisible;
 
@@ -335,6 +327,8 @@ function InnerLayout() {
         router.replace('/superadmin/dashboard');
       } else if (userRole === 'partner') {
         router.replace('/admin/PartnerDashboard');
+      } else if (userRole === 'agent' || userRole === 'sales') {
+        router.replace({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
       } else {
         router.replace('/admin/dashboard');
       }
@@ -366,7 +360,7 @@ function InnerLayout() {
     activeTab = 'profile';
   }
 
-  if (path.includes('admin/dashboard')) {
+  if (path.includes('admin/dashboard') || path.toLowerCase().includes('admin/partnerdashboard')) {
     adminActiveTab = 'dashboard';
   } else if (path.includes('admin/users') || path.includes('admin/usemanagement')) {
     adminActiveTab = 'users';
@@ -424,6 +418,8 @@ function InnerLayout() {
       <Stack.Screen name="admin/chatbot/index" />
       <Stack.Screen name="admin/Tasks/index" />
       <Stack.Screen name="admin/unassigned/index" />
+      <Stack.Screen name="admin/payouts/AgentPayout" />
+      <Stack.Screen name="admin/payouts/PartnerPayout" />
       <Stack.Screen name="admin/teammanagement/Agent" />
       <Stack.Screen name="admin/teammanagement/AgentLeadTracking" />
       <Stack.Screen name="admin/teammanagement/CreateAgent" />

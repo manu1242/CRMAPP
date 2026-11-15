@@ -55,10 +55,13 @@ import {
   Zap,
   Star,
   BotMessageSquare,
+  LayoutDashboard,
 } from 'lucide-react-native';
 
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
+import { useDashboardTabStore, DashboardTab } from '../store/useDashboardTabStore';
+import { useHeaderScrollStore } from '../store/useHeaderScrollStore';
 
 const windowHeight = Dimensions.get('window').height;
 
@@ -78,6 +81,20 @@ export interface ModuleItem {
 }
 
 export const MODULES: ModuleItem[] = [
+  {
+    id: 'dashboard',
+    title: 'Dashboard',
+    icon: LayoutDashboard,
+    color: '#10b981',
+    bgColor: '#10b9811f',
+    category: 'Core',
+    subLinks: [
+      { label: 'Admin Dashboard', route: '/admin/dashboard?tab=admin' },
+      { label: 'Sales Overview', route: '/admin/dashboard?tab=sales' },
+      { label: 'Team Dashboard', route: '/admin/dashboard?tab=team' },
+      { label: 'Milestone Payments', route: '/admin/dashboard?tab=milestone' },
+    ],
+  },
   {
     id: 'leads-properties',
     title: 'Leads & Props',
@@ -199,12 +216,12 @@ export const MODULES: ModuleItem[] = [
     ],
   },
   {
-    id: 'financial-settings',
-    title: 'Financial Settings',
+    id: 'payment-and-banking',
+    title: 'Payment & Banking',
     icon: Landmark,
     color: '#8b5cf6',
     bgColor: '#8b5cf61f',
-    category: 'Financial Management',
+    category: 'Payment & Banking',
     subLinks: [
       { label: 'Payment Gateways', route: '/admin/paymentconfig' },
       { label: 'Bank Accounts', route: '/admin/bankaccountconfig' },
@@ -241,6 +258,7 @@ interface BottomMenuSheetProps {
 }
 
 import { useAuthStore } from '../../auth/store/authStore';
+import { usePermissionStore } from '../../authorization/store/permissionStore';
 
 export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSheetProps) {
   const router = useRouter();
@@ -248,9 +266,16 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
   const adminTheme = getAdminTheme(isDark);
   const user = useAuthStore((state) => state.user);
   const role = user?.role?.trim()?.toLowerCase() || '';
+  const { hasModuleAccess, can } = usePermissionStore();
 
   const visibleModules = React.useMemo(() => {
     return MODULES.map((module) => {
+      // 1. Check if user's role has permission to this entire module
+      if (!hasModuleAccess(module.title) && !hasModuleAccess(module.id)) {
+        return null;
+      }
+
+      // 2. Filter sublinks based on screen-level and page-level permission
       const filteredSubLinks = module.subLinks.filter((link) => {
         const route = link.route;
 
@@ -262,32 +287,35 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
 
         // Partner role filtering
         if (role === 'partner') {
-          const allowedRoutes = [
-            '/admin/PartnerDashboard',
-            '/admin/leads',
-            '/admin/sales',
-            '/admin/properties',
-            '/admin/attendance/AgentAttendance',
-            '/admin/payouts/PartnerPayout',
-            '/admin/settings/profile/Profile',
-          ];
-          return allowedRoutes.includes(route);
+          // Partner cannot access system settings or user/role management
+          if (
+            route.includes('/admin/usemanagement/ManageUsers') ||
+            route.includes('/admin/usemanagement/RolesManagement') ||
+            route.includes('/admin/settings/systemsettings')
+          ) {
+            return false;
+          }
+          return can('View', route);
         }
 
         // Agent / Sales role filtering
         if (role === 'agent' || role === 'sales') {
-          const allowedRoutes = [
+          const isAgentAllowed = [
             '/admin/leads',
             '/admin/sales',
             '/admin/Tasks',
             '/admin/properties',
             '/admin/attendance/AgentAttendance',
             '/admin/settings/profile/Profile',
-          ];
-          return allowedRoutes.includes(route);
+          ].some((prefix) => route.startsWith(prefix));
+
+          if (!isAgentAllowed) return false;
+          return can('View', route);
         }
 
-        return false;
+        // Custom Roles (e.g. Manager):
+        // Dynamically governed by Admin's AllowedModules and RolePagePermissions!
+        return can('View', route);
       });
 
       if (filteredSubLinks.length === 0) return null;
@@ -297,7 +325,7 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
         subLinks: filteredSubLinks,
       };
     }).filter(Boolean) as ModuleItem[];
-  }, [role]);
+  }, [role, hasModuleAccess, can]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [focusedModuleId, setFocusedModuleId] = useState<string | null>(null);
@@ -530,6 +558,14 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
 
   const handleNavigate = (route: string) => {
     onClose();
+    if (route.startsWith('/admin/dashboard')) {
+      const match = route.match(/tab=([a-z]+)/i);
+      const tab = match ? match[1].toLowerCase() : 'admin';
+      if (tab === 'admin' || tab === 'sales' || tab === 'team' || tab === 'milestone') {
+        useDashboardTabStore.getState().setActiveTab(tab as DashboardTab);
+      }
+      useHeaderScrollStore.getState().resetHeader();
+    }
     router.navigate(route as any);
   };
 

@@ -6,11 +6,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../../superadmin/components/Header';
 import SidebarDrawer from '../../auth/components/SidebarDrawer';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 
 export default function SubscriptionsHubScreen() {
   const router = useRouter();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { isDark } = useTheme();
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Theme colors
   const bgColor = isDark ? '#161616' : '#FFFFFF';
@@ -22,7 +24,7 @@ export default function SubscriptionsHubScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
 
-      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 20 }} contentContainerStyle={{ paddingBottom: 120, flexGrow: 1 }}>
+      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingTop: 20 }} contentContainerStyle={{ paddingBottom: bottomSpacing + 20, flexGrow: 1 }}>
         <View style={{ marginBottom: 24 }}>
           <Text style={{ fontSize: 22, fontWeight: '800', color: textColor }}>Subscriptions Management</Text>
           <Text style={{ fontSize: 13, color: subTextColor, marginTop: 4 }}>Configure subscription models and view tenant payment details.</Text>
@@ -138,6 +140,62 @@ export default function SubscriptionsHubScreen() {
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Owner Subscriptions</Text>
               <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4 }}>Track active owner subscriptions, search by mobile, toggle status, and assign access.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={subTextColor} />
+          </TouchableOpacity>
+
+          {/* 5. Payment Gateways Configuration */}
+          <TouchableOpacity
+            onPress={() => router.push('/superadmin/payment-config')}
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: borderCol,
+              padding: 20,
+              flexDirection: 'row',
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 3,
+              elevation: 3,
+            }}
+          >
+            <View style={{ backgroundColor: isDark ? '#ec489925' : '#fce7f3', padding: 12, borderRadius: 12, marginRight: 16 }}>
+              <Ionicons name="card-outline" size={24} color="#ec4899" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Payment Gateways</Text>
+              <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4 }}>Configure Razorpay & Cashfree platform credentials, keys and webhooks.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={subTextColor} />
+          </TouchableOpacity>
+
+          {/* 6. Payment Transactions */}
+          <TouchableOpacity
+            onPress={() => router.push('/superadmin/transactions')}
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: borderCol,
+              padding: 20,
+              flexDirection: 'row',
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 3,
+              elevation: 3,
+            }}
+          >
+            <View style={{ backgroundColor: isDark ? '#0284c725' : '#e0f2fe', padding: 12, borderRadius: 12, marginRight: 16 }}>
+              <Ionicons name="receipt-outline" size={24} color="#0284c7" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Transactions & Invoices</Text>
+              <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4 }}>Monitor SaaS tenant transactions, gateway order IDs, and payment statuses.</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={subTextColor} />
           </TouchableOpacity>

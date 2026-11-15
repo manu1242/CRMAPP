@@ -14,9 +14,13 @@ export default function LoginScreen() {
   const user = useAuthStore((state) => state.user);
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      const role = user?.role?.toLowerCase();
+      const role = user?.role?.trim()?.toLowerCase();
       if (role === 'superadmin') {
         router.replace('/superadmin/dashboard');
+      } else if (role === 'partner') {
+        router.replace('/admin/PartnerDashboard');
+      } else if (role === 'agent' || role === 'sales') {
+        router.replace({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
       } else {
         router.replace('/admin/dashboard');
       }

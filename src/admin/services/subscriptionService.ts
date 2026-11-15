@@ -280,6 +280,8 @@ export interface AvailablePlanItem {
   features: string[];
 }
 
+export type MyCrmAvailablePlan = AvailablePlanItem;
+
 export interface MyCrmPlanData {
   currentSubscription: CurrentSubscription;
   usage: MyCrmPlanUsage;
@@ -432,5 +434,27 @@ export const subscriptionService = {
 
   getCrmTransactionDetails: async (id: number | string): Promise<GenericApiResponse> => {
     return await apiClient.get<GenericApiResponse>(API_ENDPOINTS.SUBSCRIPTION_API.CRM_TRANSACTIONS.DETAILS(id));
+  },
+
+  // 7. Order & Payment
+  createSubscriptionOrder: async (payload: {
+    planId: number;
+    billingCycle: string;
+    upgradeType?: string;
+    paymentGateway?: string;
+  }): Promise<GenericApiResponse> => {
+    return await apiClient.post<GenericApiResponse>(API_ENDPOINTS.SUBSCRIPTION_API.CREATE_ORDER, payload);
+  },
+
+  verifySubscriptionPayment: async (payload: {
+    razorpayPaymentId: string;
+    razorpayOrderId: string;
+    razorpaySignature: string;
+    planId: number;
+    billingCycle: string;
+    upgradeType?: string;
+    paymentStatus?: string;
+  }): Promise<GenericApiResponse> => {
+    return await apiClient.post<GenericApiResponse>(API_ENDPOINTS.SUBSCRIPTION_API.VERIFY_PAYMENT, payload);
   },
 };

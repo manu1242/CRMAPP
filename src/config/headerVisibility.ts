@@ -38,7 +38,6 @@ export const HEADER_CONFIG: HeaderConfig = {
         '/admin/properties',
         '/admin/leads',
         '/admin/unassigned',
-        '/admin/payouts',
         '/admin/Tasks',
         '/admin/teammanagement',
         '/admin/leads/leads',
@@ -90,7 +89,10 @@ export const HEADER_CONFIG: HeaderConfig = {
         '/superadmin/create-plan',
         '/superadmin/subscriptions',
         '/superadmin/owner-plans',
-        '/superadmin/owner-subscriptions'
+        '/superadmin/owner-subscriptions',
+        '/admin/payouts',
+        '/admin/payouts/AgentPayout',
+        '/admin/payouts/PartnerPayout'
     ],
     inheritParentVisibility: true,
 };

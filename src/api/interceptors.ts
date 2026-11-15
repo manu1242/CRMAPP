@@ -87,17 +87,31 @@ export const setupInterceptors = () => {
 
         // Attach tenant identification headers for company requests
         const currentUser = useAuthStore.getState().user;
-        if (currentUser && currentUser.role?.trim()?.toLowerCase() !== 'superadmin' && currentUser.tenantId) {
-          const tenantIdVal = String(currentUser.tenantId);
+        let tenantId = currentUser?.tenantId;
+        let subdomain = currentUser?.subdomain;
+
+        if (!tenantId && token) {
+          const claims = JwtService.decodeToken(token) as any;
+          if (claims) {
+            const rawTenantId = claims.TenantId || claims.tenantId;
+            if (rawTenantId && Number(rawTenantId) > 0) {
+              tenantId = Number(rawTenantId);
+            }
+            subdomain = subdomain || claims.Subdomain || claims.subdomain;
+          }
+        }
+
+        if (currentUser && currentUser.role?.trim()?.toLowerCase() !== 'superadmin' && tenantId) {
+          const tenantIdVal = String(tenantId);
           if (config.headers.set) {
             config.headers.set('X-Tenant-Id', tenantIdVal);
-            if (currentUser.subdomain) {
-              config.headers.set('X-Tenant-Subdomain', currentUser.subdomain.trim().toLowerCase());
+            if (subdomain) {
+              config.headers.set('X-Tenant-Subdomain', subdomain.trim().toLowerCase());
             }
           } else {
             (config.headers as any)['X-Tenant-Id'] = tenantIdVal;
-            if (currentUser.subdomain) {
-              (config.headers as any)['X-Tenant-Subdomain'] = currentUser.subdomain.trim().toLowerCase();
+            if (subdomain) {
+              (config.headers as any)['X-Tenant-Subdomain'] = subdomain.trim().toLowerCase();
             }
           }
         }
@@ -106,7 +120,7 @@ export const setupInterceptors = () => {
       // DEV diagnostic: confirm token is present for leads requests
       if (__DEV__ && (url.includes('/api/v1/leads') || url.includes('LeadsApi'))) {
         const authHeader = (config.headers as any)?.['Authorization'];
-        console.log(`[AUTH DIAGNOSE] Leads request — url: ${url} | hasToken: ${!!token} | headerSent: ${!!authHeader} | tokenStart: ${token?.slice(0, 30) ?? 'null'}`);
+        console.log(`[AUTH DIAGNOSE] Leads request — url: ${url} | hasToken: ${!!token} | headerSent: ${!!authHeader}`);
       }
 
       return config;
@@ -138,10 +152,20 @@ export const setupInterceptors = () => {
           '/leads/update-assignment',
           '/assign',
           '/AssignExecutive',
+          '/Home/GetPartnerDashboardData',
+          '/Home/GetPartnerSubscriptionStatus',
+          '/api/v1/usermanagement',
         ];
         const isNonExpiring = NON_SESSION_EXPIRING_ENDPOINTS.some((ep) => url.includes(ep));
         if (isNonExpiring) {
           if (__DEV__) console.log(`[AUTH] 401 on non-expiring/action endpoint — passing error to caller: ${url}`);
+          return Promise.reject(error);
+        }
+
+        // Impersonation protection: never wipe session while user is actively impersonating
+        const isImpersonating = useAuthStore.getState().isImpersonating;
+        if (isImpersonating) {
+          if (__DEV__) console.warn(`[AUTH] 401 received while impersonating on ${url} — skipping session wipe.`);
           return Promise.reject(error);
         }
 

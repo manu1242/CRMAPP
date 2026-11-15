@@ -15,7 +15,11 @@ import {
   CalendarCheck,
   UserCheck,
   ChevronRight,
-  Pen,
+  MapPin,
+  Building2,
+  UserPlus,
+  Star,
+  ChevronDown,
 } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
@@ -30,6 +34,21 @@ interface LeadCardProps {
   canEditStage?: boolean;
   onAssignmentChange?: (leadId: number, agentId: number | null, agentName: string) => void;
   onStageChange?: (leadId: number, newStage: string) => void;
+}
+
+const AVATAR_PALETTES = [
+  { bg: 'rgba(99, 102, 241, 0.12)', text: '#6366f1' }, // Indigo
+  { bg: 'rgba(14, 165, 233, 0.12)', text: '#0284c7' }, // Sky
+  { bg: 'rgba(16, 185, 129, 0.12)', text: '#059669' }, // Emerald
+  { bg: 'rgba(245, 158, 11, 0.12)', text: '#d97706' }, // Amber
+  { bg: 'rgba(168, 85, 247, 0.12)', text: '#9333ea' }, // Purple
+  { bg: 'rgba(244, 63, 94, 0.12)', text: '#e11d48' },  // Rose
+  { bg: 'rgba(20, 184, 166, 0.12)', text: '#0d9488' }, // Teal
+];
+
+function getAvatarPalette(id: number | string) {
+  const num = typeof id === 'number' ? id : (id ? String(id).charCodeAt(0) : 0);
+  return AVATAR_PALETTES[Math.abs(num) % AVATAR_PALETTES.length];
 }
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -78,21 +97,22 @@ export default function LeadCard({
     lead.assignedToAgentName || (lead.assignedToAgentId ? `Agent #${lead.assignedToAgentId}` : 'Unassigned')
   );
 
+  const isAssigned = !!(lead.assignedToAgentId || (lead.assignedToAgentName && lead.assignedToAgentName !== 'Unassigned'));
+
   const cardBg = adminTheme.cardBg;
   const textColor = adminTheme.textPrimary;
   const subTextColor = adminTheme.textSecondary;
   const borderCol = adminTheme.border;
-  const brandCol = adminTheme.brand;
-  const inputBg = adminTheme.inputBg;
 
-  const initial = (lead.fullName || 'L').charAt(0).toUpperCase();
-  const formattedDate = formatDate(lead.createdDate);
+  const leadName = lead.fullName || lead.name || 'Unnamed Lead';
+  const initial = (leadName.trim() || 'L').charAt(0).toUpperCase();
+  const avatarStyle = getAvatarPalette(lead.leadId || leadName);
+
+  const formattedDate = formatDate(lead.createdDate || lead.createdOn);
   const formattedFollowUp = formatFollowUp(lead.followUpDate);
 
-  const requirementText =
-    [lead.type, lead.bhk, lead.propertyType].filter(Boolean).join(' · ') ||
-    lead.requirement ||
-    'N/A';
+  const specsList = [lead.bhk, lead.propertyType, lead.type].filter(Boolean);
+  const requirementText = specsList.length > 0 ? specsList.join(' · ') : (lead.requirement || null);
 
   const cleanPhone = (lead.phone || '').replace(/[^0-9+]/g, '');
 
@@ -105,7 +125,7 @@ export default function LeadCard({
     e?.stopPropagation();
     if (cleanPhone) {
       const num = cleanPhone.startsWith('+') ? cleanPhone.replace('+', '') : `91${cleanPhone}`;
-      Linking.openURL(`whatsapp://send?phone=${num}&text=Hello%20${encodeURIComponent(lead.fullName || 'there')}`);
+      Linking.openURL(`whatsapp://send?phone=${num}&text=Hello%20${encodeURIComponent(leadName)}`);
     }
   };
 
@@ -117,92 +137,189 @@ export default function LeadCard({
   return (
     <>
       <TouchableOpacity
-        activeOpacity={0.7}
+        activeOpacity={0.85}
         onPress={() => router.push(`/admin/leads/${lead.leadId}`)}
-        style={[styles.card, { backgroundColor: cardBg, borderColor: borderCol }]}
+        style={[
+          styles.card,
+          {
+            backgroundColor: cardBg,
+            borderColor: borderCol,
+          },
+        ]}
       >
-        {/* Top Header Row */}
+        {/* Top Header: Avatar + Info + Badges */}
         <View style={styles.headerRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-            <View style={[styles.avatar, { backgroundColor: `${brandCol}20` }]}>
-              <Text style={[styles.avatarText, { color: brandCol }]}>{initial}</Text>
+          <View style={styles.profileSection}>
+            <View style={[styles.avatar, { backgroundColor: avatarStyle.bg }]}>
+              <Text style={[styles.avatarText, { color: avatarStyle.text }]}>{initial}</Text>
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={styles.nameMeta}>
               <Text style={[styles.leadName, { color: textColor }]} numberOfLines={1}>
-                {lead.fullName || 'Unnamed Lead'}
+                {leadName}
               </Text>
-              <Text style={[styles.subtitle, { color: subTextColor }]}>
-                Lead #{lead.leadId} · {lead.source || 'Direct'}
-              </Text>
+              <View style={styles.metaSubRow}>
+                <Text style={[styles.metaSubText, { color: subTextColor }]}>
+                  #{lead.leadId} • {lead.source || 'Website'}
+                </Text>
+                {lead.rating ? (
+                  <View style={styles.ratingChip}>
+                    <Star size={11} color="#f59e0b" fill="#f59e0b" />
+                    <Text style={styles.ratingText}>{lead.rating}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
           </View>
 
-          <LeadStatusBadge value={currentStage || 'New'} type="stage" size="sm" />
+          {/* Badges on Right */}
+          <View style={styles.badgeColumn}>
+            {canEditStage ? (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setStageModalOpen(true);
+                }}
+                style={styles.stageButton}
+              >
+                <LeadStatusBadge value={currentStage || 'New'} type="stage" size="sm" />
+                <ChevronDown size={12} color={subTextColor} style={{ marginLeft: 2 }} />
+              </TouchableOpacity>
+            ) : (
+              <LeadStatusBadge value={currentStage || 'New'} type="stage" size="sm" />
+            )}
 
-
-
-          <LeadStatusBadge value={lead.status || 'Active'} type="status" size="sm" />
+            <LeadStatusBadge value={lead.status || 'Active'} type="status" size="sm" />
+          </View>
         </View>
 
- 
-
-        {/* Follow-up Banner */}
-        {formattedFollowUp ? (
-          <View style={[styles.followUpBanner, { backgroundColor: isDark ? 'rgba(234,179,8,0.12)' : 'rgba(234,179,8,0.08)' }]}>
-            <CalendarCheck size={14} color="#eab308" />
-            <Text style={styles.followUpText} numberOfLines={1}>
-              Follow-up: {formattedFollowUp}
-            </Text>
+        {/* Contact Strip with Quick Communication Actions (No border boxes) */}
+        <View style={styles.contactRow}>
+          <View style={styles.contactInfoCol}>
+            {lead.phone ? (
+              <Text style={[styles.contactPhone, { color: textColor }]} numberOfLines={1}>
+                {lead.phone}
+              </Text>
+            ) : null}
+            {lead.email ? (
+              <Text style={[styles.contactEmail, { color: subTextColor }]} numberOfLines={1}>
+                {lead.email}
+              </Text>
+            ) : null}
           </View>
-        ) : null}
 
-        {/* Action Buttons Footer */}
-        <View style={[styles.footerRow, { borderTopColor: borderCol }]}>
-          <View style={styles.contactActions}>
+          <View style={styles.actionButtons}>
             {cleanPhone ? (
-              <TouchableOpacity onPress={handleCall} style={[styles.actionIconBtn, { backgroundColor: inputBg }]}>
-                <Phone size={14} color={brandCol} />
+              <TouchableOpacity
+                onPress={handleCall}
+                style={[styles.iconButton]}
+                accessibilityLabel="Call Lead"
+              >
+                <Phone size={14} color="#0284c7" />
               </TouchableOpacity>
             ) : null}
 
             {cleanPhone ? (
-              <TouchableOpacity onPress={handleWhatsApp} style={[styles.actionIconBtn, { backgroundColor: inputBg }]}>
-                <MessageSquare size={14} color="#25D366" />
+              <TouchableOpacity
+                onPress={handleWhatsApp}
+                style={[styles.iconButton]}
+                accessibilityLabel="WhatsApp Lead"
+              >
+                <MessageSquare size={14} color="#16a34a" />
               </TouchableOpacity>
             ) : null}
 
             {lead.email ? (
-              <TouchableOpacity onPress={handleEmail} style={[styles.actionIconBtn, { backgroundColor: inputBg }]}>
-                <Mail size={14} color="#3b82f6" />
+              <TouchableOpacity
+                onPress={handleEmail}
+                style={[styles.iconButton]}
+                accessibilityLabel="Email Lead"
+              >
+                <Mail size={14} color="#6366f1" />
               </TouchableOpacity>
             ) : null}
           </View>
+        </View>
 
-          {canAssign ? (
-            <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation();
-                setAssignModalOpen(true);
-              }}
-              style={[styles.assignBtn, { borderColor: borderCol, backgroundColor: inputBg }]}
-            >
-              <UserCheck size={13} color={brandCol} />
-              <Text style={[styles.assignBtnText, { color: textColor }]}>Assign</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontSize: 12, color: subTextColor, fontWeight: '500' }}>View Details</Text>
-              <ChevronRight size={14} color={subTextColor} />
-            </View>
-          )}
+        {/* Property Specs & Location (Simple inline tags, no box-in-box) */}
+        {(requirementText || lead.preferredLocation) ? (
+          <View style={styles.tagsRow}>
+            {requirementText ? (
+              <View style={[styles.tagItem]}>
+                <Building2 size={12} color="#64748b" />
+                <Text style={[styles.tagText, { color: textColor }]} numberOfLines={1}>
+                  {requirementText}
+                </Text>
+              </View>
+            ) : null}
+
+            {lead.preferredLocation ? (
+              <View style={[styles.tagItem]}>
+                <MapPin size={12} color="#8b5cf6" />
+                <Text style={[styles.tagText, { color: subTextColor }]} numberOfLines={1}>
+                  {lead.preferredLocation}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Follow-up Banner (Seamless soft amber background, no borders) */}
+        {formattedFollowUp ? (
+          <View style={[styles.followUpWrap]}>
+            <CalendarCheck size={13} color="#d97706" />
+            <Text style={[styles.followUpText, { color: subTextColor }]} numberOfLines={1}>
+              Follow-up: <Text style={{ fontWeight: '700', color: subTextColor }}>{formattedFollowUp}</Text>
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Footer: Assigned Agent & Created Date */}
+        <View style={styles.footerRow}>
+          <View style={styles.agentCol}>
+            {isAssigned ? (
+              <TouchableOpacity
+                disabled={!canAssign}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setAssignModalOpen(true);
+                }}
+                style={styles.agentButton}
+              >
+                <UserCheck size={13} color="#059669" />
+                <Text style={styles.agentText} numberOfLines={1}>
+                  {assignedAgentName}
+                </Text>
+                {canAssign ? <ChevronDown size={11} color="#059669" /> : null}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                disabled={!canAssign}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setAssignModalOpen(true);
+                }}
+                style={styles.unassignedButton}
+              >
+                <UserPlus size={13} color="#d97706" />
+                <Text style={styles.unassignedText}>+ Assign Agent</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.dateCol}>
+            <Text style={[styles.dateText, { color: subTextColor }]}>{formattedDate}</Text>
+            <ChevronRight size={14} color={subTextColor} />
+          </View>
         </View>
       </TouchableOpacity>
 
+      {/* Stage Editor Modal */}
       <LeadStageModal
         visible={stageModalOpen}
         onClose={() => setStageModalOpen(false)}
         leadId={lead.leadId}
-        leadName={lead.fullName}
+        leadName={leadName}
         currentStage={currentStage}
         onSuccess={(newStage) => {
           setCurrentStage(newStage);
@@ -212,11 +329,12 @@ export default function LeadCard({
         }}
       />
 
+      {/* Assignment Modal */}
       <LeadAssignmentModal
         visible={assignModalOpen}
         onClose={() => setAssignModalOpen(false)}
         leadId={lead.leadId}
-        leadName={lead.fullName}
+        leadName={leadName}
         currentAgentId={lead.assignedToAgentId}
         currentAgentName={assignedAgentName}
         onSuccess={(newAgentId, newAgentName) => {
@@ -232,129 +350,186 @@ export default function LeadCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
+    padding: 15,
     marginBottom: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 1.5,
+      },
+    }),
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 8,
+  },
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
   },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
   },
-  leadName: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  subtitle: {
-    fontSize: 11,
-    marginTop: 1,
-  },
-  stageWrap: {
-    marginTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stageEditorBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  stageEditIconWrap: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  divider: {
-    height: 1,
-    marginVertical: 10,
-  },
-  grid: {
-    gap: 8,
-  },
-  gridRow: {
-    flexDirection: 'row',
-  },
-  colLeft: {
-    flex: 1.2,
-    paddingRight: 8,
-  },
-  colRight: {
+  nameMeta: {
     flex: 1,
   },
-  label: {
-    fontSize: 10,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
+  leadName: {
+    fontSize: 13,
+    fontWeight: '400',
+    letterSpacing: 0.1,
   },
-  val: {
-    fontSize: 12,
-    fontWeight: '600',
+  metaSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     marginTop: 2,
   },
-  followUpBanner: {
+  metaSubText: {
+    fontSize: 11.5,
+    fontWeight: '300',
+  },
+  ratingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: 3,
+  },
+  ratingText: {
+    fontSize: 10,
+    fontWeight: '300',
+    color: '#d97706',
+  },
+  badgeColumn: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  stageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    gap: 8,
+  },
+  contactInfoCol: {
+    flex: 1,
+  },
+  contactPhone: {
+    fontSize: 13,
+    fontWeight: '300',
+    letterSpacing: 0.2,
+  },
+  contactEmail: {
+    fontSize: 11.5,
+    marginTop: 1,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  tagItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4.5,
+    borderRadius: 8,
+  },
+  tagText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  followUpWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    marginTop: 10,
+    marginTop: 9,
   },
   followUpText: {
-    color: '#eab308',
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 11.5,
+    fontWeight: '500',
     flex: 1,
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
+    marginTop: 11,
   },
-  contactActions: {
+  agentCol: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    flex: 1,
   },
-  actionIconBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  assignBtn: {
+  agentButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
+    paddingVertical: 2,
+    maxWidth: '90%',
   },
-  assignBtnText: {
+  agentText: {
+    fontSize: 11.5,
+    fontWeight: '300',
+    color: '#059669',
+  },
+  unassignedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+  },
+  unassignedText: {
+    fontSize: 11.5,
+    fontWeight: '300',
+    color: '#d97706',
+  },
+  dateCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dateText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });
-

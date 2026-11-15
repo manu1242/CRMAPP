@@ -13,6 +13,7 @@ import {
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
+import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
 import {
   Package,
   Plus,
@@ -44,6 +45,7 @@ export default function PlansScreen() {
   const textColor = adminTheme.textPrimary;
   const subTextColor = adminTheme.textSecondary;
   const borderCol = adminTheme.border;
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -319,7 +321,7 @@ export default function PlansScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing + 20 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchPlans(true)} />
         }

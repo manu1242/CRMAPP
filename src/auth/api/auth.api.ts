@@ -16,6 +16,7 @@ export const authApi = {
     const payload = {
       username: credentials.username,
       password: credentials.password,
+      rememberMe: credentials.rememberMe ?? false,
     };
 
     if (__DEV__) console.log(`\n=== [AUTH API REQUEST] ===\nURL: ${fullUrl}\nPayload:`, JSON.stringify(payload, null, 2));
@@ -45,6 +46,7 @@ export const authApi = {
       username: credentials.username,
       password: credentials.password,
       tenantId,
+      rememberMe: credentials.rememberMe ?? false,
     };
 
     if (__DEV__) console.log(`\n=== [AUTH API WORKSPACE LOGIN] ===\nURL: ${fullUrl}\nTenantId: ${tenantId}`);

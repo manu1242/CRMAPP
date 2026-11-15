@@ -8,7 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUpdateStore } from '../../hooks/useUpdateStore';
 import { NotificationService } from '../../Services/NotificationService';
 import { useAuthStore } from '../../auth/store/authStore';
+import { usePermissions } from '../../authorization/hooks/usePermission';
 import { triggerHaptic } from '../../utils/haptics';
+import { useHeaderScrollStore } from '../store/useHeaderScrollStore';
 
 interface BottomNavProps {
   active: 'dashboard' | 'users' | 'settings' | 'profile';
@@ -37,22 +39,32 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
 
   const user = useAuthStore((state) => state.user);
   const role = user?.role?.trim()?.toLowerCase() || '';
+  const { hasModuleAccess, isPartner, isAgent } = usePermissions();
+
+  const canViewUsers = !isAgent && (hasModuleAccess('User Management') || hasModuleAccess('Team Management'));
 
   const navigateToDashboard = useCallback(() => {
     triggerHaptic('selection');
+    useHeaderScrollStore.getState().resetHeader();
     if (active === 'dashboard') return;
-    if (role === 'partner') {
+    if (role === 'partner' || isPartner) {
       router.navigate('/admin/PartnerDashboard' as any);
+    } else if (role === 'agent' || role === 'sales' || isAgent) {
+      router.navigate({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
     } else {
       router.navigate('/admin/dashboard' as any);
     }
-  }, [router, role, active]);
+  }, [router, role, isPartner, isAgent, active]);
 
   const navigateToUsers = useCallback(() => {
     triggerHaptic('selection');
     if (active === 'users') return;
-    router.navigate('/admin/users' as any);
-  }, [router, active]);
+    if (canViewUsers) {
+      router.navigate('/admin/users' as any);
+    } else {
+      router.navigate('/admin/leads' as any);
+    }
+  }, [router, active, canViewUsers]);
 
   const navigateToSettings = useCallback(() => {
     triggerHaptic('selection');
@@ -152,7 +164,7 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
               },
             ]}
           >
-            User
+            {canViewUsers ? 'User' : 'Leads'}
           </Text>
         </TouchableOpacity>
 

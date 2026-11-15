@@ -67,15 +67,15 @@ export default function LeadStatusBadge({ value, type = 'status', size = 'sm' }:
       style={[
         styles.badge,
         {
-          backgroundColor: match.bg,
-          borderColor: match.border,
+          // backgroundColor: match.bg,
+          // borderColor: match.border,
           paddingHorizontal: isSm ? 8 : 10,
           paddingVertical: isSm ? 3 : 5,
         },
       ]}
     >
       <IconComponent size={isSm ? 11 : 13} color={match.text} />
-      <Text style={[styles.text, { color: match.text, fontSize: isSm ? 11 : 12 }]}>
+      <Text style={[styles.text, { color: match.text, fontSize: isSm ? 10 : 12 }]}>
         {match.label}
       </Text>
     </View>
@@ -87,13 +87,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    borderRadius: 999,
-    borderWidth: 1,
+    // borderRadius: 999,
+    // borderWidth: 1,
     alignSelf: 'flex-start',
   },
   text: {
-    fontWeight: '600',
-    letterSpacing: 0.2,
+    fontWeight: '400',
+    // letterSpacing: 0.2,
   },
 });
 

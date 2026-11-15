@@ -10,7 +10,7 @@ export default function InquiriesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.primaryBg }}>
-      <PublicLeadsContent />
+      <PublicLeadsContent initialType="Enquiry" />
     </View>
   );
 }

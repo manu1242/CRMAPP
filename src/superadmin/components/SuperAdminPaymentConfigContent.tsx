@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
+  Switch,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -23,13 +23,21 @@ interface PaymentConfig {
   razorpayKeyId: string;
   razorpayKeySecret: string;
   razorpayWebhookSecret: string;
+  cashfreeAppId: string;
+  cashfreeSecretKey: string;
+  isActive: boolean;
 }
 
 const emptyConfig: PaymentConfig = {
   razorpayKeyId: '',
   razorpayKeySecret: '',
   razorpayWebhookSecret: '',
+  cashfreeAppId: '',
+  cashfreeSecretKey: '',
+  isActive: true,
 };
+
+type GatewayTab = 'Razorpay' | 'Cashfree';
 
 export default function SuperAdminPaymentConfigContent() {
   const { isDark } = useTheme();
@@ -38,7 +46,9 @@ export default function SuperAdminPaymentConfigContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<PaymentConfig>(emptyConfig);
-  const [showSecret, setShowSecret] = useState(false);
+  const [activeTab, setActiveTab] = useState<GatewayTab>('Razorpay');
+  const [showRazorpaySecret, setShowRazorpaySecret] = useState(false);
+  const [showCashfreeSecret, setShowCashfreeSecret] = useState(false);
   const [showWebhook, setShowWebhook] = useState(false);
 
   // Theme
@@ -59,6 +69,9 @@ export default function SuperAdminPaymentConfigContent() {
           razorpayKeyId: d.razorpayKeyId ?? d.RazorpayKeyId ?? '',
           razorpayKeySecret: d.razorpayKeySecret ?? d.RazorpayKeySecret ?? '',
           razorpayWebhookSecret: d.razorpayWebhookSecret ?? d.RazorpayWebhookSecret ?? '',
+          cashfreeAppId: d.cashfreeAppId ?? d.CashfreeAppId ?? '',
+          cashfreeSecretKey: d.cashfreeSecretKey ?? d.CashfreeSecretKey ?? '',
+          isActive: d.isActive !== undefined ? !!d.isActive : true,
         });
       }
     } catch (e: any) {
@@ -71,19 +84,24 @@ export default function SuperAdminPaymentConfigContent() {
   useEffect(() => { loadConfig(); }, [loadConfig]);
 
   const saveConfig = useCallback(async () => {
-    if (!config.razorpayKeyId.trim() || !config.razorpayKeySecret.trim()) {
-      Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Key ID and Secret Key are required.' });
+    if (activeTab === 'Razorpay' && !config.razorpayKeyId.trim() && !config.cashfreeAppId.trim()) {
+      Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Please provide credentials for at least one gateway.' });
       return;
     }
+
     try {
       setSaving(true);
       const res: any = await apiClient.put(API_ENDPOINTS.PAYMENT_CONFIG.SAVE, {
         razorpayKeyId: config.razorpayKeyId.trim(),
         razorpayKeySecret: config.razorpayKeySecret.trim(),
         razorpayWebhookSecret: config.razorpayWebhookSecret.trim(),
+        cashfreeAppId: config.cashfreeAppId.trim(),
+        cashfreeSecretKey: config.cashfreeSecretKey.trim(),
+        isActive: config.isActive,
       });
       if (res?.success) {
         Toast.show({ type: 'success', text1: 'Saved', text2: res.message || 'Payment configuration saved successfully.' });
+        loadConfig();
       } else {
         Toast.show({ type: 'error', text1: 'Error', text2: res?.message || 'Failed to save.' });
       }
@@ -92,9 +110,9 @@ export default function SuperAdminPaymentConfigContent() {
     } finally {
       setSaving(false);
     }
-  }, [config]);
+  }, [config, activeTab, loadConfig]);
 
-  const updateField = (key: keyof PaymentConfig, val: string) =>
+  const updateField = (key: keyof PaymentConfig, val: any) =>
     setConfig(prev => ({ ...prev, [key]: val }));
 
   if (loading) {
@@ -112,9 +130,41 @@ export default function SuperAdminPaymentConfigContent() {
     >
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: bottomSpacing, flexGrow: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: bottomSpacing + 20, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Gateway Selection Tabs */}
+        <View style={{ flexDirection: 'row', backgroundColor: borderCol, borderRadius: 12, padding: 3, marginBottom: 16 }}>
+          <TouchableOpacity
+            onPress={() => setActiveTab('Razorpay')}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 10,
+              backgroundColor: activeTab === 'Razorpay' ? cardBg : 'transparent',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '700', color: activeTab === 'Razorpay' ? '#835CEE' : labelColor }}>
+              Razorpay
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab('Cashfree')}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 10,
+              backgroundColor: activeTab === 'Cashfree' ? cardBg : 'transparent',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '700', color: activeTab === 'Cashfree' ? '#835CEE' : labelColor }}>
+              Cashfree
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Card */}
         <View style={{
           backgroundColor: cardBg,
@@ -126,184 +176,259 @@ export default function SuperAdminPaymentConfigContent() {
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
-            gap: 10,
+            justifyContent: 'space-between',
             padding: 16,
             borderBottomWidth: 1,
             borderBottomColor: borderCol,
           }}>
-            <View style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <Ionicons name="card-outline" size={18} color="#835CEE" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <View style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <Ionicons name="card-outline" size={18} color="#835CEE" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
+                  {activeTab} Configuration
+                </Text>
+                <Text style={{ fontSize: 12, color: labelColor, marginTop: 1 }}>
+                  SuperAdmin platform payment gateway
+                </Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
-                Razorpay Configuration
+
+            {/* Active Switch */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontSize: 12, color: labelColor, fontWeight: '600' }}>
+                {config.isActive ? 'Active' : 'Inactive'}
               </Text>
-              <Text style={{ fontSize: 12, color: labelColor, marginTop: 1 }}>
-                Payment gateway credentials for the platform
-              </Text>
+              <Switch
+                value={config.isActive}
+                onValueChange={(v) => updateField('isActive', v)}
+                trackColor={{ false: borderCol, true: '#835CEE' }}
+                thumbColor="#FFFFFF"
+              />
             </View>
           </View>
 
-          <View style={{ padding: 16, gap: 20 }}>
-            {/* Key ID */}
-            <View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Ionicons name="key-outline" size={15} color={labelColor} />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
-                  Key ID
+          {activeTab === 'Razorpay' ? (
+            <View style={{ padding: 16, gap: 18 }}>
+              {/* Key ID */}
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Ionicons name="key-outline" size={15} color={labelColor} />
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
+                    Key ID
+                  </Text>
+                </View>
+                <TextInput
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: borderCol,
+                    backgroundColor: inputBg,
+                    borderRadius: 10,
+                    paddingHorizontal: 14,
+                    height: 46,
+                    color: textColor,
+                    fontSize: 14,
+                    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+                  }}
+                  value={config.razorpayKeyId}
+                  onChangeText={v => updateField('razorpayKeyId', v)}
+                  placeholder="rzp_live_xxxxxxxxxx"
+                  placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
+                />
+                <Text style={{ fontSize: 11, color: labelColor, marginTop: 5 }}>
+                  Razorpay Key ID (starts with rzp_live_ or rzp_test_)
                 </Text>
               </View>
-              <TextInput
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={{
+
+              <View style={{ height: 1, backgroundColor: borderCol }} />
+
+              {/* Secret Key */}
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Ionicons name="lock-closed-outline" size={15} color={labelColor} />
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
+                    Key Secret
+                  </Text>
+                </View>
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
                   borderWidth: 1,
                   borderColor: borderCol,
                   backgroundColor: inputBg,
                   borderRadius: 10,
                   paddingHorizontal: 14,
                   height: 46,
-                  color: textColor,
-                  fontSize: 14,
-                  fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-                }}
-                value={config.razorpayKeyId}
-                onChangeText={v => updateField('razorpayKeyId', v)}
-                placeholder="rzp_live_xxxxxxxxxx"
-                placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
-              />
-              <Text style={{ fontSize: 11, color: labelColor, marginTop: 5 }}>
-                Your Razorpay Key ID (starts with rzp_live_ or rzp_test_)
-              </Text>
-            </View>
-
-            {/* Divider */}
-            <View style={{ height: 1, backgroundColor: borderCol }} />
-
-            {/* Secret Key */}
-            <View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Ionicons name="lock-closed-outline" size={15} color={labelColor} />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
-                  Secret Key
-                </Text>
-              </View>
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: borderCol,
-                backgroundColor: inputBg,
-                borderRadius: 10,
-                paddingHorizontal: 14,
-                height: 46,
-              }}>
-                <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry={!showSecret}
-                  style={{
-                    flex: 1,
-                    color: textColor,
-                    fontSize: 14,
-                    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-                  }}
-                  value={config.razorpayKeySecret}
-                  onChangeText={v => updateField('razorpayKeySecret', v)}
-                  placeholder="Enter Secret Key"
-                  placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
-                />
-                <TouchableOpacity onPress={() => setShowSecret(s => !s)} style={{ padding: 4 }}>
-                  <Ionicons
-                    name={showSecret ? 'eye-off-outline' : 'eye-outline'}
-                    size={16}
-                    color={labelColor}
-                  />
-                </TouchableOpacity>
-              </View>
-              <Text style={{ fontSize: 11, color: labelColor, marginTop: 5 }}>
-                Keep this secret — never share publicly
-              </Text>
-            </View>
-
-            {/* Divider */}
-            <View style={{ height: 1, backgroundColor: borderCol }} />
-
-            {/* Webhook Secret */}
-            <View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Ionicons name="git-merge-outline" size={15} color={labelColor} />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
-                  Webhook Secret
-                </Text>
-                <View style={{
-                  marginLeft: 4,
-                  backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5',
-                  paddingHorizontal: 7,
-                  paddingVertical: 2,
-                  borderRadius: 6,
                 }}>
-                  <Text style={{ fontSize: 10, color: labelColor, fontWeight: '600' }}>Optional</Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry={!showRazorpaySecret}
+                    style={{
+                      flex: 1,
+                      color: textColor,
+                      fontSize: 14,
+                      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+                    }}
+                    value={config.razorpayKeySecret}
+                    onChangeText={v => updateField('razorpayKeySecret', v)}
+                    placeholder="Enter Key Secret"
+                    placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
+                  />
+                  <TouchableOpacity onPress={() => setShowRazorpaySecret(s => !s)} style={{ padding: 4 }}>
+                    <Ionicons
+                      name={showRazorpaySecret ? 'eye-off-outline' : 'eye-outline'}
+                      size={16}
+                      color={labelColor}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text style={{ fontSize: 11, color: labelColor, marginTop: 5 }}>
+                  Stored securely on backend and masked in responses
+                </Text>
+              </View>
+
+              <View style={{ height: 1, backgroundColor: borderCol }} />
+
+              {/* Webhook Secret */}
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Ionicons name="git-merge-outline" size={15} color={labelColor} />
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
+                    Webhook Secret
+                  </Text>
+                  <View style={{
+                    marginLeft: 4,
+                    backgroundColor: isDark ? '#1e1e1e' : '#f4f4f5',
+                    paddingHorizontal: 7,
+                    paddingVertical: 2,
+                    borderRadius: 6,
+                  }}>
+                    <Text style={{ fontSize: 10, color: labelColor, fontWeight: '600' }}>Optional</Text>
+                  </View>
+                </View>
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                  backgroundColor: inputBg,
+                  borderRadius: 10,
+                  paddingHorizontal: 14,
+                  height: 46,
+                }}>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry={!showWebhook}
+                    style={{
+                      flex: 1,
+                      color: textColor,
+                      fontSize: 14,
+                      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+                    }}
+                    value={config.razorpayWebhookSecret}
+                    onChangeText={v => updateField('razorpayWebhookSecret', v)}
+                    placeholder="Enter Webhook Secret"
+                    placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
+                  />
+                  <TouchableOpacity onPress={() => setShowWebhook(s => !s)} style={{ padding: 4 }}>
+                    <Ionicons
+                      name={showWebhook ? 'eye-off-outline' : 'eye-outline'}
+                      size={16}
+                      color={labelColor}
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: borderCol,
-                backgroundColor: inputBg,
-                borderRadius: 10,
-                paddingHorizontal: 14,
-                height: 46,
-              }}>
+            </View>
+          ) : (
+            <View style={{ padding: 16, gap: 18 }}>
+              {/* Cashfree App ID */}
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Ionicons name="key-outline" size={15} color={labelColor} />
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
+                    Cashfree App ID
+                  </Text>
+                </View>
                 <TextInput
                   autoCapitalize="none"
                   autoCorrect={false}
-                  secureTextEntry={!showWebhook}
                   style={{
-                    flex: 1,
+                    borderWidth: 1,
+                    borderColor: borderCol,
+                    backgroundColor: inputBg,
+                    borderRadius: 10,
+                    paddingHorizontal: 14,
+                    height: 46,
                     color: textColor,
                     fontSize: 14,
                     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
                   }}
-                  value={config.razorpayWebhookSecret}
-                  onChangeText={v => updateField('razorpayWebhookSecret', v)}
-                  placeholder="Enter Webhook Secret"
+                  value={config.cashfreeAppId}
+                  onChangeText={v => updateField('cashfreeAppId', v)}
+                  placeholder="Enter Cashfree App ID"
                   placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
                 />
-                <TouchableOpacity onPress={() => setShowWebhook(s => !s)} style={{ padding: 4 }}>
-                  <Ionicons
-                    name={showWebhook ? 'eye-off-outline' : 'eye-outline'}
-                    size={16}
-                    color={labelColor}
-                  />
-                </TouchableOpacity>
               </View>
-              <Text style={{ fontSize: 11, color: labelColor, marginTop: 5 }}>
-                Required only if you have Razorpay webhook events configured
-              </Text>
-            </View>
 
-            {/* Info note */}
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              gap: 8,
-            }}>
-              <Ionicons name="information-circle-outline" size={15} color={labelColor} style={{ marginTop: 1 }} />
-              <Text style={{ flex: 1, fontSize: 12, color: labelColor, lineHeight: 17 }}>
-                Find your credentials in the Razorpay Dashboard under{' '}
-                <Text style={{ fontWeight: '700' }}>Settings → API Keys</Text>.
-              </Text>
+              <View style={{ height: 1, backgroundColor: borderCol }} />
+
+              {/* Cashfree Secret Key */}
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <Ionicons name="lock-closed-outline" size={15} color={labelColor} />
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: textColor }}>
+                    Cashfree Secret Key
+                  </Text>
+                </View>
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: borderCol,
+                  backgroundColor: inputBg,
+                  borderRadius: 10,
+                  paddingHorizontal: 14,
+                  height: 46,
+                }}>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry={!showCashfreeSecret}
+                    style={{
+                      flex: 1,
+                      color: textColor,
+                      fontSize: 14,
+                      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+                    }}
+                    value={config.cashfreeSecretKey}
+                    onChangeText={v => updateField('cashfreeSecretKey', v)}
+                    placeholder="Enter Cashfree Secret Key"
+                    placeholderTextColor={isDark ? '#71717a' : '#a1a1aa'}
+                  />
+                  <TouchableOpacity onPress={() => setShowCashfreeSecret(s => !s)} style={{ padding: 4 }}>
+                    <Ionicons
+                      name={showCashfreeSecret ? 'eye-off-outline' : 'eye-outline'}
+                      size={16}
+                      color={labelColor}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         {/* Save Button */}

@@ -14,9 +14,14 @@ import {
 
 export const LeadService = {
   addLead: async (payload: AddLeadPayload): Promise<ApiResponse<LeadItem>> => {
+    const formattedPayload: AddLeadPayload = {
+      ...payload,
+      assignedToAgentId: payload.assignedToAgentId ?? payload.executiveId,
+      executiveId: payload.executiveId ?? payload.assignedToAgentId,
+    };
     return apiClient.post<ApiResponse<LeadItem>>(
       API_ENDPOINTS.LEADS.SAVE,
-      payload
+      formattedPayload
     );
   },
 
@@ -371,9 +376,14 @@ export const LeadService = {
 
   // ── General Lead Management ─────────────────────────────────
   updateLead: async (id: number | string, payload: AddLeadPayload): Promise<ApiResponse<any>> => {
+    const formattedPayload: AddLeadPayload = {
+      ...payload,
+      assignedToAgentId: payload.assignedToAgentId ?? payload.executiveId,
+      executiveId: payload.executiveId ?? payload.assignedToAgentId,
+    };
     return apiClient.put<ApiResponse<any>>(
       API_ENDPOINTS.LEADS.BY_ID(id),
-      payload
+      formattedPayload
     );
   },
 

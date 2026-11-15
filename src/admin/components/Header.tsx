@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
 import { Menu, Moon, Sun, Bell, Coins } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -12,6 +12,7 @@ import { useBrandingQuery } from '../hooks/useBranding';
 import { BrandingService } from '../services/BrandingService';
 import ReferralWalletSidebar from '../../app/components/ReferralWalletSidebar';
 import UserMenuModal from '../../app/components/UserMenuModal';
+import { useHeaderScrollStore } from '../store/useHeaderScrollStore';
 
 interface HeaderProps {
   onMenuPress?: () => void;
@@ -87,9 +88,20 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
   const { data: branding } = useBrandingQuery();
   const logoUrl = BrandingService.resolveLogoUri(branding?.companyLogo || branding?.logoPath);
   const brandName = branding?.companyName || 'Admin Panel';
+  const headerOffset = useHeaderScrollStore((s) => s.headerOffset);
+
+  const headerOpacity = useMemo(
+    () =>
+      headerOffset.interpolate({
+        inputRange: [-64, 0],
+        outputRange: [0, 1],
+        extrapolate: 'clamp',
+      }),
+    [headerOffset]
+  );
 
   return (
-    <View style={containerStyle}>
+    <Animated.View style={[containerStyle, { marginTop: headerOffset, opacity: headerOpacity, overflow: 'hidden' }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         {onMenuPress && (
           <TouchableOpacity onPress={onMenuPress} style={{ padding: 4 }}>
@@ -203,7 +215,7 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
           isSuperAdmin={false}
         />
       </View>
-    </View>
+    </Animated.View>
   );
 });
 

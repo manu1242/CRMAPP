@@ -13,6 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
+import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
 import { useCreateChannelPartner, useSubscriptionPlans } from '../../../../admin/hooks/useChannelPartners';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
@@ -39,6 +40,7 @@ export default function CreateChannelPartnerScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   // Form States
   const [form, setForm] = useState({
@@ -207,7 +209,7 @@ export default function CreateChannelPartnerScreen() {
       </View>
 
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: Math.max(bottomSpacing + 20, 100) }} showsVerticalScrollIndicator={false}>
         {/* Basic Information Section */}
         <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16, gap: 12 }}>
           <Text style={{ fontSize: 13, fontWeight: '700', color: textColor, marginBottom: 4 }}>Basic Information</Text>

@@ -54,3 +54,39 @@ export function useAdminAnalyticsQuery() {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export function useSalesOverviewQuery() {
+  const user = useAuthStore((state) => state.user);
+  const isSuperAdmin = user?.role?.trim()?.toLowerCase() === 'superadmin';
+
+  return useQuery({
+    queryKey: ['dashboardSalesOverview', user?.userId, user?.tenantId],
+    queryFn: ({ signal }) => dashboardService.getSalesOverview(signal),
+    enabled: !!user && !isSuperAdmin,
+    staleTime: 3 * 60 * 1000,
+  });
+}
+
+export function useTeamDashboardQuery() {
+  const user = useAuthStore((state) => state.user);
+  const isSuperAdmin = user?.role?.trim()?.toLowerCase() === 'superadmin';
+
+  return useQuery({
+    queryKey: ['dashboardTeam', user?.userId, user?.tenantId],
+    queryFn: ({ signal }) => dashboardService.getTeamDashboard(signal),
+    enabled: !!user && !isSuperAdmin,
+    staleTime: 3 * 60 * 1000,
+  });
+}
+
+export function useMilestoneTrackingQuery(search?: string) {
+  const user = useAuthStore((state) => state.user);
+  const isSuperAdmin = user?.role?.trim()?.toLowerCase() === 'superadmin';
+
+  return useQuery({
+    queryKey: ['dashboardMilestones', user?.userId, user?.tenantId, search],
+    queryFn: ({ signal }) => dashboardService.getMilestoneTracking(search, signal),
+    enabled: !!user && !isSuperAdmin,
+    staleTime: 2 * 60 * 1000,
+  });
+}

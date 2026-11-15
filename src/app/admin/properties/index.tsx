@@ -40,6 +40,7 @@ import { exportToExcel, exportToCSV } from '../../../Services/exportService';
 
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
+import { usePermissions } from '../../../authorization/hooks/usePermission';
 import { PropertyService } from '../../../admin/services/PropertyService';
 import { TokenStorage } from '../../../auth/storage/TokenStorage';
 import { AuthImage } from '../../../components/AuthImage';
@@ -62,6 +63,7 @@ export default function PropertiesScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { canCreate, canEdit, canDelete } = usePermissions();
 
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
@@ -373,39 +375,41 @@ export default function PropertiesScreen() {
           </View>
 
           {/* Operations Button */}
-          <View style={{ position: 'relative' }}>
-            <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: brandCol }]}
-              onPress={() => { setOperationsOpen(!isOperationsOpen); setExportOpen(false); }}
-            >
-              <Plus size={16} color="#fff" />
-              <Text style={styles.addButtonText}>Operations</Text>
-              {isOperationsOpen ? <ChevronUp size={13} color="#fff" /> : <ChevronDown size={13} color="#fff" />}
-            </TouchableOpacity>
+          {canCreate('Properties') && (
+            <View style={{ position: 'relative' }}>
+              <TouchableOpacity
+                style={[styles.addButton, { backgroundColor: brandCol }]}
+                onPress={() => { setOperationsOpen(!isOperationsOpen); setExportOpen(false); }}
+              >
+                <Plus size={16} color="#fff" />
+                <Text style={styles.addButtonText}>Operations</Text>
+                {isOperationsOpen ? <ChevronUp size={13} color="#fff" /> : <ChevronDown size={13} color="#fff" />}
+              </TouchableOpacity>
 
-            {isOperationsOpen && (
-              <View style={[styles.inlineDropdown, { backgroundColor: cardBg, borderColor: borderCol, right: 0, left: 'auto' as any }]}>
-                <TouchableOpacity
-                  style={styles.inlineDropdownItem}
-                  onPress={() => {
-                    setOperationsOpen(false);
-                    router.push('/admin/properties/add-property');
-                  }}
-                >
-                  <Plus size={14} color={subTextColor} />
-                  <Text style={{ color: textColor, fontSize: 13 }}>Add Property</Text>
-                </TouchableOpacity>
-                <View style={[styles.ddivider, { backgroundColor: borderCol }]} />
-                <TouchableOpacity
-                  style={styles.inlineDropdownItem}
-                  onPress={() => { setOperationsOpen(false); handleBulkUpload(); }}
-                >
-                  <Upload size={14} color={subTextColor} />
-                  <Text style={{ color: textColor, fontSize: 13 }}>Bulk Upload</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+              {isOperationsOpen && (
+                <View style={[styles.inlineDropdown, { backgroundColor: cardBg, borderColor: borderCol, right: 0, left: 'auto' as any }]}>
+                  <TouchableOpacity
+                    style={styles.inlineDropdownItem}
+                    onPress={() => {
+                      setOperationsOpen(false);
+                      router.push('/admin/properties/add-property');
+                    }}
+                  >
+                    <Plus size={14} color={subTextColor} />
+                    <Text style={{ color: textColor, fontSize: 13 }}>Add Property</Text>
+                  </TouchableOpacity>
+                  <View style={[styles.ddivider, { backgroundColor: borderCol }]} />
+                  <TouchableOpacity
+                    style={styles.inlineDropdownItem}
+                    onPress={() => { setOperationsOpen(false); handleBulkUpload(); }}
+                  >
+                    <Upload size={14} color={subTextColor} />
+                    <Text style={{ color: textColor, fontSize: 13 }}>Bulk Upload</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* ── Inline Filters Panel ── */}
@@ -738,26 +742,30 @@ export default function PropertiesScreen() {
                         <Text style={{ color: textColor, fontSize: 11, fontWeight: '600' }}>Photos</Text>
                       </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: inputBg }]}
-                        onPress={() => {
-                          closeAllDropdowns();
-                          router.push({
-                            pathname: '/admin/properties/add-property',
-                            params: { id: item.propertyId }
-                          });
-                        }}
-                      >
-                        <Edit size={12} color={brandCol} />
-                        <Text style={{ color: brandCol, fontSize: 11, fontWeight: '600' }}>Edit</Text>
-                      </TouchableOpacity>
+                      {canEdit('Properties') && (
+                        <TouchableOpacity
+                          style={[styles.actionBtn, { backgroundColor: inputBg }]}
+                          onPress={() => {
+                            closeAllDropdowns();
+                            router.push({
+                              pathname: '/admin/properties/add-property',
+                              params: { id: item.propertyId }
+                            });
+                          }}
+                        >
+                          <Edit size={12} color={brandCol} />
+                          <Text style={{ color: brandCol, fontSize: 11, fontWeight: '600' }}>Edit</Text>
+                        </TouchableOpacity>
+                      )}
 
-                      <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: '#ef444415' }]}
-                        onPress={() => handleDeleteProperty(item.propertyId, item.propertyName)}
-                      >
-                        <Trash2 size={12} color="#ef4444" />
-                      </TouchableOpacity>
+                      {canDelete('Properties') && (
+                        <TouchableOpacity
+                          style={[styles.actionBtn, { backgroundColor: '#ef444415' }]}
+                          onPress={() => handleDeleteProperty(item.propertyId, item.propertyName)}
+                        >
+                          <Trash2 size={12} color="#ef4444" />
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
                 </View>

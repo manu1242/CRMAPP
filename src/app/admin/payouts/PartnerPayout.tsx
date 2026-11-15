@@ -44,6 +44,7 @@ import {
   PartnerPayoutDetailsData,
   PartnerPayslipData,
 } from '../../../admin/services/payoutService';
+import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -51,6 +52,7 @@ export default function PartnerPayout() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const currentDate = new Date();
   const [month, setMonth] = useState(MONTHS[currentDate.getMonth()]);
@@ -274,9 +276,7 @@ export default function PartnerPayout() {
           <Text style={[styles.headerTitle, { color: adminTheme.textPrimary }]}>
             Partner Payouts
           </Text>
-          <Text style={[styles.headerSubtitle, { color: adminTheme.textSecondary }]}>
-            Channel Partner Commissions ({month} {year})
-          </Text>
+         
         </View>
 
         {/* Month Selector */}
@@ -294,7 +294,7 @@ export default function PartnerPayout() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomSpacing + 20 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -304,8 +304,13 @@ export default function PartnerPayout() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Summary Stats Grid */}
-        <View style={styles.statsGrid}>
+        {/* Summary Stats Horizontal Scroll */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.statsHorizontalScroll}
+          contentContainerStyle={styles.statsHorizontalContent}
+        >
           {/* Card 1: Total Payouts */}
           <View
             style={[
@@ -313,13 +318,11 @@ export default function PartnerPayout() {
               { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
             ]}
           >
-            <View style={[styles.statIconBadge, { backgroundColor: '#10b98115' }]}>
-              <IndianRupee size={16} color="#10b981" />
-            </View>
-            <Text style={[styles.statValue, { color: '#10b981' }]}>
+            <IndianRupee size={15} color="#10b981" />
+            <Text style={[styles.statValue, { color: '#10b981' }]} numberOfLines={1}>
               ₹{(summary?.totalPayouts || 0).toLocaleString()}
             </Text>
-            <Text style={[styles.statLabel, { color: adminTheme.textSecondary }]}>
+            <Text style={[styles.statLabel, { color: adminTheme.textSecondary }]} numberOfLines={1}>
               Total Payouts
             </Text>
           </View>
@@ -331,13 +334,11 @@ export default function PartnerPayout() {
               { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
             ]}
           >
-            <View style={[styles.statIconBadge, { backgroundColor: '#a855f715' }]}>
-              <Building2 size={16} color="#a855f7" />
-            </View>
-            <Text style={[styles.statValue, { color: adminTheme.textPrimary }]}>
+            <Building2 size={15} color="#a855f7" />
+            <Text style={[styles.statValue, { color: adminTheme.textPrimary }]} numberOfLines={1}>
               {summary?.totalPartners || 0}
             </Text>
-            <Text style={[styles.statLabel, { color: adminTheme.textSecondary }]}>
+            <Text style={[styles.statLabel, { color: adminTheme.textSecondary }]} numberOfLines={1}>
               Partners
             </Text>
           </View>
@@ -349,13 +350,11 @@ export default function PartnerPayout() {
               { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
             ]}
           >
-            <View style={[styles.statIconBadge, { backgroundColor: '#3b82f615' }]}>
-              <TrendingUp size={16} color="#3b82f6" />
-            </View>
-            <Text style={[styles.statValue, { color: adminTheme.textPrimary }]}>
+            <TrendingUp size={15} color="#3b82f6" />
+            <Text style={[styles.statValue, { color: adminTheme.textPrimary }]} numberOfLines={1}>
               {summary?.totalSales || 0}
             </Text>
-            <Text style={[styles.statLabel, { color: adminTheme.textSecondary }]}>
+            <Text style={[styles.statLabel, { color: adminTheme.textSecondary }]} numberOfLines={1}>
               Sales
             </Text>
           </View>
@@ -367,17 +366,15 @@ export default function PartnerPayout() {
               { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
             ]}
           >
-            <View style={[styles.statIconBadge, { backgroundColor: '#f59e0b15' }]}>
-              <Award size={16} color="#f59e0b" />
-            </View>
-            <Text style={[styles.statValue, { color: adminTheme.textPrimary }]}>
+            <Award size={15} color="#f59e0b" />
+            <Text style={[styles.statValue, { color: adminTheme.textPrimary }]} numberOfLines={1}>
               ₹{(summary?.averageCommission || 0).toLocaleString()}
             </Text>
-            <Text style={[styles.statLabel, { color: adminTheme.textSecondary }]}>
+            <Text style={[styles.statLabel, { color: adminTheme.textSecondary }]} numberOfLines={1}>
               Avg Commission
             </Text>
           </View>
-        </View>
+        </ScrollView>
 
         {/* Filter Bar & Action Buttons */}
         <View
@@ -774,35 +771,34 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     gap: 14,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  statsHorizontalScroll: {
+    marginHorizontal: -16,
+  },
+  statsHorizontalContent: {
+    paddingHorizontal: 16,
     gap: 10,
+    paddingVertical: 2,
   },
   statCard: {
-    width: '48%',
-    borderRadius: 16,
+    width: 100,
+    height: 60,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 12,
-    alignItems: 'center',
-  },
-  statIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
     justifyContent: 'center',
-    marginBottom: 6,
+    alignItems: 'center',
+    gap: 2,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 12.5,
     fontWeight: '800',
+    textAlign: 'center',
   },
   statLabel: {
-    fontSize: 10,
-    marginTop: 2,
+    fontSize: 9.5,
     fontWeight: '500',
+    textAlign: 'center',
   },
   filterContainer: {
     borderRadius: 16,

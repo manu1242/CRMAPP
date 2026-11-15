@@ -25,6 +25,7 @@ import {
 import { ChannelPartnerService } from '../../../../admin/services/ChannelPartnerService';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
+import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
 import {
   ArrowLeft,
   Edit2,
@@ -53,6 +54,7 @@ export default function PartnerDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const { data, isLoading, refetch, isRefetching, error } = useChannelPartner(id);
   const deletePartnerMutation = useDeleteChannelPartner();
@@ -461,7 +463,7 @@ export default function PartnerDetailsScreen() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 120, flexGrow: 1 }}
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: Math.max(bottomSpacing + 20, 100), flexGrow: 1 }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[brandColor]} />}
         showsVerticalScrollIndicator={false}
       >

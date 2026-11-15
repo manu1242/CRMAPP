@@ -27,6 +27,7 @@ import Svg, {
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { useAuthStore } from '../../auth/store/authStore';
+import { usePermissions } from '../../authorization/hooks/usePermission';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
 import AppFooter from '../../auth/components/AppFooter';
@@ -54,6 +55,9 @@ import {
   Calendar,
   Sparkles,
   Layers,
+  Building2,
+  CalendarCheck,
+  CheckCircle,
 } from 'lucide-react-native';
 import {
   dashboardService,
@@ -63,6 +67,7 @@ import { useAdminDashboardQuery } from '../hooks/useDashboardQuery';
 import DashboardSkeleton from './DashboardSkeleton';
 import { NotificationService } from '../../Services/NotificationService';
 import { NotificationItem } from '../../authorization/models/Notification';
+import { useDashboardScrollHandler } from '../store/useHeaderScrollStore';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -737,8 +742,8 @@ function FinancialBanner({
       style={[
         styles.card,
         {
-          backgroundColor: isDark ? 'transparent' : cardBg,
-          borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+          backgroundColor: cardBg,
+          borderColor: cardBorder,
           position: 'relative',
           overflow: 'hidden',
           ...Platform.select({
@@ -748,13 +753,6 @@ function FinancialBanner({
         },
       ]}
     >
-      {isDark && (
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 75 : 45}
-          tint="dark"
-          style={StyleSheet.absoluteFill}
-        />
-      )}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View
@@ -812,6 +810,10 @@ export default function AdminDashboardContent() {
   const role = user?.role?.trim()?.toLowerCase() || '';
   const router = useRouter();
   const adminTheme = getAdminTheme(isDark);
+  const { hasModuleAccess, isAgent, isManager, isAdmin, isSuperAdmin } = usePermissions();
+
+  const canAccessFinance = (isAdmin || isSuperAdmin || hasModuleAccess('Finance')) && !isAgent;
+  const canAccessLeads = isAdmin || isSuperAdmin || hasModuleAccess('Leads & Properties');
 
   const bgColor = adminTheme.primaryBg;
   const textColor = adminTheme.textPrimary;
@@ -853,6 +855,8 @@ export default function AdminDashboardContent() {
     refetch,
   } = useAdminDashboardQuery();
 
+  const handleScroll = useDashboardScrollHandler();
+
   const data = queryData || null;
   const error = queryError ? queryError.message : null;
 
@@ -886,29 +890,77 @@ export default function AdminDashboardContent() {
 
   const statCards = data
     ? [
-      {
-        title: 'Total Leads',
-        value: `${data.totalLeads}`,
-        sub: data.facebookLeads > 0 ? `${data.facebookLeads} Facebook Leads` : 'Active in Workspace',
-        icon: Users,
-        color: '#10b981',
-      },
-      {
-        title: 'Total Revenue',
-        value: formatCurrency(data.totalRevenue),
-        sub: formatFullCurrency(data.totalRevenue),
-        icon: IndianRupee,
-        color: '#3b82f6',
-      },
-      {
-        title: 'Net Profit',
-        value: formatCurrency(data.totalProfit),
-        sub: data.totalProfit >= 0 ? 'Net Income' : 'Net Loss',
-        icon: TrendingUp,
-        color: data.totalProfit >= 0 ? '#f59e0b' : '#ef4444',
-      },
-    ]
+        {
+          title: isAgent ? 'My Assigned Leads' : 'Total Leads',
+          value: `${data.totalLeads}`,
+          sub: data.facebookLeads > 0 ? `${data.facebookLeads} Facebook Leads` : 'Active in Workspace',
+          icon: Users,
+          color: '#10b981',
+        },
+        ...(canAccessFinance
+          ? [
+              {
+                title: 'Total Revenue',
+                value: formatCurrency(data.totalRevenue),
+                sub: formatFullCurrency(data.totalRevenue),
+                icon: IndianRupee,
+                color: '#3b82f6',
+              },
+              {
+                title: 'Net Profit',
+                value: formatCurrency(data.totalProfit),
+                sub: data.totalProfit >= 0 ? 'Net Income' : 'Net Loss',
+                icon: TrendingUp,
+                color: data.totalProfit >= 0 ? '#f59e0b' : '#ef4444',
+              },
+            ]
+          : [
+              {
+                title: 'New Leads Today',
+                value: `${data.overview?.newLeadsToday ?? 0}`,
+                sub: 'Fresh enquiries',
+                icon: TrendingUp,
+                color: '#3b82f6',
+              },
+              {
+                title: 'Conversion Rate',
+                value: `${data.overview?.conversionRate ?? 0}%`,
+                sub: 'Lead win rate',
+                icon: CheckCircle,
+                color: '#f59e0b',
+              },
+            ]),
+      ]
     : [];
+
+  const quickActions = React.useMemo(() => {
+    if (isAgent) {
+      return [
+        { label: 'My Leads', icon: Users, color: '#3b82f6', route: '/admin/leads' },
+        { label: 'My Tasks', icon: CheckSquare, color: '#10b981', route: '/admin/Tasks' },
+        { label: 'Properties', icon: Building2, color: '#f59e0b', route: '/admin/properties' },
+        { label: 'Attendance', icon: CalendarCheck, color: '#06b6d4', route: '/admin/attendance/AgentAttendance' },
+      ];
+    }
+
+    const items = [];
+    if (hasModuleAccess('Leads & Properties')) {
+      items.push({ label: 'Leads List', icon: Users, color: '#3b82f6', route: '/admin/leads' });
+    }
+    if (isAdmin && hasModuleAccess('User Management')) {
+      items.push({ label: 'User Roles', icon: CheckSquare, color: '#10b981', route: '/admin/usemanagement/RolesManagement' });
+    }
+    if (hasModuleAccess('User Management')) {
+      items.push({ label: 'Manage Users', icon: Users, color: '#8b5cf6', route: '/admin/usemanagement/ManageUsers' });
+    }
+    if (hasModuleAccess('Team Management')) {
+      items.push({ label: 'Agent List', icon: Users, color: '#a855f7', route: '/admin/teammanagement/Agent' });
+    }
+    if (hasModuleAccess('Settings')) {
+      items.push({ label: 'Settings', icon: SlidersHorizontal, color: '#f59e0b', route: '/admin/settings' });
+    }
+    return items.slice(0, 4);
+  }, [isAgent, isAdmin, hasModuleAccess]);
 
   const pipelineTotal = data?.pipeline?.reduce((a, b) => a + b.count, 0) ?? 0;
   const pipelineColors = ['#06b6d4', '#3b82f6', '#8b5cf6', '#a855f7', '#f59e0b', '#10b981'];
@@ -989,6 +1041,8 @@ export default function AdminDashboardContent() {
         style={{ flex: 1, backgroundColor: 'transparent' }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 120, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1112,10 +1166,10 @@ export default function AdminDashboardContent() {
                 style={{
                   flex: 1.2,
                   height: 150,
-                  backgroundColor: isDark ? 'transparent' : cardBg,
+                  backgroundColor: cardBg,
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                  borderColor: cardBorder,
                   padding: 18,
                   justifyContent: 'space-between',
                   position: 'relative',
@@ -1123,14 +1177,6 @@ export default function AdminDashboardContent() {
                   ...cardShadow,
                 }}
               >
-                {isDark && (
-                  <BlurView
-                    intensity={Platform.OS === 'ios' ? 75 : 45}
-                    tint="dark"
-                    style={StyleSheet.absoluteFill}
-                  />
-                )}
-
                 <View style={{ paddingTop: 4, zIndex: 1 }}>
                   <Text style={{ fontSize: 13, color: subTextColor, fontWeight: '500' }}>Total Leads</Text>
                   <Text style={{ fontSize: 28, fontWeight: '800', color: textColor, marginTop: 4, letterSpacing: -0.7 }}>
@@ -1164,10 +1210,10 @@ export default function AdminDashboardContent() {
                 <View
                   style={{
                     flex: 1,
-                    backgroundColor: isDark ? 'transparent' : cardBg,
+                    backgroundColor: cardBg,
                     borderRadius: 16,
                     borderWidth: 1,
-                    borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                    borderColor: cardBorder,
                     padding: 14,
                     justifyContent: 'flex-start',
                     position: 'relative',
@@ -1175,14 +1221,6 @@ export default function AdminDashboardContent() {
                     ...cardShadow,
                   }}
                 >
-                  {isDark && (
-                    <BlurView
-                      intensity={Platform.OS === 'ios' ? 75 : 45}
-                      tint="dark"
-                      style={StyleSheet.absoluteFill}
-                    />
-                  )}
-
                   <View style={{ gap: 2, zIndex: 1 }}>
                     <Text style={{ fontSize: 11, color: subTextColor, fontWeight: '600' }} numberOfLines={1}>
                       Revenue
@@ -1213,10 +1251,10 @@ export default function AdminDashboardContent() {
                 <View
                   style={{
                     flex: 1,
-                    backgroundColor: isDark ? 'transparent' : cardBg,
+                    backgroundColor: cardBg,
                     borderRadius: 16,
                     borderWidth: 1,
-                    borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                    borderColor: cardBorder,
                     padding: 14,
                     justifyContent: 'flex-start',
                     position: 'relative',
@@ -1224,14 +1262,6 @@ export default function AdminDashboardContent() {
                     ...cardShadow,
                   }}
                 >
-                  {isDark && (
-                    <BlurView
-                      intensity={Platform.OS === 'ios' ? 75 : 45}
-                      tint="dark"
-                      style={StyleSheet.absoluteFill}
-                    />
-                  )}
-
                   <View style={{ gap: 2, zIndex: 1 }}>
                     <Text style={{ fontSize: 11, color: subTextColor, fontWeight: '600' }} numberOfLines={1}>
                       Net Profit
@@ -1266,21 +1296,14 @@ export default function AdminDashboardContent() {
             style={[
               styles.card,
               {
-                backgroundColor: isDark ? 'transparent' : cardBg,
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                backgroundColor: cardBg,
+                borderColor: cardBorder,
                 position: 'relative',
                 overflow: 'hidden',
                 ...cardShadow,
               },
             ]}
           >
-            {isDark && (
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 75 : 45}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-            )}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <View>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>Lead Growth Trend</Text>
@@ -1315,14 +1338,7 @@ export default function AdminDashboardContent() {
             Quick Actions
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {[
-              { label: 'Leads List', icon: Users, color: '#3b82f6', route: '/admin/leads' },
-              { label: 'User Roles', icon: CheckSquare, color: '#10b981', route: '/admin/usemanagement/RolesManagement' },
-              { label: 'Manage Users', icon: Users, color: '#8b5cf6', route: '/admin/usemanagement/ManageUsers' },
-              { label: 'Settings', icon: SlidersHorizontal, color: '#f59e0b', route: '/admin/settings' },
-              // { label: 'Log Actions', icon: MessageSquare, color: '#ec4899', sheet: 'quick' },
-              // { label: 'App Metrics', icon: TrendingUp, color: '#06b6d4', sheet: 'notifications' },
-            ].map((action, i) => (
+            {quickActions.map((action, i) => (
               <TouchableOpacity
                 key={i}
                 onPress={() => {
@@ -1332,10 +1348,10 @@ export default function AdminDashboardContent() {
                 }}
                 style={{
                   width: (SCREEN_WIDTH - 42) / 2,
-                  backgroundColor: isDark ? 'transparent' : cardBg,
+                  backgroundColor: cardBg,
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : cardBorder,
+                  borderColor: cardBorder,
                   padding: 16,
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -1344,13 +1360,6 @@ export default function AdminDashboardContent() {
                   overflow: 'hidden',
                 }}
               >
-                {isDark && (
-                  <BlurView
-                    intensity={Platform.OS === 'ios' ? 75 : 45}
-                    tint="dark"
-                    style={StyleSheet.absoluteFill}
-                  />
-                )}
                 <View
                   style={{
                     width: 32,
@@ -1372,7 +1381,7 @@ export default function AdminDashboardContent() {
         </View>
 
         {/* Financial Overview Card */}
-        {data && (
+        {canAccessFinance && data && (
           <FinancialBanner
             totalRevenue={data.totalRevenue}
             totalExpenses={data.totalExpenses}
@@ -1390,21 +1399,14 @@ export default function AdminDashboardContent() {
             style={[
               styles.card,
               {
-                backgroundColor: isDark ? 'transparent' : cardBg,
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                backgroundColor: cardBg,
+                borderColor: cardBorder,
                 position: 'relative',
                 overflow: 'hidden',
                 ...cardShadow,
               },
             ]}
           >
-            {isDark && (
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 75 : 45}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-            )}
             <SectionHeader
               title="Traffic Distribution"
               icon={PieChart}
@@ -1430,21 +1432,14 @@ export default function AdminDashboardContent() {
             style={[
               styles.card,
               {
-                backgroundColor: isDark ? 'transparent' : cardBg,
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                backgroundColor: cardBg,
+                borderColor: cardBorder,
                 position: 'relative',
                 overflow: 'hidden',
                 ...cardShadow,
               },
             ]}
           >
-            {isDark && (
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 75 : 45}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-            )}
             <SectionHeader
               title="Pipeline Sales"
               icon={BarChart3}
@@ -1507,10 +1502,10 @@ export default function AdminDashboardContent() {
                   <View
                     key={lead.leadId}
                     style={{
-                      backgroundColor: isDark ? 'transparent' : cardBg,
+                      backgroundColor: cardBg,
                       borderRadius: 16,
                       borderWidth: 1,
-                      borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : cardBorder,
+                      borderColor: cardBorder,
                       padding: 14,
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -1519,13 +1514,6 @@ export default function AdminDashboardContent() {
                       overflow: 'hidden',
                     }}
                   >
-                    {isDark && (
-                      <BlurView
-                        intensity={Platform.OS === 'ios' ? 75 : 45}
-                        tint="dark"
-                        style={StyleSheet.absoluteFill}
-                      />
-                    )}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
                       <View
                         style={{
@@ -1575,7 +1563,7 @@ export default function AdminDashboardContent() {
         )}
 
         {/* Recent Transactions Section */}
-        {data && data.recentTransactions.length > 0 && (
+        {canAccessFinance && data && data.recentTransactions.length > 0 && (
           <View style={{ marginBottom: 24 }}>
             <SectionHeader
               title="Recent Transactions"
@@ -1589,10 +1577,10 @@ export default function AdminDashboardContent() {
                 <View
                   key={`${txn.paymentId}-${i}`}
                   style={{
-                    backgroundColor: isDark ? 'transparent' : cardBg,
+                    backgroundColor: cardBg,
                     borderRadius: 16,
                     borderWidth: 1,
-                    borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : cardBorder,
+                    borderColor: cardBorder,
                     padding: 14,
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -1601,13 +1589,6 @@ export default function AdminDashboardContent() {
                     overflow: 'hidden',
                   }}
                 >
-                  {isDark && (
-                    <BlurView
-                      intensity={Platform.OS === 'ios' ? 75 : 45}
-                      tint="dark"
-                      style={StyleSheet.absoluteFill}
-                    />
-                  )}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <View
                       style={{
@@ -1652,26 +1633,19 @@ export default function AdminDashboardContent() {
         )}
 
         {/* Dual Line Chart (Revenue vs Expenses) */}
-        {data && data.revenueExpenses.length > 0 && (
+        {canAccessFinance && data && data.revenueExpenses.length > 0 && (
           <View
             style={[
               styles.card,
               {
-                backgroundColor: isDark ? 'transparent' : cardBg,
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : cardBorder,
+                backgroundColor: cardBg,
+                borderColor: cardBorder,
                 position: 'relative',
                 overflow: 'hidden',
                 ...cardShadow,
               },
             ]}
           >
-            {isDark && (
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 75 : 45}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
-            )}
             <SectionHeader
               title="Revenue vs Expenses"
               icon={IndianRupee}
@@ -1778,12 +1752,20 @@ export default function AdminDashboardContent() {
         isDark={isDark}
       >
         <View style={{ gap: 10 }}>
-          {[
-            { label: 'Create New Lead', action: () => router.push('/admin/leads') },
-            { label: 'Manage All System Users', action: () => router.push('/admin/usemanagement/ManageUsers') },
-            { label: 'Manage Roles & Access Control', action: () => router.push('/admin/usemanagement/RolesManagement') },
-            { label: 'System Preferences', action: () => router.push('/admin/settings') },
-          ].map((act, i) => (
+          {(isAgent
+            ? [
+                { label: 'My Assigned Leads', action: () => router.push('/admin/leads' as any) },
+                { label: 'My Tasks', action: () => router.push('/admin/Tasks' as any) },
+                { label: 'Properties Portfolio', action: () => router.push('/admin/properties' as any) },
+                { label: 'My Attendance', action: () => router.push('/admin/attendance/AgentAttendance' as any) },
+              ]
+            : [
+                ...(hasModuleAccess('Leads & Properties') ? [{ label: 'Create New Lead', action: () => router.push('/admin/leads' as any) }] : []),
+                ...(hasModuleAccess('User Management') ? [{ label: 'Manage All System Users', action: () => router.push('/admin/usemanagement/ManageUsers' as any) }] : []),
+                ...(isAdmin && hasModuleAccess('User Management') ? [{ label: 'Manage Roles & Access Control', action: () => router.push('/admin/usemanagement/RolesManagement' as any) }] : []),
+                ...(hasModuleAccess('Settings') ? [{ label: 'System Preferences', action: () => router.push('/admin/settings' as any) }] : []),
+              ]
+          ).map((act, i) => (
             <TouchableOpacity
               key={i}
               onPress={() => {

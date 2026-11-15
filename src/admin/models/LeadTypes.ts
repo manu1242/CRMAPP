@@ -44,6 +44,7 @@ export interface AddLeadPayload {
   requirement?: string;
 
   executiveId?: number;
+  assignedToAgentId?: number;
   comments?: string;
 }
 

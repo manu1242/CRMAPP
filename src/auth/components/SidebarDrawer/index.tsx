@@ -59,6 +59,7 @@ export default function SidebarDrawer({ isOpen, onClose, activeRoute }: SidebarD
       '/superadmin/subscriptions-hub',
       '/superadmin/inquiries',
       '/superadmin/payment-config',
+      '/superadmin/transactions',
       '/superadmin/settings',
       '/profile',
     ];
@@ -177,6 +178,28 @@ export default function SidebarDrawer({ isOpen, onClose, activeRoute }: SidebarD
           >
             <FontAwesome name="credit-card" size={18} color={activeRoute === 'subscriptions' ? '#38bdf8' : '#64748b'} />
             <Text className={`font-semibold text-sm ${activeRoute === 'subscriptions' ? 'text-white' : 'text-slate-300'}`}>Subscriptions Hub</Text>
+          </TouchableOpacity>
+
+          {/* Payment Configuration */}
+          <TouchableOpacity 
+            onPress={() => handleNavigation('/superadmin/payment-config')}
+            className={`flex-row items-center gap-3 px-3 py-3 rounded-lg mb-2 ${
+              activeRoute === 'payment-config' ? 'bg-sky-500/10 border border-sky-500/20' : ''
+            }`}
+          >
+            <FontAwesome name="cogs" size={18} color={activeRoute === 'payment-config' ? '#38bdf8' : '#64748b'} />
+            <Text className={`font-semibold text-sm ${activeRoute === 'payment-config' ? 'text-white' : 'text-slate-300'}`}>Payment Gateways</Text>
+          </TouchableOpacity>
+
+          {/* Transactions */}
+          <TouchableOpacity 
+            onPress={() => handleNavigation('/superadmin/transactions')}
+            className={`flex-row items-center gap-3 px-3 py-3 rounded-lg mb-2 ${
+              activeRoute === 'transactions' ? 'bg-sky-500/10 border border-sky-500/20' : ''
+            }`}
+          >
+            <FontAwesome name="exchange" size={18} color={activeRoute === 'transactions' ? '#38bdf8' : '#64748b'} />
+            <Text className={`font-semibold text-sm ${activeRoute === 'transactions' ? 'text-white' : 'text-slate-300'}`}>Transactions</Text>
           </TouchableOpacity>
 
           {/* Account Profile */}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,6 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  FileText,
-  CalendarCheck,
   Filter,
   Plus,
   ChevronDown,
@@ -24,54 +22,21 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
+import { usePermissions } from '../../../authorization/hooks/usePermission';
 import { useLeadsQuery } from '../../../admin/hooks/useLeadsQuery';
 import ConnectionStateView from '../../components/ConnectionStateView';
 import { LeadItem } from '../../../admin/models/LeadTypes';
 import LeadCard from '../../../admin/components/LeadCard';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
-const STATUS_OPTIONS = ['All', 'Active', 'New', 'Contacted', 'Qualified', 'Lost'];
-
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return 'N/A';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return 'N/A';
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = months[d.getMonth()];
-    const year = d.getFullYear();
-    return `${day} ${month} ${year}`;
-  } catch {
-    return 'N/A';
-  }
-}
-
-function formatDateTime(dateStr: string | null | undefined): string | null {
-  if (!dateStr) return null;
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return null;
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = months[d.getMonth()];
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    const strHours = String(hours).padStart(2, '0');
-    return `${day} ${month}, ${strHours}:${minutes} ${ampm}`;
-  } catch {
-    return null;
-  }
-}
+const STATUS_OPTIONS = ['All', 'Active', 'New', 'Contacted', 'Qualified', 'Lost', 'Cold', 'Warm', 'Hot'];
 
 export default function LeadsScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
   const { bottomSpacing } = useBottomNavSpacing();
+  const { canCreate, canEdit } = usePermissions();
 
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
@@ -80,7 +45,7 @@ export default function LeadsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [isDropdownOpen, setDropdownOpen] = useState(false);
 
-  // TanStack Query handles caching, staleTime (3min), and AbortSignal propagation under the hood
+  // TanStack Query handles caching, staleTime (3min), and AbortSignal propagation
   const { data, isLoading, error, refetch } = useLeadsQuery({
     page,
     pageSize: 10,
@@ -95,7 +60,7 @@ export default function LeadsScreen() {
   const pageNumber = page;
 
   const handleSearchSubmit = () => {
-    setSearch(searchInput);
+    setSearch(searchInput.trim());
     setPage(1);
   };
 
@@ -118,7 +83,6 @@ export default function LeadsScreen() {
     setRefreshing(false);
   };
 
-  // Dynamic Theme Colors (from admin.css)
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
   const textColor = adminTheme.textPrimary;
@@ -129,60 +93,22 @@ export default function LeadsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
-      {/* Top Header Bar */}
-      {/* <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-        borderBottomColor: borderCol,
-        backgroundColor: cardBg,
-      }}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-          }}
-          activeOpacity={0.7}
-        >
-          <ChevronLeft size={20} color={textColor} />
-          <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>
-            Leads
-          </Text>
-        </TouchableOpacity>
-
-        <View style={{
-          backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.08)',
-          paddingHorizontal: 10,
-          paddingVertical: 4,
-          borderRadius: 8,
-        }}>
-          <Text style={{ color: brandCol, fontSize: 12, fontWeight: '600' }}>
-            {totalCount} Total
-          </Text>
-        </View>
-      </View> */}
-
-
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: bottomSpacing, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: bottomSpacing + 20, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Search Bar with Left Filter Dropdown Button */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 16, flexDirection: 'row', gap: 10 }}>
-          {/* Left Filter Button */}
+        {/* Search Bar with Left Filter Dropdown Button & Right Add Plus Button */}
+        <View style={styles.headerBar}>
+          {/* Left Filter Dropdown Button */}
           <TouchableOpacity
             onPress={() => setDropdownOpen(true)}
             style={[
               styles.filterDropdownBtn,
               { backgroundColor: cardBg, borderColor: status ? brandCol : borderCol },
             ]}
+            activeOpacity={0.7}
           >
             <Filter size={15} color={status ? brandCol : subTextColor} />
             <Text style={[styles.filterDropdownText, { color: status ? brandCol : textColor }]}>
@@ -191,8 +117,8 @@ export default function LeadsScreen() {
             <ChevronDown size={14} color={subTextColor} />
           </TouchableOpacity>
 
-          {/* Search Input Box */}
-          <View style={[styles.searchBox, { backgroundColor: cardBg, borderColor: borderCol, flex: 1 }]}>
+          {/* Center Search Input Box */}
+          <View style={[styles.searchBox, { backgroundColor: cardBg, borderColor: borderCol }]}>
             <Search size={18} color={subTextColor} />
             <TextInput
               style={[styles.searchInput, { color: textColor }]}
@@ -215,17 +141,24 @@ export default function LeadsScreen() {
               </TouchableOpacity>
             )}
           </View>
-          {/* <View style={[styles.countBadge, { backgroundColor: inputBg }]}>
-            <Text style={[styles.countBadgeText, { color: subTextColor }]}>
-              {totalCount}Leads
-            </Text>
-          </View> */}
-          <TouchableOpacity onPress={() => router.push('/admin/leads/AddLead')}>
-            <View style={[styles.filterDropdownBtn, { backgroundColor: cardBg, borderColor: status ? brandCol : borderCol }]}>
-              <Plus size={20} color={brandCol} />
-              <Text style={{ color: brandCol }}>Add</Text>
-            </View>
-          </TouchableOpacity>
+
+          {/* Right Create Plus Button */}
+          {canCreate('Leads') && (
+            <TouchableOpacity
+              onPress={() => router.push('/admin/leads/AddLead')}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  styles.filterDropdownBtn,
+                  { backgroundColor: cardBg, borderColor: borderCol },
+                ]}
+              >
+                <Plus size={18} color={brandCol} />
+                <Text style={[styles.filterDropdownText, { color: brandCol }]}>Add</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Filter Dropdown Modal */}
@@ -267,6 +200,7 @@ export default function LeadsScreen() {
           </TouchableOpacity>
         </Modal>
 
+        {/* Connection & Query State */}
         <ConnectionStateView
           isLoading={isLoading}
           error={error}
@@ -274,40 +208,38 @@ export default function LeadsScreen() {
           onRetry={refetch}
           isRetrying={isLoading}
         >
-          {/* Loading Indicator */}
           {isLoading && !refreshing ? (
-            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-              <ActivityIndicator size="large" color="#3b82f6" />
-              <Text style={{ color: subTextColor, marginTop: 12, fontSize: 13 }}>Fetching leads list...</Text>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={brandCol} />
+              <Text style={[styles.loadingText, { color: subTextColor }]}>Fetching leads list...</Text>
             </View>
           ) : (
-            /* Leads List Cards */
-            <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+            <View style={styles.listContainer}>
               {leads.length > 0 ? (
                 leads.map((lead: LeadItem) => (
                   <LeadCard
                     key={lead.leadId}
                     lead={lead}
-                    canAssign={true}
-                    canEditStage={true}
+                    canAssign={canEdit('Leads')}
+                    canEditStage={canEdit('Leads')}
                     onAssignmentChange={() => refetch()}
                     onStageChange={() => refetch()}
                   />
                 ))
               ) : (
-                /* Empty State */
+                /* Simple Empty State */
                 <View style={[styles.emptyContainer, { backgroundColor: cardBg, borderColor: borderCol }]}>
                   <Text style={[styles.emptyTitle, { color: textColor }]}>No Leads Found</Text>
                   <Text style={[styles.emptySub, { color: subTextColor }]}>
-                    Try adjusting your search criteria or filters.
+                    Try adjusting your search criteria or status filter.
                   </Text>
-                  <TouchableOpacity onPress={resetFilters} style={styles.resetBtn}>
+                  <TouchableOpacity onPress={resetFilters} style={[styles.resetBtn, { backgroundColor: brandCol }]}>
                     <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>Reset Filters</Text>
                   </TouchableOpacity>
                 </View>
               )}
 
-              {/* Pagination Controls */}
+              {/* Simple Pagination Row */}
               {totalPages > 1 && (
                 <View style={[styles.paginationRow, { backgroundColor: cardBg, borderColor: borderCol }]}>
                   <TouchableOpacity
@@ -351,40 +283,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerBar: {
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
-
-    gap: 12,
-  },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    justifyContent: 'center',
+    paddingTop: 16,
+    flexDirection: 'row',
+    gap: 10,
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 8,
-    color: '#4b5550',
-  },
-  countBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 14,
-    alignSelf: "center",
-    borderWidth: 1,
-    // borderColor:'#c9c8c87a'
-
-  },
-  countBadgeText: {
-    fontSize: 12,
-    fontWeight: '500',
   },
   filterDropdownBtn: {
     flexDirection: 'row',
@@ -400,6 +304,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   searchBox: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     height: 44,
@@ -412,108 +317,17 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
   },
-  filterLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  pillText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  leadCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#0f2b5c',
-    justifyContent: 'center',
+  loadingContainer: {
+    paddingVertical: 40,
     alignItems: 'center',
   },
-  avatarText: {
-    color: '#60a5fa',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  leadName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  leadSubtitle: {
+  loadingText: {
+    marginTop: 12,
     fontSize: 13,
-    marginTop: 2,
   },
-  statusBadge: {
-    backgroundColor: '#14532d',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  statusText: {
-    color: '#22c55e',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  stageTag: {
-    backgroundColor: 'rgba(192, 132, 252, 0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    alignSelf: 'flex-start',
-    marginTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  stageTagText: {
-    color: '#c084fc',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    marginVertical: 14,
-  },
-  gridLabel: {
-    fontSize: 12,
-    marginBottom: 2,
-  },
-  gridValue: {
-    fontSize: 12,
-    fontWeight: '400',
-  },
-  followUpBanner: {
-    // backgroundColor: '#451a01',
-    // borderColor: '#78350f',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginTop: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  followUpText: {
-    color: '#fbbf14',
-    fontWeight: '700',
-    fontSize: 13,
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   emptyContainer: {
     padding: 32,
@@ -532,26 +346,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   resetBtn: {
-    backgroundColor: '#3b82f6',
     paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 10,
     marginTop: 16,
-  },
-  errorContainer: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  retryBtn: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginTop: 8,
   },
   paginationRow: {
     flexDirection: 'row',
@@ -590,11 +388,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     padding: 16,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
   },
   dropdownTitle: {
     fontSize: 12,

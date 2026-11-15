@@ -51,7 +51,11 @@ const TYPE_PILLS = [
   { key: 'Support', label: 'Support' },
 ];
 
-export const PublicLeadsContent: React.FC = () => {
+export interface PublicLeadsContentProps {
+  initialType?: string;
+}
+
+export const PublicLeadsContent: React.FC<PublicLeadsContentProps> = ({ initialType = 'All' }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
@@ -60,7 +64,7 @@ export const PublicLeadsContent: React.FC = () => {
 
   // State
   const [page, setPage] = useState(1);
-  const [selectedType, setSelectedType] = useState<string>('All');
+  const [selectedType, setSelectedType] = useState<string>(initialType);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([]);

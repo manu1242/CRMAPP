@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
+import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 import {
   ArrowLeft,
   CreditCard,
@@ -35,7 +36,7 @@ import {
   PaymentGatewaySettings,
 } from '../services/PaymentGatewaySettingsService';
 
-type GatewayType = 'Razorpay' | 'Stripe';
+type GatewayType = 'Razorpay' | 'Cashfree' | 'PayPal';
 
 export default function AdminPaymentConfigContent() {
   const router = useRouter();
@@ -49,6 +50,7 @@ export default function AdminPaymentConfigContent() {
   const borderCol = adminTheme.border;
   const inputBg = adminTheme.inputBg || (isDark ? '#1e293b' : '#f8fafc');
   const brandColor = adminTheme.brand || '#10b981';
+  const { bottomSpacing } = useBottomNavSpacing();
 
   const [activeTab, setActiveTab] = useState<GatewayType>('Razorpay');
   const [loading, setLoading] = useState(true);
@@ -65,6 +67,12 @@ export default function AdminPaymentConfigContent() {
   });
 
   const fetchSettings = useCallback(async (gateway: GatewayType) => {
+    if (gateway === 'PayPal') {
+      setLoading(false);
+      setSavedConfig(null);
+      setIsEditing(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await paymentGatewaySettingsService.getSettings(gateway);
@@ -255,7 +263,7 @@ export default function AdminPaymentConfigContent() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing + 20 }} showsVerticalScrollIndicator={false}>
         {/* Info Box */}
         <View
           style={{
@@ -289,7 +297,7 @@ export default function AdminPaymentConfigContent() {
             borderColor: borderCol,
           }}
         >
-          {(['Razorpay', 'Stripe'] as GatewayType[]).map((tab) => {
+          {(['Razorpay', 'Cashfree', 'PayPal'] as GatewayType[]).map((tab) => {
             const isSelected = activeTab === tab;
             return (
               <TouchableOpacity
@@ -306,7 +314,7 @@ export default function AdminPaymentConfigContent() {
               >
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: isSelected ? '700' : '500',
                     color: isSelected ? brandColor : subTextColor,
                   }}
@@ -318,7 +326,39 @@ export default function AdminPaymentConfigContent() {
           })}
         </View>
 
-        {loading ? (
+        {activeTab === 'PayPal' ? (
+          <View
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: borderCol,
+              padding: 28,
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 16,
+                backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <CreditCard size={28} color="#3b82f6" />
+            </View>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: textColor }}>PayPal Global</Text>
+            <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: '#fef3c7' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#b45309' }}>COMING SOON</Text>
+            </View>
+            <Text style={{ fontSize: 13, color: subTextColor, textAlign: 'center', lineHeight: 18, maxWidth: 300 }}>
+              Global payment processing via PayPal will be available in an upcoming update. Please configure Razorpay or Cashfree for payment collections.
+            </Text>
+          </View>
+        ) : loading ? (
           <View style={{ paddingVertical: 60, alignItems: 'center' }}>
             <ActivityIndicator size="large" color={brandColor} />
             <Text style={{ marginTop: 12, color: subTextColor, fontSize: 13 }}>
@@ -430,7 +470,7 @@ export default function AdminPaymentConfigContent() {
               <View style={{ gap: 12 }}>
                 <View style={{ backgroundColor: inputBg, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: borderCol }}>
                   <Text style={{ fontSize: 10, fontWeight: '700', color: subTextColor, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    {activeTab === 'Razorpay' ? 'KEY ID' : 'PUBLISHABLE KEY'}
+                    {activeTab === 'Razorpay' ? 'KEY ID' : 'APP ID'}
                   </Text>
                   <Text style={{ fontSize: 13, fontWeight: '700', color: textColor, marginTop: 4, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
                     {savedConfig.keyId}
@@ -552,7 +592,7 @@ export default function AdminPaymentConfigContent() {
                     style={{ flex: 1, color: textColor, fontSize: 13, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}
                     autoCapitalize="none"
                     autoCorrect={false}
-                    placeholder={`Enter your ${activeTab} Key ID`}
+                    placeholder={activeTab === 'Razorpay' ? 'Enter Razorpay Key ID (rzp_live_...)' : 'Enter Cashfree App ID'}
                     placeholderTextColor={subTextColor}
                     value={form.keyId}
                     onChangeText={(val) => setForm({ ...form, keyId: val })}
@@ -562,7 +602,7 @@ export default function AdminPaymentConfigContent() {
 
               <View>
                 <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor, marginBottom: 6 }}>
-                  Secret Key / Key Secret *
+                  {activeTab === 'Razorpay' ? 'Key Secret *' : 'Secret Key *'}
                 </Text>
                 <View
                   style={{
@@ -583,7 +623,7 @@ export default function AdminPaymentConfigContent() {
                     secureTextEntry={!showSecret}
                     autoCapitalize="none"
                     autoCorrect={false}
-                    placeholder={`Enter your ${activeTab} Secret Key`}
+                    placeholder={activeTab === 'Razorpay' ? 'Enter Razorpay Key Secret' : 'Enter Cashfree Secret Key'}
                     placeholderTextColor={subTextColor}
                     value={form.keySecret}
                     onChangeText={(val) => setForm({ ...form, keySecret: val })}

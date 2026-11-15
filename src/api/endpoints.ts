@@ -21,9 +21,10 @@ export const API_ENDPOINTS = {
     REQUEST_ACCOUNT_DETAILS: '/api/v1/profile/request-account-details',
   },
   AUTHORIZATION: {
-    ROLES: '/manageusers/roles',
-    ROLE_PERMISSIONS: '/manageusers/rolepermissions',
-    SAVE_PERMISSIONS: '/manageusers/saverolepermissions',
+    MY_PERMISSIONS: '/api/v1/profile/permissions',
+    ROLES: '/api/v1/rolemanagement',
+    ROLE_PERMISSIONS: '/api/v1/rolemanagement/Permissions',
+    SAVE_PERMISSIONS: '/api/v1/rolemanagement/Permissions',
   },
   SUPER_ADMIN: {
     GET_TENANTS: '/api/v1/superadmin/tenants',
@@ -102,8 +103,8 @@ export const API_ENDPOINTS = {
   },
   LEADS: {
     BASE: '/api/v1/leads',
-    SAVE: '/Leads/SaveLead',
-    ADD_LEAD: (id?: number | string) => `/api/v1/leads/`,
+    SAVE: '/api/v1/leads',
+    ADD_LEAD: (id?: number | string) => '/api/v1/leads',
     ADD_OPTIONS: (id?: number | string) => `/api/v1/leads/form-options`,
     FORM_OPTIONS: '/api/v1/leads/form-options',
     BY_ID: (id: number | string) => `/api/v1/leads/${id}`,
@@ -119,14 +120,14 @@ export const API_ENDPOINTS = {
     ADD_NOTE: (leadId: number | string) => `/api/v1/leads/${leadId}/notes`,
     UPDATE_NOTE: (leadId: number | string, noteId: number | string) => `/api/v1/leads/${leadId}/notes/${noteId}`,
     DELETE_NOTE: (leadId: number | string, noteId: number | string) => `/api/v1/leads/${leadId}/notes/${noteId}`,
-    SAVE_NOTE: '/Leads/SaveNote',
+    SAVE_NOTE: '/api/v1/leads/notes',
 
     // Follow-ups
     GET_FOLLOW_UPS: (leadId: number | string) => `/api/v1/leads/${leadId}/follow-ups`,
     ADD_FOLLOW_UP: (leadId: number | string) => `/api/v1/leads/${leadId}/follow-ups`,
     EDIT_FOLLOW_UP: (leadId: number | string, followUpId: number | string) => `/api/v1/leads/${leadId}/follow-ups/${followUpId}`,
     DELETE_FOLLOW_UP: (leadId: number | string, followUpId: number | string) => `/api/v1/leads/${leadId}/follow-ups/${followUpId}`,
-    SAVE_FOLLOW_UP: '/Leads/SaveFollowUp',
+    SAVE_FOLLOW_UP: '/api/v1/leads/follow-ups',
 
     // Documents / Uploads
     GET_DOCUMENTS: (leadId: number | string) => `/api/v1/leads/${leadId}/documents`,
@@ -275,6 +276,7 @@ export const API_ENDPOINTS = {
       DETAILS: (id: number | string) => `/api/v1/agentpayouts/Details/${id}`,
       PROCESS: '/api/v1/agentpayouts/ProcessPayouts',
       UPDATE_STATUS: '/api/v1/agentpayouts/UpdateStatus',
+      RECALCULATE: '/api/v1/agentpayouts/RecalculatePayouts',
       PAYSLIP: '/api/v1/agentpayouts/Payslip',
     },
     PARTNER: {
@@ -370,6 +372,8 @@ export const API_ENDPOINTS = {
       LIST: '/api/v1/subscriptions/crm-transactions',
       DETAILS: (id: number | string) => `/api/v1/subscriptions/crm-transactions/${id}`,
     },
+    CREATE_ORDER: '/api/v1/subscriptions/create-order',
+    VERIFY_PAYMENT: '/api/v1/subscriptions/verify-payment',
   },
   TESTIMONIALS: {
     LIST: '/api/v1/settings/testimonials',
@@ -382,6 +386,9 @@ export const API_ENDPOINTS = {
     RECENT_ACTIVITIES: '/api/v1/dashboard/recent-activities',
     FOLLOW_UPS: '/api/v1/dashboard/follow-ups',
     ADMIN_ANALYTICS: '/api/v1/dashboard/admin',
+    SALES_OVERVIEW: '/api/v1/dashboard/sales-overview',
+    TEAM_DASHBOARD: '/api/v1/dashboard/team-dashboard',
+    MILESTONE_TRACKING: '/api/v1/dashboard/milestone-tracking',
   },
   INTEGRATIONS: {
     BASE: '/api/v1/integrations',

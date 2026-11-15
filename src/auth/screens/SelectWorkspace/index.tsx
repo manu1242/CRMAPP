@@ -21,11 +21,13 @@ export default function SelectWorkspaceScreen() {
   const handleSelect = async (tenantId: number, role: string) => {
     const result = await loginWithWorkspace(tenantId);
     if (result === 'success') {
-      const normalizedRole = role?.toLowerCase();
+      const normalizedRole = role?.trim()?.toLowerCase();
       if (normalizedRole === 'superadmin') {
         router.replace('/superadmin/dashboard');
       } else if (normalizedRole === 'partner') {
         router.replace('/admin/PartnerDashboard');
+      } else if (normalizedRole === 'agent' || normalizedRole === 'sales') {
+        router.replace({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
       } else {
         router.replace('/admin/dashboard');
       }

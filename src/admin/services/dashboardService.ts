@@ -90,6 +90,79 @@ export interface RecentBookingItem {
   type: string;
 }
 
+export interface SalesReportMonthItem {
+  month: string;
+  sales: number;
+}
+
+export interface SalesOverviewBookingItem {
+  bookingId: number;
+  bookingAmount: number;
+  status: string;
+  customerName?: string;
+  createdOn: string;
+}
+
+export interface SalesOverviewData {
+  totalEarning: number;
+  totalExpenses: number;
+  totalProfit: number;
+  totalBookings: number;
+  salesReport: SalesReportMonthItem[];
+  recentBookings: SalesOverviewBookingItem[];
+  salesStatus: {
+    paidCount: number;
+    pendingCount: number;
+    overdueCount: number;
+  };
+}
+
+export interface TeamMemberPerformanceItem {
+  userId: number;
+  username: string;
+  email?: string;
+  role?: string;
+  leadsCount: number;
+  bookingsCount: number;
+}
+
+export interface TeamDashboardData {
+  totalTeamMembers: number;
+  newTeamMembers: number;
+  totalChannelPartners: number;
+  teamPerformance: TeamMemberPerformanceItem[];
+  topPerformers: TeamMemberPerformanceItem[];
+}
+
+export interface MilestoneItem {
+  installmentId: number;
+  bookingId: number;
+  leadName: string;
+  contact?: string;
+  project: string;
+  flat: string;
+  milestone: string;
+  dueDate: string;
+  amount: number;
+  paid: number;
+  status: string;
+}
+
+export interface MilestoneStats {
+  totalMilestones: number;
+  totalAmount: number;
+  totalPaid: number;
+  totalPending: number;
+  paidCount: number;
+  pendingCount: number;
+  overdueCount: number;
+}
+
+export interface MilestoneTrackingData {
+  stats: MilestoneStats;
+  items: MilestoneItem[];
+}
+
 export interface RecentActivitiesData {
   recentLeads: RecentLeadItem[];
   recentBookings: RecentBookingItem[];
@@ -236,5 +309,87 @@ export const dashboardService = {
       { signal }
     );
     return (res as any)?.data ?? (res as any) ?? {};
+  },
+
+  getSalesOverview: async (signal?: AbortSignal): Promise<SalesOverviewData> => {
+    try {
+      const res = await apiClient.get<ApiResponse<SalesOverviewData>>(
+        API_ENDPOINTS.DASHBOARD.SALES_OVERVIEW,
+        undefined,
+        { signal }
+      );
+      const data = (res as any)?.data ?? (res as any) ?? {};
+      return {
+        totalEarning: data.totalEarning ?? 0,
+        totalExpenses: data.totalExpenses ?? 0,
+        totalProfit: data.totalProfit ?? 0,
+        totalBookings: data.totalBookings ?? 0,
+        salesReport: Array.isArray(data.salesReport) ? data.salesReport : [],
+        recentBookings: Array.isArray(data.recentBookings) ? data.recentBookings : [],
+        salesStatus: data.salesStatus ?? { paidCount: 0, pendingCount: 0, overdueCount: 0 },
+      };
+    } catch {
+      // Fallback to MVC controller endpoint if needed
+      const res = await apiClient.get<any>('/Home/GetSalesOverviewData', undefined, { signal });
+      const data = res?.data ?? res ?? {};
+      return {
+        totalEarning: data.totalEarning ?? 0,
+        totalExpenses: data.totalExpenses ?? 0,
+        totalProfit: data.totalProfit ?? 0,
+        totalBookings: (data.recentBookings && data.recentBookings.length) || 0,
+        salesReport: Array.isArray(data.salesReport) ? data.salesReport : [],
+        recentBookings: Array.isArray(data.recentBookings) ? data.recentBookings : [],
+        salesStatus: data.salesStatus ?? { paidCount: 0, pendingCount: 0, overdueCount: 0 },
+      };
+    }
+  },
+
+  getTeamDashboard: async (signal?: AbortSignal): Promise<TeamDashboardData> => {
+    try {
+      const res = await apiClient.get<ApiResponse<TeamDashboardData>>(
+        API_ENDPOINTS.DASHBOARD.TEAM_DASHBOARD,
+        undefined,
+        { signal }
+      );
+      const data = (res as any)?.data ?? (res as any) ?? {};
+      return {
+        totalTeamMembers: data.totalTeamMembers ?? 0,
+        newTeamMembers: data.newTeamMembers ?? 0,
+        totalChannelPartners: data.totalChannelPartners ?? 0,
+        teamPerformance: Array.isArray(data.teamPerformance) ? data.teamPerformance : [],
+        topPerformers: Array.isArray(data.topPerformers) ? data.topPerformers : [],
+      };
+    } catch {
+      const res = await apiClient.get<any>('/Home/GetTeamDashboardData', undefined, { signal });
+      const data = res?.data ?? res ?? {};
+      return {
+        totalTeamMembers: data.totalTeamMembers ?? 0,
+        newTeamMembers: data.newTeamMembers ?? 0,
+        totalChannelPartners: data.totalChannelPartners ?? 0,
+        teamPerformance: Array.isArray(data.teamPerformance) ? data.teamPerformance : [],
+        topPerformers: Array.isArray(data.topPerformers) ? data.topPerformers : [],
+      };
+    }
+  },
+
+  getMilestoneTracking: async (search?: string, signal?: AbortSignal): Promise<MilestoneTrackingData> => {
+    const res = await apiClient.get<ApiResponse<MilestoneTrackingData>>(
+      API_ENDPOINTS.DASHBOARD.MILESTONE_TRACKING,
+      search ? { search } : undefined,
+      { signal }
+    );
+    const data = (res as any)?.data ?? (res as any) ?? {};
+    return {
+      stats: data.stats ?? {
+        totalMilestones: 0,
+        totalAmount: 0,
+        totalPaid: 0,
+        totalPending: 0,
+        paidCount: 0,
+        pendingCount: 0,
+        overdueCount: 0,
+      },
+      items: Array.isArray(data.items) ? data.items : [],
+    };
   },
 };

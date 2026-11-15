@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import KeyboardSafeArea from '../KeyboardSafeArea';
 import { useLogin } from '../../hooks/useLogin';
 import { useAuthStore } from '../../store/authStore';
+import { SecureStorage } from '../../storage/SecureStorage';
 import Toast from 'react-native-toast-message';
 import AppFooter from '../AppFooter';
 import { useTheme } from '../../../contexts/ThemeContext';
@@ -48,6 +49,29 @@ const MainLogin = () => {
     const [showLoginPassword, setShowLoginPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
 
+    // Load remembered credentials on mount
+    React.useEffect(() => {
+        let isMounted = true;
+        const loadRememberedCredentials = async () => {
+            try {
+                const [savedRemember, savedUsername] = await Promise.all([
+                    SecureStorage.getItem('crm_remember_me'),
+                    SecureStorage.getItem('crm_remembered_username'),
+                ]);
+                if (isMounted && savedRemember === 'true' && savedUsername) {
+                    setLoginUsername(savedUsername);
+                    setRememberMe(true);
+                }
+            } catch {
+                // Ignore storage read error
+            }
+        };
+        loadRememberedCredentials();
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const user = useAuthStore((state) => state.user);
 
@@ -58,7 +82,9 @@ const MainLogin = () => {
                 router.replace('/superadmin/dashboard');
             } else if (role === 'partner') {
                 router.replace('/admin/PartnerDashboard');
-            } else if (role === 'admin' || role === 'agent' || role === 'sales') {
+            } else if (role === 'agent' || role === 'sales') {
+                router.replace({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
+            } else if (role === 'admin') {
                 router.replace('/admin/dashboard');
             } else if (user.tenantId && user.tenantId > 0) {
                 router.replace('/admin/dashboard');
@@ -79,7 +105,23 @@ const MainLogin = () => {
             });
             return;
         }
-        const result = await login({ username: loginUsername, password: loginPassword });
+
+        const trimmedUsername = loginUsername.trim();
+
+        // Persist or clear remembered credentials based on checkbox
+        try {
+            if (rememberMe) {
+                await SecureStorage.setItem('crm_remember_me', 'true');
+                await SecureStorage.setItem('crm_remembered_username', trimmedUsername);
+            } else {
+                await SecureStorage.removeItem('crm_remember_me');
+                await SecureStorage.removeItem('crm_remembered_username');
+            }
+        } catch {
+            // Ignore storage write error
+        }
+
+        const result = await login({ username: trimmedUsername, password: loginPassword, rememberMe });
         if (result === 'success') {
             const currentUser = useAuthStore.getState().user;
             const role = currentUser?.role?.trim()?.toLowerCase();
@@ -87,7 +129,9 @@ const MainLogin = () => {
                 router.replace('/superadmin/dashboard');
             } else if (role === 'partner') {
                 router.replace('/admin/PartnerDashboard');
-            } else if (role === 'admin' || role === 'agent' || role === 'sales') {
+            } else if (role === 'agent' || role === 'sales') {
+                router.replace({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
+            } else if (role === 'admin') {
                 router.replace('/admin/dashboard');
             } else if (currentUser?.tenantId && currentUser.tenantId > 0) {
                 router.replace('/admin/dashboard');
@@ -329,8 +373,8 @@ const MainLogin = () => {
                         height: 18,
                         borderRadius: 4,
                         borderWidth: 1,
-                        borderColor: rememberMe ? '#000000' : borderCol,
-                        backgroundColor: rememberMe ? '#000000' : cardBg,
+                        borderColor: rememberMe ? (isDark ? '#3b82f6' : '#0f172a') : borderCol,
+                        backgroundColor: rememberMe ? (isDark ? '#3b82f6' : '#0f172a') : cardBg,
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginRight: 10,
