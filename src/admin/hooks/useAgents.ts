@@ -59,6 +59,7 @@ export const useOnboardAgent = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agents'] });
+      queryClient.invalidateQueries({ queryKey: ['agent-lead-tracking'] });
     },
   });
 };
@@ -78,8 +79,11 @@ export const useUpdateAgent = () => {
       formData?: FormData;
       payload?: any;
     }) => AgentsService.updateAgent(id, payload || formData, formData),
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['agents'] });
+      queryClient.invalidateQueries({ queryKey: ['agent', String(id)] });
+      queryClient.invalidateQueries({ queryKey: ['agent', Number(id)] });
+      queryClient.invalidateQueries({ queryKey: ['agent-lead-tracking'] });
     },
   });
 };
@@ -91,8 +95,11 @@ export const useDeleteAgent = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: number | string) => AgentsService.deleteAgent(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['agents'] });
+      queryClient.invalidateQueries({ queryKey: ['agent', String(id)] });
+      queryClient.invalidateQueries({ queryKey: ['agent', Number(id)] });
+      queryClient.invalidateQueries({ queryKey: ['agent-lead-tracking'] });
     },
   });
 };

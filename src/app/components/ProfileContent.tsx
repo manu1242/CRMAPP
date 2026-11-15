@@ -28,6 +28,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Toast from 'react-native-toast-message';
 import { useAuthStore } from '../../auth/store/authStore';
 import { useTheme } from '../../contexts/ThemeContext';
+import { resetNavigationLock } from '../../navigation/safeNavigation';
 import {
   User,
   Mail,
@@ -144,8 +145,9 @@ export default function ProfileContent() {
     await fetchUnreadCount();
   }, [refectObject, fetchUnreadCount]);
 
-  const handleLogout = useCallback(async () => {
-    await logout();
+  const handleLogout = useCallback(() => {
+    resetNavigationLock();
+    logout();
     router.replace('/main-login');
   }, [logout, router]);
 

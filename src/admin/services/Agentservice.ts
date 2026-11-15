@@ -52,12 +52,13 @@ export const AgentsService = {
     signal?: AbortSignal
   ): Promise<GetAgentsResponse> {
     const candidates = [
+      '/api/v1/agents',
+      '/api/v1/agentsapi',
       API_ENDPOINTS.AGENTS.LIST,
       '/Agent/GetAgents',
       '/Agent/List',
       '/Agent/GetAgent',
       '/Agent/GetAll',
-      '/api/v1/AgentsApi',
     ];
     let lastError: any;
     for (const url of candidates) {
@@ -132,7 +133,7 @@ export const AgentsService = {
       } catch (err: any) {
         lastError = err;
         if (err?.name === 'CanceledError' || err?.name === 'AbortError') throw err;
-        if (err?.response?.status !== 404) throw err;
+        if (err?.response?.status !== 404 && err?.response?.status !== 405) throw err;
       }
     }
     throw lastError;
@@ -140,55 +141,94 @@ export const AgentsService = {
 
   // 2. Dropdown Lists
   async getDropdowns() {
-    try {
-      return await apiClient.get<DropdownItemResponse>('/Agent/Dropdowns');
-    } catch {
-      return {
-        success: true,
-        message: 'Default dropdowns',
-        data: {
-          agentTypes: ['Commission', 'Salary', 'Hybrid'],
-          commissionRules: ['Standard (2%)', 'Premium (3%)', 'Custom'],
-        },
-      };
+    const candidates = [
+      '/api/v1/agents/dropdowns',
+      '/api/v1/agentsapi/dropdowns',
+      '/Agent/Dropdowns',
+    ];
+    for (const url of candidates) {
+      try {
+        const res = await apiClient.get<any>(url);
+        if (res?.data?.agentTypes || res?.agentTypes) {
+          return {
+            success: true,
+            message: res?.message || 'Dropdowns fetched',
+            data: {
+              agentTypes: res.data?.agentTypes || res.agentTypes || ['Commission', 'Salary', 'Hybrid'],
+              commissionRules: res.data?.commissionRules || res.commissionRules || ['None (0% of sale)', 'Standard (2%)', 'Premium (3%)', 'Custom'],
+            },
+          };
+        }
+      } catch {
+        // try next
+      }
     }
+    return {
+      success: true,
+      message: 'Default dropdowns',
+      data: {
+        agentTypes: ['Salary', 'Hybrid', 'Commission'],
+        commissionRules: ['None (0% of sale)', 'Standard (2%)', 'Premium (3%)', 'Custom'],
+      },
+    };
   },
 
-  // 3. Agent Onboarding (supports JSON payload and FormData fallback)
+  // 3. Agent Onboarding (supports FormData and JSON payload)
   async onboardAgent(payload: any, formData?: FormData) {
-    const candidates = [
-      '/Agent/Onboard',
-      '/Agent/UpdateAgent',
-      '/Agent/SaveAgent',
-      '/Agent/Save',
-      '/Agent/Create',
-      '/Agent/CreateAgent',
-      '/Agent/Update',
-      '/api/Agent',
-      '/api/Agent/onboard',
-      '/api/Agent/create',
-      '/api/v1/AgentsApi/onboard',
-      '/api/v1/AgentsApi',
+    let fd = formData;
+    if (!fd && payload) {
+      if (payload instanceof FormData) {
+        fd = payload;
+      } else {
+        fd = new FormData();
+        if (payload.fullName || payload.FullName) fd.append('FullName', (payload.fullName || payload.FullName).trim());
+        if (payload.email || payload.Email) fd.append('Email', (payload.email || payload.Email).trim());
+        if (payload.phone || payload.Phone) fd.append('Phone', (payload.phone || payload.Phone).trim());
+        if (payload.address || payload.Address) fd.append('Address', (payload.address || payload.Address).trim());
+        if (payload.agentType || payload.AgentType) fd.append('AgentType', payload.agentType || payload.AgentType);
+        if (payload.salary !== undefined) fd.append('Salary', String(payload.salary));
+        if (payload.commissionRules || payload.CommissionRules) fd.append('CommissionRules', payload.commissionRules || payload.CommissionRules);
+      }
+    }
+
+    const apiEndpoints = [
+      '/api/v1/agents/onboard',
+      '/api/v1/agentsapi/onboard',
     ];
 
-    // 1. Try JSON payload first if payload object provided
     let lastError: any;
+    if (fd) {
+      for (const url of apiEndpoints) {
+        try {
+          return await apiClient.postForm<OnboardResponse>(url, fd);
+        } catch (err: any) {
+          lastError = err;
+          if (err?.name === 'CanceledError' || err?.name === 'AbortError') throw err;
+          if (err?.response?.status !== 404 && err?.response?.status !== 405 && err?.response?.status !== 415) throw err;
+        }
+      }
+    }
+
     if (payload && !(payload instanceof FormData)) {
-      for (const url of candidates) {
+      for (const url of apiEndpoints) {
         try {
           return await apiClient.post<OnboardResponse>(url, payload);
         } catch (err: any) {
           lastError = err;
           if (err?.name === 'CanceledError' || err?.name === 'AbortError') throw err;
-          if (err?.response?.status !== 404 && err?.response?.status !== 415) throw err;
+          if (err?.response?.status !== 404 && err?.response?.status !== 405 && err?.response?.status !== 415) throw err;
         }
       }
     }
 
-    // 2. Try FormData if provided or if payload is FormData
-    const fd = (payload instanceof FormData ? payload : formData);
+    // Fallback to legacy MVC endpoints
+    const mvcCandidates = [
+      '/Agent/Onboard',
+      '/Agent/SaveAgent',
+      '/Agent/Create',
+    ];
     if (fd) {
-      for (const url of candidates) {
+      for (const url of mvcCandidates) {
         try {
           return await apiClient.postForm<OnboardResponse>(url, fd);
         } catch (err: any) {
@@ -202,43 +242,67 @@ export const AgentsService = {
     throw lastError;
   },
 
-  // 4. Edit Agent (supports JSON payload and FormData fallback)
+  // 4. Edit Agent (calls HTTP PUT to /api/v1/agents/{id})
   async updateAgent(id: number | string, payload: any, formData?: FormData) {
-    const candidates = [
-      `/Agent/UpdateAgent?id=${id}`,
-      `/Agent/Update?id=${id}`,
-      `/Agent/SaveAgent?id=${id}`,
-      `/Agent/Save?id=${id}`,
-      '/Agent/UpdateAgent',
-      '/Agent/Save',
-      '/Agent/Update',
-      `/api/v1/AgentsApi/${id}`,
+    let fd = formData;
+    if (!fd && payload) {
+      if (payload instanceof FormData) {
+        fd = payload;
+      } else {
+        fd = new FormData();
+        if (payload.fullName || payload.FullName) fd.append('FullName', (payload.fullName || payload.FullName).trim());
+        if (payload.email || payload.Email) fd.append('Email', (payload.email || payload.Email).trim());
+        if (payload.phone || payload.Phone) fd.append('Phone', (payload.phone || payload.Phone).trim());
+        if (payload.address || payload.Address) fd.append('Address', (payload.address || payload.Address).trim());
+        if (payload.agentType || payload.AgentType) fd.append('AgentType', payload.agentType || payload.AgentType);
+        if (payload.salary !== undefined) fd.append('Salary', String(payload.salary));
+        if (payload.commissionRules || payload.CommissionRules) fd.append('CommissionRules', payload.commissionRules || payload.CommissionRules);
+      }
+    }
+
+    const putUrls = [
+      `/api/v1/agents/${id}`,
+      `/api/v1/agentsapi/${id}`,
     ];
 
     let lastError: any;
-    if (payload && !(payload instanceof FormData)) {
-      for (const url of candidates) {
+    // 1. Try PUT multipart/form-data first (matches [HttpPut("{id}")] [FromForm] in AgentsApiController)
+    if (fd) {
+      for (const url of putUrls) {
         try {
-          return await apiClient.post<{ success: boolean; message: string; data: any }>(
-            url,
-            payload
-          );
+          return await apiClient.putForm<{ success: boolean; message: string; data: any }>(url, fd);
         } catch (err: any) {
           lastError = err;
           if (err?.name === 'CanceledError' || err?.name === 'AbortError') throw err;
-          if (err?.response?.status !== 404 && err?.response?.status !== 415) throw err;
+          if (err?.response?.status !== 404 && err?.response?.status !== 405 && err?.response?.status !== 415) throw err;
         }
       }
     }
 
-    const fd = (payload instanceof FormData ? payload : formData);
-    if (fd) {
-      for (const url of candidates) {
+    // 2. Try PUT JSON
+    if (payload && !(payload instanceof FormData)) {
+      for (const url of putUrls) {
         try {
-          return await apiClient.postForm<{ success: boolean; message: string; data: any }>(
-            url,
-            fd
-          );
+          return await apiClient.put<{ success: boolean; message: string; data: any }>(url, payload);
+        } catch (err: any) {
+          lastError = err;
+          if (err?.name === 'CanceledError' || err?.name === 'AbortError') throw err;
+          if (err?.response?.status !== 404 && err?.response?.status !== 405 && err?.response?.status !== 415) throw err;
+        }
+      }
+    }
+
+    // 3. Fallback to legacy MVC POST
+    const mvcCandidates = [
+      `/Agent/UpdateAgent?id=${id}`,
+      `/Agent/Update?id=${id}`,
+      `/Agent/Update`,
+      `/Agent/UpdateAgent`,
+    ];
+    if (fd) {
+      for (const url of mvcCandidates) {
+        try {
+          return await apiClient.postForm<any>(url, fd);
         } catch (err: any) {
           lastError = err;
           if (err?.name === 'CanceledError' || err?.name === 'AbortError') throw err;
@@ -250,38 +314,43 @@ export const AgentsService = {
     throw lastError;
   },
 
-  // 5. Delete Agent
+  // 5. Delete Agent (calls HTTP DELETE to /api/v1/agents/{id})
   async deleteAgent(id: number | string) {
-    const candidates = [
-      API_ENDPOINTS.AGENTS.DELETE(id),
-      `/Agent/Delete?id=${id}`,
-      `/Agent/DeleteAgent?agentId=${id}`,
-      `/Agent/DeleteAgent?id=${id}`,
-      `/api/v1/AgentsApi/${id}`,
+    const restCandidates = [
+      `/api/v1/agents/${id}`,
+      `/api/v1/agentsapi/${id}`,
+      API_ENDPOINTS.AGENTS.BY_ID(id),
     ];
     let lastError: any;
-    for (const url of candidates) {
+    for (const url of restCandidates) {
       try {
-        return await apiClient.post<{ success: boolean; message: string; data: null }>(url);
+        return await apiClient.delete<{ success: boolean; message: string; data: null }>(url);
       } catch (err: any) {
         lastError = err;
         if (err?.name === 'CanceledError' || err?.name === 'AbortError') throw err;
-        if (err?.response?.status !== 404) throw err;
+        if (err?.response?.status !== 404 && err?.response?.status !== 405) throw err;
       }
     }
-    throw lastError;
+
+    // Fallback to legacy MVC GET /Agent/Delete?agentId=...
+    try {
+      return await apiClient.get<any>(`/Agent/Delete?agentId=${id}`);
+    } catch {
+      throw lastError;
+    }
   },
 
   // 6. Get Agent Details by ID
   async getAgentById(id: number | string): Promise<GetAgentDetailsResponse> {
     const candidates = [
+      `/api/v1/agents/${id}`,
+      `/api/v1/agentsapi/${id}`,
       API_ENDPOINTS.AGENTS.GET_AGENT(id),
       `/Agent/GetAgentDetails?id=${id}`,
       `/Agent/Details/${id}`,
       `/Agent/GetAgent?agentId=${id}`,
       `/Agent/GetAgent?id=${id}`,
       `/Agent/Get?id=${id}`,
-      `/api/v1/AgentsApi/${id}`,
     ];
     let lastError: any;
     for (const url of candidates) {
@@ -323,7 +392,7 @@ export const AgentsService = {
       } catch (err: any) {
         lastError = err;
         if (err?.name === 'CanceledError' || err?.name === 'AbortError') throw err;
-        if (err?.response?.status !== 404) throw err;
+        if (err?.response?.status !== 404 && err?.response?.status !== 405) throw err;
       }
     }
     throw lastError;
@@ -339,7 +408,6 @@ export const AgentsService = {
     docType: string
   ) {
     const formData = new FormData();
-    formData.append('agentId', String(agentId));
     formData.append('documentName', docName);
     formData.append('documentType', docType);
     formData.append('documentFile', {
@@ -349,10 +417,10 @@ export const AgentsService = {
     } as any);
 
     const candidates = [
+      `/api/v1/agents/${agentId}/documents`,
+      `/api/v1/agentsapi/${agentId}/documents`,
       API_ENDPOINTS.AGENTS.UPLOAD_DOCUMENT(agentId),
       '/Agent/UploadDocument',
-      `/Agent/UploadDocument?agentId=${agentId}`,
-      `/api/v1/AgentsApi/${agentId}/documents`,
     ];
     let lastError: any;
     for (const url of candidates) {
@@ -364,7 +432,7 @@ export const AgentsService = {
       } catch (err: any) {
         lastError = err;
         if (err?.name === 'CanceledError' || err?.name === 'AbortError') throw err;
-        if (err?.response?.status !== 404) throw err;
+        if (err?.response?.status !== 404 && err?.response?.status !== 405) throw err;
       }
     }
     throw lastError;
@@ -373,6 +441,8 @@ export const AgentsService = {
   // 8. Delete Agent Document
   async deleteDocument(documentId: number | string) {
     const candidates = [
+      `/api/v1/agents/documents/${documentId}`,
+      `/api/v1/agentsapi/documents/${documentId}`,
       API_ENDPOINTS.AGENTS.DELETE_DOCUMENT(documentId),
       `/Agent/DeleteDocument?id=${documentId}`,
       `/Agent/DeleteDocument?documentId=${documentId}`,
@@ -384,7 +454,7 @@ export const AgentsService = {
       } catch (err: any) {
         lastError = err;
         if (err?.name === 'CanceledError' || err?.name === 'AbortError') throw err;
-        if (err?.response?.status !== 404) throw err;
+        if (err?.response?.status !== 404 && err?.response?.status !== 405) throw err;
       }
     }
     throw lastError;

@@ -26,10 +26,29 @@ import {
   emailSettingsService,
   SaveSmtpPayload,
 } from '../../../../admin/services/emailSettingsService';
+import { useRouter } from 'expo-router';
+import { usePermissions } from '../../../../authorization/hooks/usePermission';
 
 export default function EmailConfigScreen() {
+  const router = useRouter();
+  const { isAdmin, isPartner } = usePermissions();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+
+  // Guard: Email settings is purely for Admin
+  useEffect(() => {
+    if (!isAdmin) {
+      if (isPartner) {
+        router.replace('/admin/PartnerDashboard');
+      } else {
+        router.replace('/admin/dashboard');
+      }
+    }
+  }, [isAdmin, isPartner, router]);
+
+  if (!isAdmin) {
+    return null;
+  }
 
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;

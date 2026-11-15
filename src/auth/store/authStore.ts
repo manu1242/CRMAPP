@@ -21,6 +21,7 @@ import { useLeadStore } from '../../admin/store/useLeadStore';
 import { useUserStore } from '../../admin/store/useUserStore';
 import { useTenantFilterStore } from '../../superadmin/tenants/store/tenantStore';
 import { setTenantSubdomain, clearTenantContext } from '../../api/remoteConfig';
+import { resetNavigationLock } from '../../navigation/safeNavigation';
 
 export type AuthStatus = 'initializing' | 'unauthenticated' | 'authenticating' | 'loading-profile' | 'authenticated';
 
@@ -44,7 +45,7 @@ interface AuthState {
   handleSessionExpired: () => void;
   initializeSession: () => Promise<void>;
   impersonate: (token: string, targetUser: any) => Promise<void>;
-  stopImpersonation: () => Promise<void>;
+  stopImpersonation: () => Promise<any>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -309,69 +310,59 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async (skipToast = false) => {
-    set({ isLoading: true, authStatus: 'unauthenticated' });
-    if (__DEV__) {
-      console.log('[AUTH] Logging out: cleaning queries, persisted cache, and stores...');
-    }
+    // 1. Immediately reset navigation lock & in-memory TanStack query cache
+    resetNavigationLock();
     try {
-      // 1. Invalidate running queries & clear in-memory TanStack query cache
       queryClient.cancelQueries();
       queryClient.clear();
+    } catch {}
 
-      // 2. Clear disk-persisted TanStack query cache
-      await QueryPersister.clearCache();
-
-      // 3. Unregister device push notification token from backend
-      await DeviceNotificationService.unregister().catch(() => {});
-
-      // 4. Invalidate tokens on backend
-      await AuthService.logout().catch(() => {});
-
-      // 5. Clear secure storage tokens and persisted user session
-      await TokenStorage.clearTokens();
-      await SessionStorage.clearUserSession();
-
-      // 6. Clear impersonation state
-      await SecureStorage.removeItem('crm_original_admin_token');
-      await SecureStorage.removeItem('crm_is_impersonating');
-      await SecureStorage.removeItem('crm_impersonated_username');
-
-      // 7. Clear all role-specific global Zustand stores
+    // 2. Immediately clear all role-specific global Zustand stores
+    try {
       usePermissionStore.getState().resetPermissions();
       useRolePermissionsStore.getState().clearCache();
       useLeadStore.setState({ leads: [], totalCount: 0, selectedLeadDetails: null });
       useUserStore.setState({ users: [], summary: null });
       useTenantFilterStore.getState().resetFilters();
+    } catch {}
 
-      // 8. Reset dynamic tenant routing back to platform domain
-      clearTenantContext();
+    // 3. Immediately reset dynamic tenant routing back to platform domain
+    clearTenantContext();
 
-      if (__DEV__) {
-        console.log('[AUTH] Session, storage, and caches wiped successfully');
-      }
+    // 4. INSTANTLY transition auth state so UI unmounts and navigates with ZERO lag
+    set({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      authStatus: 'unauthenticated',
+      error: null,
+      isImpersonating: false,
+      impersonatedUsername: null,
+      pendingCredentials: null,
+      pendingWorkspaces: [],
+    });
 
-      if (!skipToast) {
-        Toast.show({
-          type: 'success',
-          text1: 'Logged Out',
-          text2: 'Session closed successfully.',
-        });
-      }
-    } catch (err) {
-      console.error('[AUTH] Logout error:', err);
-    } finally {
-      set({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        authStatus: 'unauthenticated',
-        error: null,
-        isImpersonating: false,
-        impersonatedUsername: null,
-        pendingCredentials: null,
-        pendingWorkspaces: [],
+    if (!skipToast) {
+      Toast.show({
+        type: 'success',
+        text1: 'Logged Out',
+        text2: 'Session closed successfully.',
       });
     }
+
+    // 5. Asynchronously clear disk persistence and notify backend in the background (fire-and-forget)
+    Promise.allSettled([
+      DeviceNotificationService.unregister(),
+      AuthService.logout(),
+      QueryPersister.clearCache(),
+      TokenStorage.clearTokens(),
+      SessionStorage.clearUserSession(),
+      SecureStorage.removeItem('crm_original_admin_token'),
+      SecureStorage.removeItem('crm_is_impersonating'),
+      SecureStorage.removeItem('crm_impersonated_username'),
+    ]).catch((err) => {
+      if (__DEV__) console.warn('[AUTH] Background cleanup error:', err);
+    });
   },
 
   handleSessionExpired: () => {
@@ -461,6 +452,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   impersonate: async (token: string, targetUser: any) => {
     set({ isLoading: true });
     try {
+      // 1. Immediately wipe previous session query caches
+      try {
+        queryClient.cancelQueries();
+        queryClient.clear();
+        await QueryPersister.clearCache();
+      } catch {}
+
       const currentToken = await TokenStorage.getAccessToken();
       const alreadyImpersonating = (await SecureStorage.getItem('crm_is_impersonating')) === 'true';
       if (!alreadyImpersonating && currentToken) {
@@ -496,6 +494,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         setTenantSubdomain(finalTargetUser.subdomain);
       }
 
+      // Fetch live permissions for the impersonated user context before updating state
+      try {
+        await usePermissionStore.getState().fetchMyPermissions(true);
+      } catch {}
+
       set({
         user: finalTargetUser,
         isAuthenticated: true,
@@ -504,9 +507,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
         authStatus: 'authenticated',
       });
-
-      // Fetch live permissions for the impersonated user context
-      usePermissionStore.getState().fetchMyPermissions(true).catch(() => {});
 
       Toast.show({
         type: 'success',
@@ -579,6 +579,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         setTenantSubdomain(freshAdmin.subdomain);
       }
 
+      // Restore original admin permissions immediately
+      try {
+        await usePermissionStore.getState().fetchMyPermissions(true);
+      } catch {
+        usePermissionStore.getState().resetPermissions();
+      }
+
       set({
         user: freshAdmin,
         isAuthenticated: true,
@@ -588,14 +595,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         authStatus: 'authenticated',
       });
 
-      // Restore original admin permissions immediately
-      usePermissionStore.getState().fetchMyPermissions(true).catch(() => {});
-
       Toast.show({
         type: 'success',
         text1: 'Impersonation Ended',
         text2: `Returned to ${freshAdmin.username} context`,
       });
+
+      return freshAdmin;
     } catch (err: any) {
       console.error('Error stopping impersonation:', err);
       set({ isLoading: false });

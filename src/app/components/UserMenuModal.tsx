@@ -19,6 +19,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme, getSuperAdminTheme } from '../../theme/adminTheme';
 import { useBrandingQuery } from '../../admin/hooks/useBranding';
 import { BrandingService } from '../../admin/services/BrandingService';
+import { resetNavigationLock } from '../../navigation/safeNavigation';
 
 interface UserMenuModalProps {
   isOpen: boolean;
@@ -68,21 +69,12 @@ export default function UserMenuModal({ isOpen, onClose, isSuperAdmin = false }:
     setShowLogoutConfirm(false);
   };
 
-  const handleConfirmLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await logout();
-      setShowLogoutConfirm(false);
-      onClose();
-      router.replace('/main-login');
-    } catch (err) {
-      console.error('Logout error:', err);
-      setShowLogoutConfirm(false);
-      onClose();
-      router.replace('/main-login');
-    } finally {
-      setIsLoggingOut(false);
-    }
+  const handleConfirmLogout = () => {
+    setShowLogoutConfirm(false);
+    onClose();
+    resetNavigationLock();
+    logout();
+    router.replace('/main-login');
   };
 
   if (!isOpen) return null;

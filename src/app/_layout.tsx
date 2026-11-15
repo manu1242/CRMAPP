@@ -9,7 +9,8 @@ import NetInfo from '@react-native-community/netinfo';
 import { Stack, useRouter, useSegments, usePathname, useNavigationContainerRef } from 'expo-router';
 import Toast, { SuccessToast, ErrorToast, InfoToast } from 'react-native-toast-message';
 import { setupInterceptors } from '../api/interceptors';
-import { installSafeRouter, setActiveNavigationContext } from '../navigation/safeNavigation';
+import { installSafeRouter, setActiveNavigationContext, resetNavigationLock } from '../navigation/safeNavigation';
+import { useDashboardTabStore } from '../admin/store/useDashboardTabStore';
 
 // Globally install duplicate navigation protection and stack deduplication
 installSafeRouter();
@@ -322,6 +323,10 @@ function InnerLayout() {
   useEffect(() => {
     // Wait until isLoading settles, then check if impersonation just ended
     if (!isLoading && wasImpersonatingRef.current === true && isImpersonating === false) {
+      resetNavigationLock();
+      queryClient.clear();
+      useDashboardTabStore.getState().setActiveTab('admin');
+
       // Impersonation just ended — go back to correct dashboard
       if (userRole === 'superadmin') {
         router.replace('/superadmin/dashboard');
@@ -330,7 +335,7 @@ function InnerLayout() {
       } else if (userRole === 'agent' || userRole === 'sales') {
         router.replace({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
       } else {
-        router.replace('/admin/dashboard');
+        router.replace({ pathname: '/admin/dashboard', params: { tab: 'admin' } } as any);
       }
     }
     // Only update the ref when NOT loading (avoid false transitions mid-load)
@@ -612,10 +617,21 @@ function InnerLayout() {
                     onPress={async () => {
                       setIsStopping(true);
                       try {
-                        await stopImpersonation();
+                        const restoredAdmin = await stopImpersonation();
                         setIsStopConfirmOpen(false);
+                        resetNavigationLock();
+                        queryClient.clear();
+                        useDashboardTabStore.getState().setActiveTab('admin');
+
+                        const restoredRole = restoredAdmin?.role?.trim()?.toLowerCase();
+                        if (restoredRole === 'superadmin') {
+                          router.replace('/superadmin/dashboard');
+                        } else {
+                          router.replace({ pathname: '/admin/dashboard', params: { tab: 'admin' } } as any);
+                        }
                       } catch (err) {
                         console.error('Failed stopping impersonation:', err);
+                        setIsStopConfirmOpen(false);
                       } finally {
                         setIsStopping(false);
                       }

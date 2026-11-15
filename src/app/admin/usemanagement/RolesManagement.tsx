@@ -33,12 +33,23 @@ import {
 } from '../../../admin/services/roleManagementService';
 import { useRolePermissionsStore } from '../../../hooks/useRolePermissionsStore';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
+import { usePermissions } from '../../../authorization/hooks/usePermission';
 
 export default function RolesManagement() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
   const { bottomSpacing } = useBottomNavSpacing();
+  const { isAdmin, hasModuleAccess } = usePermissions();
+
+  const canAccessUserMgmt = isAdmin || hasModuleAccess('User Management');
+
+  // Guard: Only visible to Admin, or other roles if Admin explicitly granted access
+  useEffect(() => {
+    if (!canAccessUserMgmt) {
+      router.replace('/admin/dashboard');
+    }
+  }, [canAccessUserMgmt, router]);
 
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;

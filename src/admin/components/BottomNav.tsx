@@ -39,9 +39,10 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
 
   const user = useAuthStore((state) => state.user);
   const role = user?.role?.trim()?.toLowerCase() || '';
-  const { hasModuleAccess, isPartner, isAgent } = usePermissions();
+  const { hasModuleAccess, isPartner, isAgent, isAdmin } = usePermissions();
 
-  const canViewUsers = !isAgent && (hasModuleAccess('User Management') || hasModuleAccess('Team Management'));
+  const canViewUsers = isAdmin || (!isAgent && !isPartner && hasModuleAccess('User Management'));
+  const canViewSettings = isAdmin;
 
   const navigateToDashboard = useCallback(() => {
     triggerHaptic('selection');
@@ -67,10 +68,11 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
   }, [router, active, canViewUsers]);
 
   const navigateToSettings = useCallback(() => {
+    if (!canViewSettings) return;
     triggerHaptic('selection');
     if (active === 'settings') return;
     router.navigate('/admin/settings' as any);
-  }, [router, active]);
+  }, [router, active, canViewSettings]);
 
   const navigateToProfile = useCallback(() => {
     triggerHaptic('selection');
@@ -168,35 +170,37 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
           </Text>
         </TouchableOpacity>
 
-        {/* Setting Tab */}
-        <TouchableOpacity
-          onPress={navigateToSettings}
-          activeOpacity={0.75}
-          style={[
-            styles.tabItem,
-            isSettingsActive && [styles.activeTabCapsule, { backgroundColor: activeCapsuleBg }],
-          ]}
-        >
-          <View style={styles.iconContainer}>
-            <Settings
-              size={18}
-              color={isSettingsActive ? activeIconColor : inactiveIconColor}
-              strokeWidth={isSettingsActive ? 2.3 : 1.9}
-            />
-            {isUpdateAvailable && <View style={styles.updateDot} />}
-          </View>
-          <Text
+        {/* Setting Tab (Purely for Admin) */}
+        {canViewSettings && (
+          <TouchableOpacity
+            onPress={navigateToSettings}
+            activeOpacity={0.75}
             style={[
-              styles.tabLabel,
-              {
-                color: isSettingsActive ? activeTextColor : inactiveTextColor,
-                fontWeight: isSettingsActive ? '700' : '500',
-              },
+              styles.tabItem,
+              isSettingsActive && [styles.activeTabCapsule, { backgroundColor: activeCapsuleBg }],
             ]}
           >
-            Settings
-          </Text>
-        </TouchableOpacity>
+            <View style={styles.iconContainer}>
+              <Settings
+                size={18}
+                color={isSettingsActive ? activeIconColor : inactiveIconColor}
+                strokeWidth={isSettingsActive ? 2.3 : 1.9}
+              />
+              {isUpdateAvailable && <View style={styles.updateDot} />}
+            </View>
+            <Text
+              style={[
+                styles.tabLabel,
+                {
+                  color: isSettingsActive ? activeTextColor : inactiveTextColor,
+                  fontWeight: isSettingsActive ? '700' : '500',
+                },
+              ]}
+            >
+              Settings
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ── 2. Separate Right Floating Profile Button (in place of + symbol) ── */}

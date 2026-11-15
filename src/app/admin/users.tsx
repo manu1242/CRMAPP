@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,28 +9,62 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ChevronRight, Users, Shield } from 'lucide-react-native';
 import { getAdminTheme } from '../../theme/adminTheme';
-// No safe area context imports needed here since it's handled globally in layout
-// import AppFooter from '../../auth/components/AppFooter';
+import { usePermissions } from '../../authorization/hooks/usePermission';
 
 export default function AdminUsers() {
   const { isDark } = useTheme();
   const router = useRouter();
   const adminTheme = getAdminTheme(isDark);
+  const { isAdmin, hasModuleAccess, canView } = usePermissions();
+
+  const canAccessUserMgmt = isAdmin || hasModuleAccess('User Management');
+
+  // Guard: If not Admin and Admin has not granted User Management access, redirect to dashboard
+  useEffect(() => {
+    if (!canAccessUserMgmt) {
+      router.replace('/admin/dashboard');
+    }
+  }, [canAccessUserMgmt, router]);
+
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
   const textColor = adminTheme.textPrimary;
   const subTextColor = adminTheme.textSecondary;
   const borderCol = adminTheme.border;
 
-  const menuSections = [
-    {
-      title: 'User Management & Roles',
-      items: [
-        { title: 'Manage Users', icon: Users, desc: 'Add users, edit roles, and delete accounts', route: '/admin/usemanagement/ManageUsers', color: '#14b8a6' },
-        { title: 'Roles Management', icon: Shield, desc: 'Create, modify, and assign user permissions', route: '/admin/usemanagement/RolesManagement', color: '#ef4444' },
-      ],
-    },
-  ];
+  const menuSections = useMemo(() => {
+    const allItems = [
+      {
+        title: 'Manage Users',
+        icon: Users,
+        desc: 'Add users, edit roles, and delete accounts',
+        route: '/admin/usemanagement/ManageUsers',
+        color: '#14b8a6',
+        visible: isAdmin || canView('/admin/usemanagement/ManageUsers'),
+      },
+      {
+        title: 'Roles Management',
+        icon: Shield,
+        desc: 'Create, modify, and assign user permissions',
+        route: '/admin/usemanagement/RolesManagement',
+        color: '#ef4444',
+        visible: isAdmin || canView('/admin/usemanagement/RolesManagement'),
+      },
+    ].filter((item) => item.visible);
+
+    if (allItems.length === 0) return [];
+
+    return [
+      {
+        title: 'User Management & Roles',
+        items: allItems,
+      },
+    ];
+  }, [isAdmin, canView]);
+
+  if (!canAccessUserMgmt) {
+    return null;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>

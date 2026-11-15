@@ -18,6 +18,7 @@ import { getAdminTheme } from '../../../theme/adminTheme';
 import { useAgent, useDeleteAgent, useUploadAgentDocument, useDeleteAgentDocument } from '../../../admin/hooks/useAgents';
 import { AgentsService } from '../../../admin/services/Agentservice';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import Toast from 'react-native-toast-message';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 import {
@@ -39,6 +40,9 @@ import {
   Plus,
   Check,
   Paperclip,
+  Camera,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react-native';
 
 export default function AgentDetailsScreen() {
@@ -64,21 +68,56 @@ export default function AgentDetailsScreen() {
   } | null>(null);
 
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [pickerModalOpen, setPickerModalOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState<number | string | null>(null);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
 
   const DOC_TYPES = ['Aadhar', 'PAN', 'Resume', 'License', 'Others'];
 
+  // 1. Pick PDF / Word Document
   const handlePickDocument = async () => {
+    setPickerModalOpen(false);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'image/*',
+          'text/plain',
+        ],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setSelectedFile({
+          uri: file.uri,
+          fileName: file.name || `doc_${Date.now()}.pdf`,
+          fileSize: file.size || 0,
+          type: file.mimeType || 'application/pdf',
+          customName: '',
+          documentType: 'Aadhar',
+        });
+        setUploadModalOpen(true);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to select document.');
+    }
+  };
+
+  // 2. Pick Image from Gallery
+  const handlePickImage = async () => {
+    setPickerModalOpen(false);
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission Denied', 'We need storage permission to upload documents.');
+        Alert.alert('Permission Denied', 'We need photo library permission to upload images.');
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images', 'videos'],
+        mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
       });
@@ -87,7 +126,7 @@ export default function AgentDetailsScreen() {
         const asset = result.assets[0];
         setSelectedFile({
           uri: asset.uri,
-          fileName: asset.fileName || `doc_${Date.now()}.jpg`,
+          fileName: asset.fileName || `photo_${Date.now()}.jpg`,
           fileSize: asset.fileSize || 0,
           type: asset.mimeType || 'image/jpeg',
           customName: '',
@@ -96,7 +135,39 @@ export default function AgentDetailsScreen() {
         setUploadModalOpen(true);
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to select file.');
+      Alert.alert('Error', err.message || 'Failed to select photo.');
+    }
+  };
+
+  // 3. Take Photo with Camera
+  const handleTakePhoto = async () => {
+    setPickerModalOpen(false);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'We need camera permission to capture documents.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setSelectedFile({
+          uri: asset.uri,
+          fileName: `camera_${Date.now()}.jpg`,
+          fileSize: asset.fileSize || 0,
+          type: asset.mimeType || 'image/jpeg',
+          customName: '',
+          documentType: 'Aadhar',
+        });
+        setUploadModalOpen(true);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to capture photo.');
     }
   };
 
@@ -561,7 +632,7 @@ export default function AgentDetailsScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={handlePickDocument}
+            onPress={() => setPickerModalOpen(true)}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -847,6 +918,110 @@ export default function AgentDetailsScreen() {
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+
+      {/* ── Document / Photo Source Picker Modal ── */}
+      <Modal visible={pickerModalOpen} transparent animationType="fade">
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setPickerModalOpen(false)}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 320,
+              backgroundColor: cardBg,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: borderCol,
+              padding: 18,
+              gap: 12,
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 4 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>Select File Source</Text>
+              <TouchableOpacity onPress={() => setPickerModalOpen(false)} style={{ padding: 4 }}>
+                <X size={16} color={subTextColor} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Document Picker Option */}
+            <TouchableOpacity
+              onPress={handlePickDocument}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                backgroundColor: inputBg,
+                padding: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: borderCol,
+              }}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: `${brandColor}15`, alignItems: 'center', justifyContent: 'center' }}>
+                <FileText size={20} color={brandColor} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>Document (PDF / Word)</Text>
+                <Text style={{ fontSize: 10, color: subTextColor, marginTop: 1 }}>Browse PDF, DOC, DOCX files</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Photo Gallery Option */}
+            <TouchableOpacity
+              onPress={handlePickImage}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                backgroundColor: inputBg,
+                padding: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: borderCol,
+              }}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3b82f615', alignItems: 'center', justifyContent: 'center' }}>
+                <ImageIcon size={20} color="#3b82f6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>Photo Gallery</Text>
+                <Text style={{ fontSize: 10, color: subTextColor, marginTop: 1 }}>Choose an image from gallery</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Camera Option */}
+            <TouchableOpacity
+              onPress={handleTakePhoto}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                backgroundColor: inputBg,
+                padding: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: borderCol,
+              }}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#10b98115', alignItems: 'center', justifyContent: 'center' }}>
+                <Camera size={20} color="#10b981" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>Take Photo</Text>
+                <Text style={{ fontSize: 10, color: subTextColor, marginTop: 1 }}>Capture document with camera</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </View>
   );

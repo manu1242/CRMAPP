@@ -58,11 +58,21 @@ import {
 } from '../../../admin/services/roleManagementService';
 import { useRolePermissionsStore } from '../../../hooks/useRolePermissionsStore';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
+import { usePermissions } from '../../../authorization/hooks/usePermission';
 
 export default function RolePermissions() {
     const router = useRouter();
     const { roleName } = useLocalSearchParams<{ roleName: string }>();
     const { bottomSpacing } = useBottomNavSpacing();
+    const { isAdmin, hasModuleAccess, can } = usePermissions();
+
+    const canEditRoles = isAdmin || (hasModuleAccess('User Management') && can('Edit', '/admin/usemanagement/RolesManagement'));
+
+    useEffect(() => {
+        if (!canEditRoles) {
+            router.replace('/admin/dashboard');
+        }
+    }, [canEditRoles, router]);
 
     const { isDark } = useTheme();
     const adminTheme = getAdminTheme(isDark);

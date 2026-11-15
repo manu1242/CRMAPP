@@ -90,6 +90,7 @@ export const MODULES: ModuleItem[] = [
     category: 'Core',
     subLinks: [
       { label: 'Admin Dashboard', route: '/admin/dashboard?tab=admin' },
+      { label: 'Partner Dashboard', route: '/admin/PartnerDashboard' },
       { label: 'Sales Overview', route: '/admin/dashboard?tab=sales' },
       { label: 'Team Dashboard', route: '/admin/dashboard?tab=team' },
       { label: 'Milestone Payments', route: '/admin/dashboard?tab=milestone' },
@@ -176,7 +177,7 @@ export const MODULES: ModuleItem[] = [
   },
   {
     id: 'user-management',
-    title: 'User Mgmt',
+    title: 'User Management',
     icon: UserCog,
     color: '#ef4444',
     bgColor: '#ef44441f',
@@ -259,6 +260,7 @@ interface BottomMenuSheetProps {
 
 import { useAuthStore } from '../../auth/store/authStore';
 import { usePermissionStore } from '../../authorization/store/permissionStore';
+import { usePermissions } from '../../authorization/hooks/usePermission';
 
 export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSheetProps) {
   const router = useRouter();
@@ -267,11 +269,17 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
   const user = useAuthStore((state) => state.user);
   const role = user?.role?.trim()?.toLowerCase() || '';
   const { hasModuleAccess, can } = usePermissionStore();
+  const { isAdmin } = usePermissions();
 
   const visibleModules = React.useMemo(() => {
     return MODULES.map((module) => {
+      // Settings module is purely only for Admin
+      if (module.id === 'settings' && !isAdmin) {
+        return null;
+      }
+
       // 1. Check if user's role has permission to this entire module
-      if (!hasModuleAccess(module.title) && !hasModuleAccess(module.id)) {
+      if (!isAdmin && !hasModuleAccess(module.title) && !hasModuleAccess(module.id)) {
         return null;
       }
 
@@ -279,19 +287,39 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
       const filteredSubLinks = module.subLinks.filter((link) => {
         const route = link.route;
 
+        // Settings links: purely only for Admin
+        if (
+          route.startsWith('/admin/settings/systemsettings') ||
+          route.startsWith('/admin/settings/emailconfig') ||
+          route === '/admin/settings'
+        ) {
+          if (!isAdmin) return false;
+        }
+
+        // User Management links: only visible to Admin or if Admin explicitly granted User Management access
+        if (route.startsWith('/admin/usemanagement')) {
+          if (!isAdmin && !hasModuleAccess('User Management')) {
+            return false;
+          }
+          return can('View', route);
+        }
+
         // Admin has full access except partner dashboard home
-        if (role === 'admin') {
+        if (role === 'admin' || isAdmin) {
           if (route === '/admin/PartnerDashboard') return false;
           return true;
         }
 
         // Partner role filtering
         if (role === 'partner') {
-          // Partner cannot access system settings or user/role management
+          // Partner uses PartnerDashboard, cannot access AdminDashboard or system administration
           if (
+            route === '/admin/dashboard?tab=admin' ||
             route.includes('/admin/usemanagement/ManageUsers') ||
             route.includes('/admin/usemanagement/RolesManagement') ||
-            route.includes('/admin/settings/systemsettings')
+            route.includes('/admin/settings/systemsettings') ||
+            route.includes('/admin/paymentconfig') ||
+            route.includes('/admin/payouts/AgentPayout')
           ) {
             return false;
           }
@@ -300,12 +328,20 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
 
         // Agent / Sales role filtering
         if (role === 'agent' || role === 'sales') {
+          // Block Admin Dashboard and Partner Dashboard for Agents
+          if (route === '/admin/dashboard?tab=admin' || route === '/admin/PartnerDashboard') {
+            return false;
+          }
+
           const isAgentAllowed = [
+            '/admin/dashboard',
             '/admin/leads',
             '/admin/sales',
+            '/admin/SalesUnit',
             '/admin/Tasks',
             '/admin/properties',
             '/admin/attendance/AgentAttendance',
+            '/admin/payouts/AgentPayout',
             '/admin/settings/profile/Profile',
           ].some((prefix) => route.startsWith(prefix));
 

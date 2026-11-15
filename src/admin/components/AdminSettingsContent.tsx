@@ -28,14 +28,34 @@ import { getAdminTheme } from '../../theme/adminTheme';
 import { useUpdateStore } from '../../hooks/useUpdateStore';
 import { EXTERNAL_LINKS, openExternalLink } from '../../config/externalLinks';
 import AppFooter from '../../auth/components/AppFooter';
+import { queryClient } from '../../api/queryClient';
+import { resetNavigationLock } from '../../navigation/safeNavigation';
+import { useDashboardTabStore } from '../store/useDashboardTabStore';
+import { usePermissions } from '../../authorization/hooks/usePermission';
 
 export default function AdminSettingsContent() {
   const { isDark } = useTheme();
   const router = useRouter();
+  const { isAdmin, isPartner } = usePermissions();
   const isImpersonating = useAuthStore((state) => state.isImpersonating);
   const stopImpersonation = useAuthStore((state) => state.stopImpersonation);
   const adminTheme = getAdminTheme(isDark);
   const isUpdateAvailable = useUpdateStore((state) => state.isUpdateAvailable);
+
+  // Guard: Settings is purely for Admin
+  React.useEffect(() => {
+    if (!isAdmin) {
+      if (isPartner) {
+        router.replace('/admin/PartnerDashboard');
+      } else {
+        router.replace('/admin/dashboard');
+      }
+    }
+  }, [isAdmin, isPartner, router]);
+
+  if (!isAdmin) {
+    return null;
+  }
 
   const handleUpdateApp = useCallback(() => {
     const url = Platform.OS === 'ios'
@@ -54,8 +74,16 @@ export default function AdminSettingsContent() {
 
 
   const handleStopImpersonation = useCallback(async () => {
-    await stopImpersonation();
-    router.replace('/admin/dashboard');
+    const restored = await stopImpersonation();
+    resetNavigationLock();
+    queryClient.clear();
+    useDashboardTabStore.getState().setActiveTab('admin');
+    const restoredRole = restored?.role?.trim()?.toLowerCase();
+    if (restoredRole === 'superadmin') {
+      router.replace('/superadmin/dashboard');
+    } else {
+      router.replace({ pathname: '/admin/dashboard', params: { tab: 'admin' } } as any);
+    }
   }, [stopImpersonation, router]);
 
   const menuSections = useMemo(

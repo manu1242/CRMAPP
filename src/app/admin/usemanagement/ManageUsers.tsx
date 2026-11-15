@@ -19,6 +19,7 @@ import {
   Users,
   Search,
   Plus,
+  ArrowLeft,
   Mail,
   Phone,
   Shield,
@@ -51,6 +52,10 @@ import {
 import { useAuthStore } from '../../../auth/store/authStore';
 import { useUserStore } from '../../../admin/store/useUserStore';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
+import { usePermissions } from '../../../authorization/hooks/usePermission';
+import { useDashboardTabStore } from '../../../admin/store/useDashboardTabStore';
+import { resetNavigationLock } from '../../../navigation/safeNavigation';
+import { queryClient } from '../../../api/queryClient';
 
 const MONTHS_LIST = [
   'January',
@@ -72,6 +77,19 @@ export default function ManageUsers() {
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
   const { bottomSpacing } = useBottomNavSpacing();
+  const { user, isAdmin, isSuperAdmin, isPartner, hasModuleAccess, can } = usePermissions();
+
+  const canAccessUserMgmt = isAdmin || isSuperAdmin || isPartner || hasModuleAccess('User Management');
+  const canCreateUser = isAdmin || isSuperAdmin || isPartner || can('Create', '/admin/usemanagement/ManageUsers');
+  const canEditUser = isAdmin || isSuperAdmin || isPartner || can('Edit', '/admin/usemanagement/ManageUsers');
+  const canDeleteUser = isAdmin || isSuperAdmin || isPartner || can('Delete', '/admin/usemanagement/ManageUsers');
+
+  // Guard: Only visible to Admin, Partner, or other roles if Admin explicitly granted access
+  useEffect(() => {
+    if (!canAccessUserMgmt) {
+      router.replace('/admin/dashboard');
+    }
+  }, [canAccessUserMgmt, router]);
 
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
@@ -91,6 +109,7 @@ export default function ManageUsers() {
     selectedRole,
     selectedStatus,
     page,
+    totalPages,
     fetchUsers,
     setSearch,
     setSelectedRole,
@@ -151,12 +170,20 @@ export default function ManageUsers() {
       const res = await userManagementService.impersonateUser(impersonateTargetUser.userId);
       if (res && res.success && res.data) {
         setImpersonateTargetUser(null);
+        resetNavigationLock();
+        queryClient.clear();
         await useAuthStore.getState().impersonate(res.data.token, res.data.user);
-        // Route partner-role users to the Partner Dashboard; others go to admin dashboard
+        // Route partner-role users to Partner Dashboard; agent/sales to sales tab; superadmin to superadmin dashboard
         const impersonatedRole = (res.data.user?.role ?? '').toLowerCase();
         if (impersonatedRole === 'partner') {
           router.replace('/admin/PartnerDashboard');
+        } else if (impersonatedRole === 'agent' || impersonatedRole === 'sales') {
+          useDashboardTabStore.getState().setActiveTab('sales');
+          router.replace({ pathname: '/admin/dashboard', params: { tab: 'sales' } });
+        } else if (impersonatedRole === 'superadmin') {
+          router.replace('/superadmin/dashboard');
         } else {
+          useDashboardTabStore.getState().setActiveTab('admin');
           router.replace('/admin/dashboard');
         }
       } else {
@@ -284,6 +311,48 @@ export default function ManageUsers() {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
+      {/* Top Header */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: borderCol,
+          backgroundColor: cardBg,
+          gap: 12,
+        }}
+      >
+        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
+          <ArrowLeft size={22} color={textColor} />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>
+            Manage Users
+          </Text>
+          <Text style={{ fontSize: 12, color: subTextColor, marginTop: 1 }}>
+            Team members, roles & permissions
+          </Text>
+        </View>
+        {canCreateUser && (
+          <TouchableOpacity
+            onPress={() => router.push('/admin/usemanagement/CreateUser')}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: '#10b981',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Plus size={18} color="#ffffff" />
+          </TouchableOpacity>
+        )}
+      </View>
+
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 16, paddingBottom: Math.max(bottomSpacing, 120), flexGrow: 1 }}
@@ -291,6 +360,68 @@ export default function ManageUsers() {
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchUsers(true)} />
         }
       >
+        {/* Summary Stats Cards */}
+        {summary && (
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: cardBg,
+                borderRadius: 12,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: borderCol,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 10, fontWeight: '700', color: subTextColor, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Total Users
+              </Text>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#3b82f6', marginTop: 4 }}>
+                {summary.totalUsers}
+              </Text>
+            </View>
+
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: cardBg,
+                borderRadius: 12,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: borderCol,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 10, fontWeight: '700', color: subTextColor, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Active
+              </Text>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#10b981', marginTop: 4 }}>
+                {summary.activeUsers}
+              </Text>
+            </View>
+
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: cardBg,
+                borderRadius: 12,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: borderCol,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 10, fontWeight: '700', color: subTextColor, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Inactive
+              </Text>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#ef4444', marginTop: 4 }}>
+                {summary.inactiveUsers}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Search & Dropdown Filters Bar */}
         <View
           style={{
@@ -332,19 +463,21 @@ export default function ManageUsers() {
                 </TouchableOpacity>
               ) : null}
             </View>
-            <TouchableOpacity
-              onPress={() => router.push('/admin/usemanagement/CreateUser')}
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                backgroundColor: '#10b981',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Plus size={16} color="#ffffff" />
-            </TouchableOpacity>
+            {canCreateUser && (
+              <TouchableOpacity
+                onPress={() => router.push('/admin/usemanagement/CreateUser')}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: '#10b981',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Plus size={16} color="#ffffff" />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Dropdown Filters Row */}
@@ -672,85 +805,93 @@ export default function ManageUsers() {
                     {/* Left Actions (Manage Context) */}
                     <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
                       {/* Edit Button */}
-                      <TouchableOpacity
-                        onPress={() => handleOpenEdit(u)}
-                      >
-                        <Edit2 size={18} color={adminTheme.brand} />
-                      </TouchableOpacity>
-
-                      {/* Activate / Retrieve Button (If Inactive) */}
-                      {!u.isActive ? (
+                      {canEditUser && (
                         <TouchableOpacity
-                          onPress={() => setActivateTargetUser(u)}
-                          style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 4,
-                            borderRadius: 6,
-                            backgroundColor: '#10b98115',
-                            borderWidth: 1,
-                            borderColor: '#10b98140',
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}
+                          onPress={() => handleOpenEdit(u)}
                         >
-                          <UserCheck size={14} color="#10b981" />
-                          <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '700' }}>Activate</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        /* Suspend Button (If Active) */
-                        <TouchableOpacity
-                          onPress={() => {
-                            setSuspendReason('');
-                            setSuspendTargetUser(u);
-                          }}
-                          style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 4,
-                            borderRadius: 6,
-                            backgroundColor: '#f59e0b15',
-                            borderWidth: 1,
-                            borderColor: '#f59e0b40',
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}
-                        >
-                          <UserX size={14} color="#f59e0b" />
-                          <Text style={{ color: '#f59e0b', fontSize: 11, fontWeight: '700' }}>Suspend</Text>
+                          <Edit2 size={18} color={adminTheme.brand} />
                         </TouchableOpacity>
                       )}
 
-                      {/* Delete (Deactivate) Button */}
-                      <TouchableOpacity
-                        onPress={() => handleDeleteUser(u)}
-                      >
-                        <Trash2 size={18} color="#ef4444" />
-                      </TouchableOpacity>
+                      {canDeleteUser && (
+                        <>
+                          {/* Activate / Retrieve Button (If Inactive) */}
+                          {!u.isActive ? (
+                            <TouchableOpacity
+                              onPress={() => setActivateTargetUser(u)}
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: 6,
+                                backgroundColor: '#10b98115',
+                                borderWidth: 1,
+                                borderColor: '#10b98140',
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
+                              }}
+                            >
+                              <UserCheck size={14} color="#10b981" />
+                              <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '700' }}>Activate</Text>
+                            </TouchableOpacity>
+                          ) : (
+                            /* Suspend Button (If Active) */
+                            <TouchableOpacity
+                              onPress={() => {
+                                setSuspendReason('');
+                                setSuspendTargetUser(u);
+                              }}
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: 6,
+                                backgroundColor: '#f59e0b15',
+                                borderWidth: 1,
+                                borderColor: '#f59e0b40',
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
+                              }}
+                            >
+                              <UserX size={14} color="#f59e0b" />
+                              <Text style={{ color: '#f59e0b', fontSize: 11, fontWeight: '700' }}>Suspend</Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {/* Delete (Deactivate) Button */}
+                          <TouchableOpacity
+                            onPress={() => handleDeleteUser(u)}
+                          >
+                            <Trash2 size={18} color="#ef4444" />
+                          </TouchableOpacity>
+                        </>
+                      )}
                     </View>
 
                     {/* Right Actions */}
                     <View style={{ flexDirection: 'row', gap: 6 }}>
-                      {/* Impersonate Button */}
-                      <TouchableOpacity
-                        onPress={() => setImpersonateTargetUser(u)}
-                        style={{
-                          paddingHorizontal: 10,
-                          paddingVertical: 6,
-                          borderRadius: 8,
-                          backgroundColor: '#8b5cf610',
-                          borderWidth: 1,
-                          borderColor: '#8b5cf630',
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 4,
-                        }}
-                      >
-                        <LogIn size={13} color="#8b5cf6" />
-                        <Text style={{ color: '#8b5cf6', fontSize: 11, fontWeight: '700' }}>
-                          Impersonate
-                        </Text>
-                      </TouchableOpacity>
+                      {/* Impersonate Button: Only Admin/SuperAdmin, not self, and only if user is active */}
+                      {(isAdmin || isSuperAdmin) && user?.userId !== u.userId && u.isActive && (
+                        <TouchableOpacity
+                          onPress={() => setImpersonateTargetUser(u)}
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: 8,
+                            backgroundColor: '#8b5cf610',
+                            borderWidth: 1,
+                            borderColor: '#8b5cf630',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <LogIn size={13} color="#8b5cf6" />
+                          <Text style={{ color: '#8b5cf6', fontSize: 11, fontWeight: '700' }}>
+                            Impersonate
+                          </Text>
+                        </TouchableOpacity>
+                      )}
 
                       {/* Attendance Calendar Button */}
                       <TouchableOpacity
@@ -777,6 +918,61 @@ export default function ManageUsers() {
                 </View>
               );
             })}
+          </View>
+        )}
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: 16,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              backgroundColor: cardBg,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: borderCol,
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => setPage(Math.max(1, page - 1))}
+              disabled={page <= 1}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: borderCol,
+                backgroundColor: page <= 1 ? bgColor : cardBg,
+                opacity: page <= 1 ? 0.4 : 1,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600', color: textColor }}>Previous</Text>
+            </TouchableOpacity>
+
+            <Text style={{ fontSize: 12, fontWeight: '600', color: subTextColor }}>
+              Page <Text style={{ color: textColor, fontWeight: '700' }}>{page}</Text> of{' '}
+              <Text style={{ color: textColor, fontWeight: '700' }}>{totalPages}</Text>
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page >= totalPages}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: borderCol,
+                backgroundColor: page >= totalPages ? bgColor : cardBg,
+                opacity: page >= totalPages ? 0.4 : 1,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600', color: textColor }}>Next</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>

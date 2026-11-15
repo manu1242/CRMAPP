@@ -109,7 +109,7 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
           </TouchableOpacity>
         )}
         <Text style={{ color: adminTheme.textPrimary, fontWeight: '700', fontSize: 16 }}>
-          Admin Panel
+          Admin
         </Text>
       </View>
 

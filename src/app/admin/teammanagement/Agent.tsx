@@ -122,12 +122,13 @@ export default function AgentListScreen() {
                 text1: 'Success',
                 text2: 'Agent deleted successfully',
               });
+              refetch();
             } catch (err: any) {
               console.error('Failed to delete agent:', err);
               Toast.show({
                 type: 'error',
                 text1: 'Error',
-                text2: err.response?.data?.message || 'Failed to delete agent',
+                text2: err.response?.data?.message || err.message || 'Failed to delete agent',
               });
             }
           },
@@ -200,6 +201,24 @@ export default function AgentListScreen() {
         borderBottomWidth: 1,
         borderBottomColor: borderCol
       }}>
+        {/* Back Button */}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            backgroundColor: inputBg,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: borderCol,
+          }}
+          accessibilityLabel="Go Back"
+        >
+          <ArrowLeft size={18} color={textColor} />
+        </TouchableOpacity>
+
         {/* Search */}
         <View style={{
           flex: 1,

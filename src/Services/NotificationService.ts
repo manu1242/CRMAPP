@@ -178,12 +178,14 @@ export const NotificationService = {
     try {
       return await apiClient.post<{ success: boolean; message?: string }>(
         API_ENDPOINTS.NOTIFICATION.API_UNREGISTER_TOKEN,
-        { token }
+        { token },
+        { timeout: 2500 }
       );
     } catch {
       return await apiClient.post<{ success: boolean; message?: string }>(
         '/api/Notification/unregister-token',
-        { token }
+        { token },
+        { timeout: 2500 }
       );
     }
   },

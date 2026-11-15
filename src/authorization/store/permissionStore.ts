@@ -104,8 +104,12 @@ export const ROUTE_MAP: Record<string, { module: string; controller: string; def
   '/admin/payouts/PartnerPayout': { module: 'Payouts', controller: 'PartnerCommission' },
 
   // User Management
+  '/admin/users': { module: 'User Management', controller: 'ManageUsers' },
   '/admin/usemanagement/ManageUsers': { module: 'User Management', controller: 'ManageUsers' },
   '/admin/usemanagement/RolesManagement': { module: 'User Management', controller: 'ManageUsers' },
+  '/admin/usemanagement/CreateUser': { module: 'User Management', controller: 'ManageUsers', defaultAction: 'Create' },
+  '/admin/usemanagement/EditUser': { module: 'User Management', controller: 'ManageUsers', defaultAction: 'Edit' },
+  '/admin/usemanagement/RolePermissions': { module: 'User Management', controller: 'ManageUsers', defaultAction: 'Edit' },
 
   // Settings
   '/admin/settings': { module: 'Settings', controller: 'Settings' },
@@ -228,21 +232,36 @@ export const usePermissionStore = create<PermissionState>((set, get) => ({
       return true;
     }
 
+    // System settings are purely only for Admin
+    if (
+      routeOrKey === '/admin/settings' ||
+      routeOrKey.startsWith('/admin/settings/systemsettings') ||
+      routeOrKey.startsWith('/admin/settings/emailconfig')
+    ) {
+      if (!myPermissions.isAdmin) return false;
+    }
+
     // Partner screen access scoping
     if (myPermissions.isPartner) {
-      if (routeOrKey === '/admin/dashboard') return false; // Partner uses PartnerDashboard
+      if (routeOrKey === '/admin/dashboard' || routeOrKey === '/admin/dashboard?tab=admin') return false; // Partner uses PartnerDashboard
       if (routeOrKey.includes('/admin/usemanagement')) return false; // Partner cannot manage global roles
+      if (routeOrKey.includes('/admin/paymentconfig')) return false; // Partner cannot access tenant payment gateway config
     }
 
     // Agent screen access scoping
     if (myPermissions.isAgent) {
+      if (routeOrKey === '/admin/dashboard?tab=admin' || routeOrKey === '/admin/PartnerDashboard') return false;
       const agentAllowedRoutes = [
+        '/admin/dashboard',
         '/admin/leads',
         '/admin/sales',
+        '/admin/SalesUnit',
         '/admin/Tasks',
         '/admin/properties',
         '/admin/attendance/AgentAttendance',
-        '/admin/settings/profile/Profile',
+        '/admin/payouts/AgentPayout',
+        '/admin/settings/profile',
+        '/profile',
       ];
       return agentAllowedRoutes.some((r) => routeOrKey.startsWith(r));
     }

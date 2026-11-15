@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { userManagementService } from '../../../admin/services/userManagementService';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
+import { usePermissions } from '../../../authorization/hooks/usePermission';
 
 interface LocalParams {
     userId: string;
@@ -38,6 +39,15 @@ export default function EditUser() {
     const { isDark } = useTheme();
     const adminTheme = getAdminTheme(isDark);
     const { bottomSpacing } = useBottomNavSpacing();
+    const { isAdmin, isPartner, hasModuleAccess, can } = usePermissions();
+
+    const canEditUser = isAdmin || isPartner || (hasModuleAccess('User Management') && can('Edit', '/admin/usemanagement/ManageUsers'));
+
+    useEffect(() => {
+        if (!canEditUser) {
+            router.replace('/admin/dashboard');
+        }
+    }, [canEditUser, router]);
 
     const bgColor = adminTheme.primaryBg;
     const cardBg = adminTheme.cardBg;
@@ -55,7 +65,7 @@ export default function EditUser() {
         password: '',
     });
 
-    const availableRoles = ['Admin', 'Agent', 'Partner'];
+    const availableRoles = isPartner ? ['Agent', 'Sales'] : ['Admin', 'Agent', 'Partner', 'Sales'];
 
     const handleUpdateUser = async () => {
         if (!params.userId) return;
@@ -64,6 +74,15 @@ export default function EditUser() {
                 type: 'error',
                 text1: 'Validation Error',
                 text2: 'Username and email are required.',
+            });
+            return;
+        }
+
+        if (form.password.trim() && form.password.trim().length < 6) {
+            Toast.show({
+                type: 'error',
+                text1: 'Validation Error',
+                text2: 'Password must be at least 6 characters if provided.',
             });
             return;
         }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -19,12 +19,22 @@ import {
 } from 'lucide-react-native';
 import { userManagementService } from '../../../admin/services/userManagementService';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
+import { usePermissions } from '../../../authorization/hooks/usePermission';
 
 export default function CreateUser() {
     const router = useRouter();
     const { isDark } = useTheme();
     const adminTheme = getAdminTheme(isDark);
     const { bottomSpacing } = useBottomNavSpacing();
+    const { isAdmin, isPartner, hasModuleAccess, can } = usePermissions();
+
+    const canCreateUser = isAdmin || isPartner || (hasModuleAccess('User Management') && can('Create', '/admin/usemanagement/ManageUsers'));
+
+    useEffect(() => {
+        if (!canCreateUser) {
+            router.replace('/admin/dashboard');
+        }
+    }, [canCreateUser, router]);
 
     const bgColor = adminTheme.primaryBg;
     const cardBg = adminTheme.cardBg;
@@ -42,14 +52,23 @@ export default function CreateUser() {
         isActive: true,
     });
 
-    const availableRoles = ['Admin', 'Agent', 'Partner'];
+    const availableRoles = isPartner ? ['Agent', 'Sales'] : ['Admin', 'Agent', 'Partner', 'Sales'];
 
     const handleCreateUser = async () => {
-        if (!form.username.trim() || !form.email.trim()) {
+        if (!form.username.trim() || !form.email.trim() || !form.password.trim()) {
             Toast.show({
                 type: 'error',
                 text1: 'Validation Error',
-                text2: 'Full Name/Username and Email are required.',
+                text2: 'Full Name, Email, and Password are required.',
+            });
+            return;
+        }
+
+        if (form.password.trim().length < 6) {
+            Toast.show({
+                type: 'error',
+                text1: 'Validation Error',
+                text2: 'Password must be at least 6 characters.',
             });
             return;
         }
@@ -59,7 +78,7 @@ export default function CreateUser() {
             const res = await userManagementService.createUser({
                 username: form.username.trim(),
                 email: form.email.trim(),
-                password: form.password.trim() || undefined,
+                password: form.password.trim(),
                 role: form.role,
                 phone: form.phone.trim() || undefined,
                 isActive: form.isActive,
@@ -180,7 +199,7 @@ export default function CreateUser() {
                     {/* Password */}
                     <View style={{ gap: 4 }}>
                         <Text style={{ fontSize: 11, fontWeight: '700', color: subTextColor }}>
-                            PASSWORD
+                            PASSWORD *
                         </Text>
                         <TextInput
                             style={{
@@ -194,7 +213,7 @@ export default function CreateUser() {
                                 fontSize: 13,
                             }}
                             secureTextEntry
-                            placeholder="Leave blank for default"
+                            placeholder="Min 6 characters"
                             placeholderTextColor={subTextColor}
                             value={form.password}
                             onChangeText={(val) => setForm((prev) => ({ ...prev, password: val }))}

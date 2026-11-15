@@ -14,8 +14,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
 import { AgentsService } from '../../../admin/services/Agentservice';
-import { useAgents, useAgentDropdowns, useOnboardAgent, useUpdateAgent } from '../../../admin/hooks/useAgents';
+import { useAgents, useAgent, useAgentDropdowns, useOnboardAgent, useUpdateAgent } from '../../../admin/hooks/useAgents';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import Toast from 'react-native-toast-message';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 import {
@@ -29,6 +30,9 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Camera,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react-native';
 
 interface PendingDoc {
@@ -69,28 +73,24 @@ export default function CreateAgentScreen() {
   const commissionRules = dropdownData?.data?.commissionRules || ['None (0% of sale)'];
 
   // Detail query for edit mode (only triggers if isEdit is true)
-  const { data: agentListData, isLoading: loadingDetails } = useAgents(
-    isEdit ? { pageSize: 100 } : undefined
-  );
+  const { data: agentDetailRes, isLoading: loadingDetails } = useAgent(isEdit ? id : undefined);
+  const agentData = agentDetailRes?.data;
 
   // Populate form details in edit mode
   useEffect(() => {
-    if (isEdit && id && agentListData?.data?.items) {
-      const agent = agentListData.data.items.find((a) => a.agentId === Number(id));
-      if (agent) {
-        setForm({
-          fullName: agent.fullName || '',
-          email: agent.email || '',
-          phone: agent.phone || '',
-          address: agent.address || '',
-          agentType: agent.agentType || 'Salary',
-          salary: agent.salary ? agent.salary.toString() : '',
-          commissionRules: agent.commissionRules || 'None (0% of sale)',
-        });
-        setExistingDocs(agent.agentDocuments || []);
-      }
+    if (isEdit && agentData) {
+      setForm({
+        fullName: agentData.fullName || '',
+        email: agentData.email || '',
+        phone: agentData.phone || '',
+        address: agentData.address || '',
+        agentType: agentData.agentType || 'Salary',
+        salary: agentData.salary != null ? agentData.salary.toString() : '',
+        commissionRules: agentData.commissionRules || 'None (0% of sale)',
+      });
+      setExistingDocs(agentData.agentDocuments || []);
     }
-  }, [isEdit, id, agentListData]);
+  }, [isEdit, agentData]);
 
   // Mutations
   const onboardMutation = useOnboardAgent();
@@ -100,6 +100,7 @@ export default function CreateAgentScreen() {
   // Modal Open States
   const [typeModalOpen, setTypeModalOpen] = useState(false);
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
+  const [pickerModalOpen, setPickerModalOpen] = useState(false);
 
   // Document types for selector
   const DOC_TYPES = ['Aadhar', 'PAN', 'Resume', 'License', 'Others'];
@@ -113,16 +114,50 @@ export default function CreateAgentScreen() {
   const inputBg = adminTheme.inputBg;
   const brandColor = adminTheme.brand;
 
+  // 1. Pick PDF / Word Document
   const handlePickDocument = async () => {
+    setPickerModalOpen(false);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'image/*',
+          'text/plain',
+        ],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        const newFile: PendingDoc = {
+          uri: file.uri,
+          fileName: file.name || `doc_${Date.now()}.pdf`,
+          fileSize: file.size || 0,
+          type: file.mimeType || 'application/pdf',
+          customName: '',
+          documentType: 'Aadhar',
+        };
+        setPendingDocs((prev) => [...prev, newFile]);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to select document.');
+    }
+  };
+
+  // 2. Pick Image from Gallery
+  const handlePickImage = async () => {
+    setPickerModalOpen(false);
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission Denied', 'We need storage permission to upload documents.');
+        Alert.alert('Permission Denied', 'We need photo library permission to upload images.');
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images', 'videos'],
+        mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
       });
@@ -131,7 +166,7 @@ export default function CreateAgentScreen() {
         const asset = result.assets[0];
         const newFile: PendingDoc = {
           uri: asset.uri,
-          fileName: asset.fileName || `doc_${Date.now()}.jpg`,
+          fileName: asset.fileName || `photo_${Date.now()}.jpg`,
           fileSize: asset.fileSize || 0,
           type: asset.mimeType || 'image/jpeg',
           customName: '',
@@ -140,7 +175,39 @@ export default function CreateAgentScreen() {
         setPendingDocs((prev) => [...prev, newFile]);
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to select file.');
+      Alert.alert('Error', err.message || 'Failed to select photo.');
+    }
+  };
+
+  // 3. Take Photo with Camera
+  const handleTakePhoto = async () => {
+    setPickerModalOpen(false);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'We need camera permission to take document photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const newFile: PendingDoc = {
+          uri: asset.uri,
+          fileName: `camera_${Date.now()}.jpg`,
+          fileSize: asset.fileSize || 0,
+          type: asset.mimeType || 'image/jpeg',
+          customName: '',
+          documentType: 'Aadhar',
+        };
+        setPendingDocs((prev) => [...prev, newFile]);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to capture photo.');
     }
   };
 
@@ -177,42 +244,28 @@ export default function CreateAgentScreen() {
           ? salaryVal
           : 0;
 
-      // 1. JSON Payload Model (supports case variations for ASP.NET model binding)
+      // 1. JSON Payload Model
       const payload: any = {
         fullName: form.fullName.trim(),
-        FullName: form.fullName.trim(),
         email: form.email.trim(),
-        Email: form.email.trim(),
         phone: cleanPhone,
-        Phone: cleanPhone,
         address: form.address.trim(),
-        Address: form.address.trim(),
         agentType: form.agentType,
-        AgentType: form.agentType,
         salary: computedSalary,
-        Salary: computedSalary,
-        commissionRules: form.commissionRules,
-        CommissionRules: form.commissionRules,
+        commissionRules: form.commissionRules || 'None (0% of sale)',
       };
 
-      // 2. FormData Model
+      // 2. FormData Model (Single key format matching C# AgentOnboardRequest / AgentUpdateRequest)
       const formData = new FormData();
       formData.append('FullName', form.fullName.trim());
-      formData.append('fullName', form.fullName.trim());
       formData.append('Email', form.email.trim());
-      formData.append('email', form.email.trim());
       formData.append('Phone', cleanPhone);
-      formData.append('phone', cleanPhone);
       if (form.address.trim()) {
         formData.append('Address', form.address.trim());
-        formData.append('address', form.address.trim());
       }
       formData.append('AgentType', form.agentType);
-      formData.append('agentType', form.agentType);
       formData.append('Salary', computedSalary.toString());
-      formData.append('salary', computedSalary.toString());
-      formData.append('CommissionRules', form.commissionRules);
-      formData.append('commissionRules', form.commissionRules);
+      formData.append('CommissionRules', form.commissionRules || 'None (0% of sale)');
 
       // Append files for multipart upload support
       pendingDocs.forEach((doc) => {
@@ -279,7 +332,9 @@ export default function CreateAgentScreen() {
           text1: 'Success',
           text2: isEdit ? 'Agent updated successfully' : 'Agent onboarded successfully',
         });
-        router.back();
+        setTimeout(() => {
+          router.back();
+        }, 250);
       } else {
         Alert.alert('Error', res?.message || 'Failed to save agent details.');
       }
@@ -289,7 +344,7 @@ export default function CreateAgentScreen() {
         err?.response?.data?.message ||
         err?.response?.data?.Message ||
         err?.message ||
-        'Onboarding failed. Please try again.';
+        'Failed to save agent. Please try again.';
       Alert.alert('Error', msg);
     }
   };
@@ -305,11 +360,11 @@ export default function CreateAgentScreen() {
     }
   };
 
-  if (loadingDetails) {
+  if (isEdit && loadingDetails && !agentData) {
     return (
       <View style={{ flex: 1, backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={brandColor} />
-        <Text style={{ color: subTextColor, marginTop: 12, fontSize: 13 }}>Loading details...</Text>
+        <Text style={{ color: subTextColor, marginTop: 12, fontSize: 13 }}>Loading agent details...</Text>
       </View>
     );
   }
@@ -590,99 +645,136 @@ export default function CreateAgentScreen() {
               Verification Attachments
             </Text>
             <TouchableOpacity
-              onPress={handlePickDocument}
+              onPress={() => setPickerModalOpen(true)}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 backgroundColor: `${brandColor}15`,
-                paddingHorizontal: 10,
+                paddingHorizontal: 12,
                 paddingVertical: 6,
                 borderRadius: 12,
-                gap: 4
+                gap: 5
               }}
             >
-              <Paperclip size={12} color={brandColor} />
-              <Text style={{ color: brandColor, fontSize: 11, fontWeight: '700' }}>Choose File</Text>
+              <Plus size={14} color={brandColor} />
+              <Text style={{ color: brandColor, fontSize: 11, fontWeight: '700' }}>Add Document / Photo</Text>
             </TouchableOpacity>
           </View>
 
           {pendingDocs.length === 0 ? (
-            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <Text style={{ color: subTextColor, fontSize: 12, textAlign: 'center' }}>
-                No new files selected.
+            <TouchableOpacity
+              onPress={() => setPickerModalOpen(true)}
+              style={{
+                paddingVertical: 22,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: borderCol,
+                borderStyle: 'dashed',
+                borderRadius: 12,
+                backgroundColor: inputBg,
+                gap: 8
+              }}
+            >
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: `${brandColor}15`, alignItems: 'center', justifyContent: 'center' }}>
+                  <FileText size={18} color={brandColor} />
+                </View>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#3b82f615', alignItems: 'center', justifyContent: 'center' }}>
+                  <ImageIcon size={18} color="#3b82f6" />
+                </View>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#10b98115', alignItems: 'center', justifyContent: 'center' }}>
+                  <Camera size={18} color="#10b981" />
+                </View>
+              </View>
+              <Text style={{ color: textColor, fontSize: 13, fontWeight: '700' }}>
+                Upload PDF Document or Photo
               </Text>
-            </View>
+              <Text style={{ color: subTextColor, fontSize: 11, textAlign: 'center' }}>
+                Tap here to pick PDF, DOCX, Gallery image, or take Camera photo
+              </Text>
+            </TouchableOpacity>
           ) : (
             <View style={{ gap: 12 }}>
-              {pendingDocs.map((doc, index) => (
-                <View
-                  key={index}
-                  style={{
-                    backgroundColor: bgColor,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: borderCol,
-                    padding: 12,
-                    gap: 10
-                  }}
-                >
-                  {/* File title & Remove */}
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 12, color: textColor, fontWeight: '600', flex: 1 }} numberOfLines={1}>
-                      File: {doc.fileName}
-                    </Text>
-                    <TouchableOpacity onPress={() => handleRemovePendingDoc(index)} style={{ padding: 4 }}>
-                      <Trash2 size={14} color="#ef4444" />
-                    </TouchableOpacity>
-                  </View>
+              {pendingDocs.map((doc, index) => {
+                const isPdf = doc.type?.includes('pdf') || doc.fileName?.toLowerCase().endsWith('.pdf');
+                return (
+                  <View
+                    key={index}
+                    style={{
+                      backgroundColor: bgColor,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: borderCol,
+                      padding: 12,
+                      gap: 10
+                    }}
+                  >
+                    {/* File title & Remove */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                        {isPdf ? (
+                          <FileText size={16} color="#ef4444" />
+                        ) : (
+                          <ImageIcon size={16} color="#3b82f6" />
+                        )}
+                        <Text style={{ fontSize: 12, color: textColor, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                          {doc.fileName}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => handleRemovePendingDoc(index)} style={{ padding: 4 }}>
+                        <Trash2 size={14} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
 
-                  {/* Document Display Name */}
-                  <View style={{ gap: 4 }}>
-                    <Text style={{ fontSize: 9, fontWeight: '700', color: subTextColor }}>DISPLAY NAME</Text>
-                    <TextInput
-                      style={{
-                        height: 36,
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        borderColor: borderCol,
-                        paddingHorizontal: 10,
-                        color: textColor,
-                        fontSize: 12,
-                        backgroundColor: cardBg
-                      }}
-                      placeholder="e.g. Aadhar Front, Resume"
-                      placeholderTextColor={subTextColor}
-                      value={doc.customName}
-                      onChangeText={(val) => handleUpdatePendingDoc(index, 'customName', val)}
-                    />
-                  </View>
+                    {/* Document Display Name */}
+                    <View style={{ gap: 4 }}>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: subTextColor }}>DISPLAY NAME</Text>
+                      <TextInput
+                        style={{
+                          height: 36,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: borderCol,
+                          paddingHorizontal: 10,
+                          color: textColor,
+                          fontSize: 12,
+                          backgroundColor: cardBg
+                        }}
+                        placeholder="e.g. Aadhar Front, Resume"
+                        placeholderTextColor={subTextColor}
+                        value={doc.customName}
+                        onChangeText={(val) => handleUpdatePendingDoc(index, 'customName', val)}
+                      />
+                    </View>
 
-                  {/* Document Category selectors */}
-                  <View style={{ gap: 4 }}>
-                    <Text style={{ fontSize: 9, fontWeight: '700', color: subTextColor }}>DOCUMENT TYPE</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      {DOC_TYPES.map((dt) => (
-                        <TouchableOpacity
-                          key={dt}
-                          onPress={() => handleUpdatePendingDoc(index, 'documentType', dt)}
-                          style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 4,
-                            borderRadius: 8,
-                            backgroundColor: doc.documentType === dt ? brandColor : cardBg,
-                            borderWidth: 1,
-                            borderColor: borderCol
-                          }}
-                        >
-                          <Text style={{ fontSize: 9, fontWeight: '700', color: doc.documentType === dt ? '#ffffff' : textColor }}>
-                            {dt}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                    {/* Document Category selectors */}
+                    <View style={{ gap: 4 }}>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: subTextColor }}>DOCUMENT TYPE</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                        {DOC_TYPES.map((dt) => (
+                          <TouchableOpacity
+                            key={dt}
+                            onPress={() => handleUpdatePendingDoc(index, 'documentType', dt)}
+                            style={{
+                              paddingHorizontal: 8,
+                              paddingVertical: 4,
+                              borderRadius: 8,
+                              backgroundColor: doc.documentType === dt ? brandColor : cardBg,
+                              borderWidth: 1,
+                              borderColor: borderCol
+                            }}
+                          >
+                            <Text style={{ fontSize: 9, fontWeight: '700', color: doc.documentType === dt ? '#ffffff' : textColor }}>
+                              {dt}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
                     </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
         </View>
@@ -723,7 +815,7 @@ export default function CreateAgentScreen() {
             <Text style={{ fontSize: 11, fontWeight: '700', color: subTextColor, paddingHorizontal: 16, paddingVertical: 8, textTransform: 'uppercase' }}>
               Select Agent Type
             </Text>
-            {agentTypes.map((typeStr) => (
+            {agentTypes.map((typeStr: string) => (
               <TouchableOpacity
                 key={typeStr}
                 onPress={() => {
@@ -755,7 +847,7 @@ export default function CreateAgentScreen() {
               Select Commission Rule
             </Text>
             <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={true}>
-              {commissionRules.map((ruleStr) => (
+              {commissionRules.map((ruleStr: string) => (
                 <TouchableOpacity
                   key={ruleStr}
                   onPress={() => {
@@ -776,6 +868,110 @@ export default function CreateAgentScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Document / Photo Source Picker Modal ── */}
+      <Modal visible={pickerModalOpen} transparent animationType="fade">
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setPickerModalOpen(false)}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 320,
+              backgroundColor: cardBg,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: borderCol,
+              padding: 18,
+              gap: 12,
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 4 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>Select File Source</Text>
+              <TouchableOpacity onPress={() => setPickerModalOpen(false)} style={{ padding: 4 }}>
+                <X size={16} color={subTextColor} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Document Picker Option */}
+            <TouchableOpacity
+              onPress={handlePickDocument}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                backgroundColor: inputBg,
+                padding: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: borderCol,
+              }}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: `${brandColor}15`, alignItems: 'center', justifyContent: 'center' }}>
+                <FileText size={20} color={brandColor} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>Document (PDF / Word)</Text>
+                <Text style={{ fontSize: 10, color: subTextColor, marginTop: 1 }}>Browse PDF, DOC, DOCX files</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Photo Gallery Option */}
+            <TouchableOpacity
+              onPress={handlePickImage}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                backgroundColor: inputBg,
+                padding: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: borderCol,
+              }}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3b82f615', alignItems: 'center', justifyContent: 'center' }}>
+                <ImageIcon size={20} color="#3b82f6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>Photo Gallery</Text>
+                <Text style={{ fontSize: 10, color: subTextColor, marginTop: 1 }}>Choose an image from gallery</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Camera Option */}
+            <TouchableOpacity
+              onPress={handleTakePhoto}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                backgroundColor: inputBg,
+                padding: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: borderCol,
+              }}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#10b98115', alignItems: 'center', justifyContent: 'center' }}>
+                <Camera size={20} color="#10b981" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>Take Photo</Text>
+                <Text style={{ fontSize: 10, color: subTextColor, marginTop: 1 }}>Capture document with camera</Text>
+              </View>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>

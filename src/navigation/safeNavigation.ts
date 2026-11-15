@@ -171,8 +171,9 @@ export function canPerformNavigation(href: any, actionType: 'push' | 'navigate' 
   }
 
   // 2. Guard against navigating to the screen the user is already on
+  // Note: 'replace' is permitted to replace the active route (e.g. state/session resets)
   const currentPath = activePathname;
-  if (currentPath && (targetPath === currentPath || targetKey === currentPath)) {
+  if (actionType !== 'replace' && currentPath && (targetPath === currentPath || targetKey === currentPath)) {
     if (__DEV__) {
       console.log(`[SafeNav] Blocked redundant navigation: already on "${targetKey}"`);
     }
@@ -180,7 +181,7 @@ export function canPerformNavigation(href: any, actionType: 'push' | 'navigate' 
   }
 
   // 3. Check active route in navigationRef if available
-  if (navigationContainerRef && navigationContainerRef.isReady && navigationContainerRef.isReady()) {
+  if (actionType !== 'replace' && navigationContainerRef && navigationContainerRef.isReady && navigationContainerRef.isReady()) {
     try {
       const activeRoute = navigationContainerRef.getCurrentRoute();
       if (activeRoute) {
@@ -241,6 +242,7 @@ export function resetNavigationLock() {
   isNavigationInProgress = false;
   lastNavigationKey = '';
   lastNavigationTimestamp = 0;
+  activePathname = '';
   if (navigationCooldownTimer) {
     clearTimeout(navigationCooldownTimer);
     navigationCooldownTimer = null;
