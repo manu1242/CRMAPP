@@ -72,8 +72,19 @@
     "web": "expo start --web --port 8081",
     "lint": "expo lint",
     "profile": "expo start --dev-client --port 8081",
-    "update:preview": "eas update --channel preview --message \"Publishing update to preview channel\"",
-    "update:production": "eas update --channel production --message \"Publishing update to production channel\""
+    "build:production:android": "eas build --platform android --profile production",
+    "build:production:ios": "eas build --platform ios --profile production",
+    "build:production:all": "eas build --platform all --profile production",
+    "update:dev": "eas update --channel development --message \"Publishing update to development channel\"",
+    "update:preview": "eas update --channel preview --message \"Publishing preview update (Android + iOS)\"",
+    "update:preview:android": "eas update --channel preview --platform android --message \"Publishing Android preview update\"",
+    "update:preview:ios": "eas update --channel preview --platform ios --message \"Publishing iOS preview update\"",
+    "update:production": "eas update --channel production --message \"Publishing production update (Android + iOS)\"",
+    "update:production:android": "eas update --channel production --platform android --message \"Publishing Android production update\"",
+    "update:production:ios": "eas update --channel production --platform ios --message \"Publishing iOS production update\"",
+    "update:rollback": "eas update:rollback --channel production",
+    "update:rollback:android": "eas update:rollback --channel production --platform android",
+    "update:rollback:ios": "eas update:rollback --channel production --platform ios"
   },
   "private": true
 }

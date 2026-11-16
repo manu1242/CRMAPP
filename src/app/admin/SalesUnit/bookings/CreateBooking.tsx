@@ -9,6 +9,8 @@ import {
     StyleSheet,
     Platform,
     KeyboardAvoidingView,
+    Modal,
+    Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -17,9 +19,16 @@ import {
     ChevronDown,
     Trash2,
     X,
+    FileText,
+    Camera,
+    Image as ImageIcon,
+    Plus,
+    Check,
+    Paperclip,
 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
 import {
@@ -38,6 +47,7 @@ import { PropertyItem } from '../../../../admin/models/PropertyTypes';
 import { PropertyFloor, PropertyFlat } from '../../../../admin/models/QuoatationTypes';
 
 const PAYMENT_TYPES = ['EMI', 'Lump Sum', 'Bank Finance', 'Self Funding'];
+const BOOKING_DOC_TYPES = ['Aadhar', 'PAN', 'Agreement', 'Cheque', 'Passport', 'Allotment Letter', 'Salary Slip', 'Bank Statement', 'Other'];
 
 function formatCurrency(amount: number | null | undefined): string {
     if (amount === null || amount === undefined) return '₹0.00';
@@ -197,9 +207,16 @@ export default function CreateBookingScreen() {
         return d.toISOString().split('T')[0];
     });
     const [uploadedDocuments, setUploadedDocuments] = useState<
-        { documentType: string; documentName: string; filePath: string }[]
+        {
+            documentType: string;
+            documentName: string;
+            filePath: string;
+            isPdf?: boolean;
+            fileSize?: number;
+        }[]
     >([]);
     const [isUploading, setIsUploading] = useState(false);
+    const [pickerModalOpen, setPickerModalOpen] = useState(false);
 
     // Dropdown lists
     const [leadsList, setLeadsList] = useState<LeadItem[]>([]);
@@ -259,60 +276,147 @@ export default function CreateBookingScreen() {
         setQuotationOpen(false);
     };
 
-    // Document upload
-    const handlePickAndUploadDocument = async () => {
+    // Upload helper to server
+    const uploadFileToServer = async (fileUri: string, rawName: string, mimeType: string, fileSize?: number) => {
         try {
-            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!permissionResult.granted) {
-                Toast.show({ type: 'error', text1: 'Permission Denied', text2: 'Media library access is required.' });
+            setIsUploading(true);
+            const formData = new FormData();
+            const cleanName = rawName || `doc_${Date.now()}`;
+            formData.append('file', {
+                uri: Platform.OS === 'android' ? fileUri : fileUri.replace('file://', ''),
+                name: cleanName,
+                type: mimeType || 'application/octet-stream',
+            } as any);
+
+            const uploadRes = await uploadBookingFileMutation.mutateAsync(formData);
+
+            if (uploadRes.success && uploadRes.data) {
+                const uploadedFile = uploadRes.data;
+                let defaultType = 'Aadhar';
+                const lower = cleanName.toLowerCase();
+                if (lower.includes('pan')) defaultType = 'PAN';
+                else if (lower.includes('cheque')) defaultType = 'Cheque';
+                else if (lower.includes('agreement')) defaultType = 'Agreement';
+                else if (lower.includes('passport')) defaultType = 'Passport';
+                else if (lower.includes('allotment')) defaultType = 'Allotment Letter';
+                else if (lower.includes('salary')) defaultType = 'Salary Slip';
+                else if (lower.includes('statement')) defaultType = 'Bank Statement';
+
+                const isPdf = mimeType.includes('pdf') || cleanName.toLowerCase().endsWith('.pdf');
+
+                setUploadedDocuments((prev) => [
+                    ...prev,
+                    {
+                        documentType: defaultType,
+                        documentName: uploadedFile.fileName || cleanName,
+                        filePath: uploadedFile.urlPath,
+                        isPdf,
+                        fileSize: fileSize || uploadedFile.fileSize,
+                    },
+                ]);
+                Toast.show({ type: 'success', text1: 'Uploaded', text2: `${cleanName} uploaded successfully!` });
+            } else {
+                Toast.show({ type: 'error', text1: 'Upload Failed', text2: 'Document upload failed. Please try again.' });
+            }
+        } catch (err: any) {
+            Toast.show({ type: 'error', text1: 'Upload Error', text2: err.message || 'Failed to upload file.' });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // 1. Pick Document (PDF, Word, etc.)
+    const handlePickDocument = async () => {
+        setPickerModalOpen(false);
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/*', 'text/plain'],
+                copyToCacheDirectory: true,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const file = result.assets[0];
+                await uploadFileToServer(
+                    file.uri,
+                    file.name || `doc_${Date.now()}.pdf`,
+                    file.mimeType || 'application/pdf',
+                    file.size
+                );
+            }
+        } catch (err: any) {
+            Alert.alert('Error', err.message || 'Failed to select document.');
+        }
+    };
+
+    // 2. Pick Image from Gallery
+    const handlePickImage = async () => {
+        setPickerModalOpen(false);
+        try {
+            const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permission.granted) {
+                Alert.alert('Permission Denied', 'We need photo library permission to upload images.');
                 return;
             }
 
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images', 'videos'],
+                mediaTypes: ['images'],
                 allowsEditing: false,
                 quality: 0.8,
             });
 
             if (!result.canceled && result.assets && result.assets.length > 0) {
                 const asset = result.assets[0];
-                setIsUploading(true);
-
-                const formData = new FormData();
-                const fileName = asset.fileName || `booking_doc_${Date.now()}.jpg`;
-                const mimeType = asset.mimeType || 'image/jpeg';
-
-                formData.append('file', {
-                    uri: Platform.OS === 'android' ? asset.uri : asset.uri.replace('file://', ''),
-                    name: fileName,
-                    type: mimeType,
-                } as any);
-
-                const uploadRes = await uploadBookingFileMutation.mutateAsync(formData);
-                setIsUploading(false);
-
-                if (uploadRes.success && uploadRes.data) {
-                    const uploadedFile = uploadRes.data;
-                    let docType = 'Aadhar';
-                    const lowerName = fileName.toLowerCase();
-                    if (lowerName.includes('pan')) docType = 'PAN';
-                    else if (lowerName.includes('cheque')) docType = 'Cheque';
-                    else if (lowerName.includes('agreement')) docType = 'Agreement';
-                    else if (lowerName.includes('passport')) docType = 'Passport';
-
-                    setUploadedDocuments((prev) => [
-                        ...prev,
-                        { documentType: docType, documentName: uploadedFile.fileName, filePath: uploadedFile.urlPath },
-                    ]);
-                    Toast.show({ type: 'success', text1: 'Uploaded', text2: 'Document uploaded successfully!' });
-                } else {
-                    Toast.show({ type: 'error', text1: 'Upload Failed', text2: 'Document upload failed. Please try again.' });
-                }
+                await uploadFileToServer(
+                    asset.uri,
+                    asset.fileName || `photo_${Date.now()}.jpg`,
+                    asset.mimeType || 'image/jpeg',
+                    asset.fileSize
+                );
             }
         } catch (err: any) {
-            setIsUploading(false);
-            Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Failed to select or upload document.' });
+            Alert.alert('Error', err.message || 'Failed to select photo.');
         }
+    };
+
+    // 3. Take Photo with Camera
+    const handleTakePhoto = async () => {
+        setPickerModalOpen(false);
+        try {
+            const permission = await ImagePicker.requestCameraPermissionsAsync();
+            if (!permission.granted) {
+                Alert.alert('Permission Denied', 'We need camera permission to capture document photos.');
+                return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+                allowsEditing: false,
+                quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const asset = result.assets[0];
+                await uploadFileToServer(
+                    asset.uri,
+                    `camera_${Date.now()}.jpg`,
+                    asset.mimeType || 'image/jpeg',
+                    asset.fileSize
+                );
+            }
+        } catch (err: any) {
+            Alert.alert('Error', err.message || 'Failed to capture photo.');
+        }
+    };
+
+    const handleUpdateDocType = (index: number, newType: string) => {
+        setUploadedDocuments((prev) =>
+            prev.map((doc, idx) => (idx === index ? { ...doc, documentType: newType } : doc))
+        );
+    };
+
+    const handleUpdateDocName = (index: number, newName: string) => {
+        setUploadedDocuments((prev) =>
+            prev.map((doc, idx) => (idx === index ? { ...doc, documentName: newName } : doc))
+        );
     };
 
     const handleRemoveDoc = (index: number) => {
@@ -342,7 +446,13 @@ export default function CreateBookingScreen() {
             agreementDate: agreementDate ? `${agreementDate.trim()}T00:00:00Z` : null,
             possessionDate: possessionDate ? `${possessionDate.trim()}T00:00:00Z` : null,
             notes: notes || null,
-            documents: uploadedDocuments.length > 0 ? uploadedDocuments : undefined,
+            documents: uploadedDocuments.length > 0
+                ? uploadedDocuments.map((d) => ({
+                    documentType: d.documentType,
+                    documentName: d.documentName || 'Document',
+                    filePath: d.filePath,
+                }))
+                : undefined,
         };
 
         createBookingMutation.mutate(payload, {
@@ -366,8 +476,13 @@ export default function CreateBookingScreen() {
             style={{ flex: 1, backgroundColor: theme.primaryBg }}
         >
             {/* Header */}
-            <View style={[styles.header]}>
-              
+            <View style={[styles.header, { borderBottomColor: theme.border }]}>
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={[styles.backBtn, { backgroundColor: theme.inputBg }]}
+                >
+                    <ChevronLeft size={20} color={theme.textPrimary} />
+                </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>New Booking</Text>
             </View>
 
@@ -640,62 +755,162 @@ export default function CreateBookingScreen() {
                         </View>
                     </View>
 
-                    {/* ── Section: Documents ────────────────────────────── */}
-                    <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>Documents (Optional)</Text>
-                    <View style={[styles.card, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
+                    {/* ── Section: Documents & Photos ──────────────────── */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                        <Text style={[styles.sectionLabel, { color: theme.textSecondary, marginBottom: 0 }]}>Documents & Photos (Optional)</Text>
                         <TouchableOpacity
-                            onPress={handlePickAndUploadDocument}
+                            onPress={() => setPickerModalOpen(true)}
                             disabled={isUploading}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: `${theme.brand}15`,
+                                paddingHorizontal: 10,
+                                paddingVertical: 5,
+                                borderRadius: 10,
+                                gap: 4,
+                            }}
+                        >
+                            <Plus size={13} color={theme.brand} />
+                            <Text style={{ color: theme.brand, fontSize: 11, fontWeight: '700' }}>Add File</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={[styles.card, { backgroundColor: theme.secondaryBg, borderColor: theme.border, gap: 12 }]}>
+                        {/* Upload Trigger Area */}
+                        <TouchableOpacity
+                            onPress={() => setPickerModalOpen(true)}
+                            disabled={isUploading}
+                            activeOpacity={0.8}
                             style={{
                                 borderWidth: 1.5,
                                 borderStyle: 'dashed',
                                 borderColor: theme.brand,
-                                borderRadius: 12,
-                                padding: 16,
+                                borderRadius: 14,
+                                paddingVertical: 18,
+                                paddingHorizontal: 16,
                                 alignItems: 'center',
                                 backgroundColor: theme.inputBg,
+                                gap: 8,
                             }}
                         >
                             {isUploading ? (
-                                <ActivityIndicator size="small" color={theme.brand} />
+                                <View style={{ alignItems: 'center', gap: 8 }}>
+                                    <ActivityIndicator size="small" color={theme.brand} />
+                                    <Text style={{ color: theme.brand, fontSize: 13, fontWeight: '600' }}>Uploading to server...</Text>
+                                </View>
                             ) : (
                                 <>
-                                    <Text style={{ color: theme.brand, fontWeight: '700', fontSize: 13 }}>Click to upload documents</Text>
-                                    <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>
-                                        Aadhar, PAN, Agreement, Cheque copy, etc.
+                                    <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                                        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: `${theme.brand}15`, alignItems: 'center', justifyContent: 'center' }}>
+                                            <FileText size={18} color={theme.brand} />
+                                        </View>
+                                        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#3b82f615', alignItems: 'center', justifyContent: 'center' }}>
+                                            <ImageIcon size={18} color="#3b82f6" />
+                                        </View>
+                                        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#10b98115', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Camera size={18} color="#10b981" />
+                                        </View>
+                                    </View>
+                                    <Text style={{ color: theme.textPrimary, fontWeight: '700', fontSize: 13 }}>
+                                        Upload Document or Photo
+                                    </Text>
+                                    <Text style={{ color: theme.textMuted, fontSize: 11, textAlign: 'center' }}>
+                                        Pick PDF, DOC, Gallery photo, or take a Camera snap
                                     </Text>
                                 </>
                             )}
                         </TouchableOpacity>
 
+                        {/* List of uploaded documents */}
                         {uploadedDocuments.length > 0 && (
-                            <View style={{ marginTop: 10, gap: 6 }}>
-                                {uploadedDocuments.map((doc, index) => (
-                                    <View
-                                        key={index}
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            paddingHorizontal: 12,
-                                            paddingVertical: 8,
-                                            backgroundColor: theme.inputBg,
-                                            borderColor: theme.border,
-                                            borderWidth: 1,
-                                            borderRadius: 10,
-                                        }}
-                                    >
-                                        <View style={{ flex: 1, marginRight: 8 }}>
-                                            <Text style={{ color: theme.textPrimary, fontSize: 12, fontWeight: '600' }} numberOfLines={1}>
-                                                {doc.documentName}
-                                            </Text>
-                                            <Text style={{ color: theme.textMuted, fontSize: 10 }}>Type: {doc.documentType}</Text>
+                            <View style={{ gap: 10 }}>
+                                {uploadedDocuments.map((doc, index) => {
+                                    const isPdf = doc.isPdf || doc.filePath.toLowerCase().endsWith('.pdf') || doc.documentName.toLowerCase().endsWith('.pdf');
+                                    return (
+                                        <View
+                                            key={index}
+                                            style={{
+                                                backgroundColor: theme.inputBg,
+                                                borderColor: theme.border,
+                                                borderWidth: 1,
+                                                borderRadius: 12,
+                                                padding: 12,
+                                                gap: 8,
+                                            }}
+                                        >
+                                            {/* Header: Icon, filename, delete */}
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 }}>
+                                                    {isPdf ? (
+                                                        <FileText size={18} color="#ef4444" />
+                                                    ) : (
+                                                        <ImageIcon size={18} color="#3b82f6" />
+                                                    )}
+                                                    <View style={{ flex: 1 }}>
+                                                        <TextInput
+                                                            style={{
+                                                                color: theme.textPrimary,
+                                                                fontSize: 12,
+                                                                fontWeight: '600',
+                                                                paddingVertical: 2,
+                                                                paddingHorizontal: 0,
+                                                            }}
+                                                            value={doc.documentName}
+                                                            onChangeText={(val) => handleUpdateDocName(index, val)}
+                                                            placeholder="Document name..."
+                                                            placeholderTextColor={theme.textMuted}
+                                                        />
+                                                        {doc.fileSize ? (
+                                                            <Text style={{ color: theme.textMuted, fontSize: 10 }}>
+                                                                {(doc.fileSize / 1024).toFixed(0)} KB
+                                                            </Text>
+                                                        ) : null}
+                                                    </View>
+                                                </View>
+                                                <TouchableOpacity onPress={() => handleRemoveDoc(index)} style={{ padding: 4 }}>
+                                                    <Trash2 size={16} color="#ef4444" />
+                                                </TouchableOpacity>
+                                            </View>
+
+                                            {/* Document Type Selector Pills */}
+                                            <View style={{ gap: 4 }}>
+                                                <Text style={{ fontSize: 9, fontWeight: '700', color: theme.textSecondary, textTransform: 'uppercase' }}>
+                                                    Document Type
+                                                </Text>
+                                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 2 }}>
+                                                    {BOOKING_DOC_TYPES.map((dt) => {
+                                                        const isSelected = doc.documentType === dt;
+                                                        return (
+                                                            <TouchableOpacity
+                                                                key={dt}
+                                                                onPress={() => handleUpdateDocType(index, dt)}
+                                                                style={{
+                                                                    paddingHorizontal: 8,
+                                                                    paddingVertical: 4,
+                                                                    borderRadius: 8,
+                                                                    backgroundColor: isSelected ? theme.brand : theme.secondaryBg,
+                                                                    borderWidth: 1,
+                                                                    borderColor: isSelected ? theme.brand : theme.border,
+                                                                }}
+                                                            >
+                                                                <Text
+                                                                    style={{
+                                                                        fontSize: 10,
+                                                                        fontWeight: '700',
+                                                                        color: isSelected ? '#ffffff' : theme.textSecondary,
+                                                                    }}
+                                                                >
+                                                                    {dt}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        );
+                                                    })}
+                                                </ScrollView>
+                                            </View>
                                         </View>
-                                        <TouchableOpacity onPress={() => handleRemoveDoc(index)} style={{ padding: 4 }}>
-                                            <Trash2 size={16} color="#dc2626" />
-                                        </TouchableOpacity>
-                                    </View>
-                                ))}
+                                    );
+                                })}
                             </View>
                         )}
                     </View>
@@ -727,6 +942,117 @@ export default function CreateBookingScreen() {
                     )}
                 </View>
             </ScrollView>
+
+            {/* Modal: Select File Source */}
+            <Modal
+                visible={pickerModalOpen}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setPickerModalOpen(false)}
+            >
+                <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={() => setPickerModalOpen(false)}
+                    style={{
+                        flex: 1,
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: 24,
+                    }}
+                >
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        onPress={(e) => e.stopPropagation()}
+                        style={{
+                            width: '100%',
+                            maxWidth: 320,
+                            backgroundColor: theme.secondaryBg,
+                            borderRadius: 16,
+                            borderWidth: 1,
+                            borderColor: theme.border,
+                            padding: 18,
+                            gap: 12,
+                        }}
+                    >
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 4 }}>
+                            <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>Select File Source</Text>
+                            <TouchableOpacity onPress={() => setPickerModalOpen(false)} style={{ padding: 4 }}>
+                                <X size={16} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Document Picker Option */}
+                        <TouchableOpacity
+                            onPress={handlePickDocument}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 12,
+                                backgroundColor: theme.inputBg,
+                                padding: 12,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: theme.border,
+                            }}
+                        >
+                            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: `${theme.brand}15`, alignItems: 'center', justifyContent: 'center' }}>
+                                <FileText size={20} color={theme.brand} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>Document (PDF / Word)</Text>
+                                <Text style={{ fontSize: 10, color: theme.textSecondary, marginTop: 1 }}>Browse PDF, DOC, DOCX, text files</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        {/* Photo Gallery Option */}
+                        <TouchableOpacity
+                            onPress={handlePickImage}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 12,
+                                backgroundColor: theme.inputBg,
+                                padding: 12,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: theme.border,
+                            }}
+                        >
+                            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#3b82f615', alignItems: 'center', justifyContent: 'center' }}>
+                                <ImageIcon size={20} color="#3b82f6" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>Photo Gallery</Text>
+                                <Text style={{ fontSize: 10, color: theme.textSecondary, marginTop: 1 }}>Select photos from gallery</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        {/* Camera Option */}
+                        <TouchableOpacity
+                            onPress={handleTakePhoto}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 12,
+                                backgroundColor: theme.inputBg,
+                                padding: 12,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: theme.border,
+                            }}
+                        >
+                            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#10b98115', alignItems: 'center', justifyContent: 'center' }}>
+                                <Camera size={20} color="#10b981" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>Take Photo</Text>
+                                <Text style={{ fontSize: 10, color: theme.textSecondary, marginTop: 1 }}>Capture document using camera</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
         </KeyboardAvoidingView>
     );
 }

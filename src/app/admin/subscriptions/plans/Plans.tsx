@@ -11,6 +11,7 @@ import {
   Switch,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
 import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
@@ -28,6 +29,7 @@ import {
   Check,
   Zap,
   Eye,
+  ChevronLeft,
 } from 'lucide-react-native';
 import {
   subscriptionService,
@@ -37,6 +39,7 @@ import {
 } from '../../../../admin/services/subscriptionService';
 
 export default function PlansScreen() {
+  const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
 
@@ -288,6 +291,21 @@ export default function PlansScreen() {
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: bgColor,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: borderCol,
+            }}
+          >
+            <ChevronLeft size={20} color={textColor} />
+          </TouchableOpacity>
           <View
             style={{
               width: 38,

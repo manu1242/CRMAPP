@@ -203,12 +203,17 @@ import AdminHeader from '../admin/components/Header';
 import AdminBottomNav from '../admin/components/BottomNav';
 import { BottomMenuSheet } from '../admin/components/BottomMenuSheet';
 import { checkHeaderVisibility } from '../config/headerVisibility';
-import { View, StatusBar, Text, TouchableOpacity, Alert, Modal, ActivityIndicator, Platform } from 'react-native';
+import { View, StatusBar, Text, TouchableOpacity, Alert, Modal, ActivityIndicator, Platform, AppState } from 'react-native';
 import * as SystemUI from 'expo-system-ui';
 import { NavigationBar } from 'expo-navigation-bar';
 import { LogOut } from 'lucide-react-native';
 import { getAdminTheme, getSuperAdminTheme } from '../theme/adminTheme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { otaService } from '../Services/ota/otaService';
+import { remoteConfigService } from '../Services/ota/remoteConfigService';
+import { UpdateBanner } from '../components/ota/UpdateBanner';
+import { MaintenanceModal } from '../components/ota/MaintenanceModal';
+import { ForceUpdateModal } from '../components/ota/ForceUpdateModal';
 
 
 
@@ -674,6 +679,9 @@ function InnerLayout() {
         }}
       />
       <AuthGuardLayout />
+      <UpdateBanner />
+      <MaintenanceModal />
+      <ForceUpdateModal />
       <Toast config={toastConfig} />
     </ExpoThemeProvider>
   );
@@ -682,9 +690,12 @@ function InnerLayout() {
 function RootLayout() {
   useEffect(() => {
     // 1. Initialize remote config and hide splash screen
-    initRemoteConfig()
+    Promise.all([
+      initRemoteConfig(),
+      remoteConfigService.init(),
+    ])
       .catch((err) => {
-        console.warn('Remote config fetch failed, using fallback URL:', err);
+        console.warn('Config initialization error:', err);
       })
       .finally(() => {
         SplashScreen.hideAsync().catch((err) => {
@@ -696,6 +707,27 @@ function RootLayout() {
     DeviceNotificationService.init().catch((err) => {
       console.warn('Failed to initialize device notifications:', err);
     });
+
+    // 3. Trigger OTA background check on startup
+    otaService.checkForUpdate().catch(() => {});
+
+    // 4. Foreground app state listener to check updates periodically
+    let lastForegroundCheck = Date.now();
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        const now = Date.now();
+        // Debounce: check at most once every 15 minutes when resuming
+        if (now - lastForegroundCheck > 15 * 60 * 1000) {
+          lastForegroundCheck = now;
+          otaService.checkForUpdate().catch(() => {});
+          remoteConfigService.fetchRemoteConfig().catch(() => {});
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   return (

@@ -23,9 +23,12 @@ import {
   HelpCircle,
   RotateCcw,
   UserCheck,
+  Award,
+  Zap,
 } from 'lucide-react-native';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { useUpdateStore } from '../../hooks/useUpdateStore';
+import { otaService } from '../../Services/ota/otaService';
 import { EXTERNAL_LINKS, openExternalLink } from '../../config/externalLinks';
 import AppFooter from '../../auth/components/AppFooter';
 import { queryClient } from '../../api/queryClient';
@@ -57,7 +60,21 @@ export default function AdminSettingsContent() {
     return null;
   }
 
-  const handleUpdateApp = useCallback(() => {
+  const handleUpdateApp = useCallback(async () => {
+    if (otaService.isEnabled()) {
+      const state = otaService.getState();
+      if (state.isUpdateReady) {
+        await otaService.reloadApp();
+        return;
+      }
+      if (state.isUpdateAvailable) {
+        const res = await otaService.downloadUpdate();
+        if (res.isNew) {
+          await otaService.reloadApp();
+          return;
+        }
+      }
+    }
     const url = Platform.OS === 'ios'
       ? 'https://apps.apple.com/app/idYOUR_APP_ID'
       : 'https://play.google.com/store/apps/details?id=com.ultrakey.crm';
@@ -88,6 +105,14 @@ export default function AdminSettingsContent() {
 
   const menuSections = useMemo(
     () => [
+      {
+        title: 'Subscriptions & Billing',
+        items: [
+          { title: 'Subscriptions Hub', icon: Award, desc: 'Manage plans, partner subscriptions, and refunds', route: '/admin/subscriptions', color: '#10b981' },
+          { title: 'My CRM Plan', icon: Zap, desc: 'View current plan quotas, trial days, and upgrade', route: '/admin/subscriptions/crmplans', color: '#3b82f6' },
+          { title: 'Billing Invoices', icon: FileText, desc: 'View payment receipts, taxes, and transaction history', route: '/admin/subscriptions/crmtransactions', color: '#6366f1' },
+        ],
+      },
       {
         title: 'Settings',
         items: [

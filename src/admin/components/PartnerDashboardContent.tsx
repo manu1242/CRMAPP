@@ -9,6 +9,7 @@ import {
   Dimensions,
   StyleSheet,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import Svg, {
   Path,
   Line,
@@ -389,6 +390,7 @@ function CommissionTrendChart({ data, width, height, subTextColor }: LineChartPr
 }
 
 export default function PartnerDashboardContent() {
+  const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
   const { bottomSpacing } = useBottomNavSpacing();
@@ -543,7 +545,11 @@ export default function PartnerDashboardContent() {
               </Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.upgradeBtn}>
+          <TouchableOpacity
+            style={styles.upgradeBtn}
+            onPress={() => router.push('/admin/subscriptions/crmplans' as any)}
+            activeOpacity={0.8}
+          >
             <Zap size={12} color="#f59e0b" />
             <Text style={styles.upgradeBtnText}>Upgrade</Text>
           </TouchableOpacity>

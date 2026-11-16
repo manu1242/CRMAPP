@@ -77,7 +77,8 @@ export interface ModuleItem {
   color: string; // Icon color hex
   bgColor: string; // Badge bg color hex
   category: string;
-  subLinks: SubLinkItem[];
+  route?: string;
+  subLinks?: SubLinkItem[];
 }
 
 export const MODULES: ModuleItem[] = [
@@ -207,14 +208,8 @@ export const MODULES: ModuleItem[] = [
     color: '#14b8a6',
     bgColor: '#14b8a61f',
     category: 'Subscriptions & Billing',
-    subLinks: [
-      { label: 'Subscription Plans', route: '/admin/subscriptions/plans/Plans' },
-      { label: 'Partner Subscriptions', route: '/admin/subscriptions/partnersubscriptions/PartnerSubscriptions' },
-      { label: 'Razorpay Transactions', route: '/admin/subscriptions/razaorpay/RazorpayTransactions' },
-      { label: 'Pending Refunds', route: '/admin/subscriptions/pendingrefunds/PendingRefunds' },
-      { label: 'My CRM Plan', route: '/admin/subscriptions/crmplans/MyCrmPlan' },
-      { label: 'CRM Transactions', route: '/admin/subscriptions/crmtransactions/CrmTransactions' },
-    ],
+    route: '/admin/subscriptions',
+    subLinks: [],
   },
   {
     id: 'payment-and-banking',
@@ -283,8 +278,20 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
         return null;
       }
 
+      // If module has a direct route (e.g. Subscriptions -> /admin/subscriptions)
+      if (module.route) {
+        // Block Agent / Sales from accessing Subscriptions
+        if ((role === 'agent' || role === 'sales') && module.id === 'subscriptions') {
+          return null;
+        }
+        return {
+          ...module,
+          subLinks: [],
+        };
+      }
+
       // 2. Filter sublinks based on screen-level and page-level permission
-      const filteredSubLinks = module.subLinks.filter((link) => {
+      const filteredSubLinks = (module.subLinks || []).filter((link) => {
         const route = link.route;
 
         // Settings links: purely only for Admin
@@ -319,7 +326,12 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
             route.includes('/admin/usemanagement/RolesManagement') ||
             route.includes('/admin/settings/systemsettings') ||
             route.includes('/admin/paymentconfig') ||
-            route.includes('/admin/payouts/AgentPayout')
+            route.includes('/admin/payouts/AgentPayout') ||
+            route.includes('/admin/subscriptions/plans') ||
+            route.includes('/admin/subscriptions/partnersubscriptions') ||
+            route.includes('/admin/subscriptions/razorpay') ||
+            route.includes('/admin/subscriptions/razaorpay') ||
+            route.includes('/admin/subscriptions/pendingrefunds')
           ) {
             return false;
           }
@@ -606,9 +618,11 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
   };
 
   const handleModulePress = (module: ModuleItem) => {
-    if (module.subLinks && module.subLinks.length === 1) {
+    if (module.route) {
+      handleNavigate(module.route);
+    } else if (module.subLinks && module.subLinks.length === 1) {
       handleNavigate(module.subLinks[0].route);
-    } else {
+    } else if (module.subLinks && module.subLinks.length > 1) {
       setFocusedModuleId(module.id);
     }
   };
@@ -809,7 +823,7 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
 
                       <Text style={[styles.subLinksHeading, { color: subTextColor }]}>SELECT ACTION ITEM</Text>
 
-                      {focusedModule.subLinks.map((item, idx) => (
+                      {(focusedModule.subLinks || []).map((item, idx) => (
                         <TouchableOpacity
                           key={idx}
                           onPress={() => handleNavigate(item.route)}

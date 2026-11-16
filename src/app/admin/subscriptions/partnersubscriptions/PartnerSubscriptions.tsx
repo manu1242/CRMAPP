@@ -10,6 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
 import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
@@ -24,6 +25,7 @@ import {
   CreditCard,
   Building,
   Calendar,
+  ChevronLeft,
 } from 'lucide-react-native';
 import {
   subscriptionService,
@@ -33,6 +35,7 @@ import {
 } from '../../../../admin/services/subscriptionService';
 
 export default function PartnerSubscriptionsScreen() {
+  const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
 
@@ -142,6 +145,21 @@ export default function PartnerSubscriptionsScreen() {
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: bgColor,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: borderCol,
+            }}
+          >
+            <ChevronLeft size={20} color={textColor} />
+          </TouchableOpacity>
           <View
             style={{
               width: 38,
@@ -326,6 +344,34 @@ export default function PartnerSubscriptionsScreen() {
                     Storage: <Text style={{ fontWeight: '700', color: textColor }}>{sub.currentStorageUsedGB} GB</Text>
                   </Text>
                 </View>
+
+                {/* Manage Action */}
+                <TouchableOpacity
+                  onPress={() => {
+                    setAssignForm({
+                      channelPartnerId: sub.channelPartnerId,
+                      planId: sub.planId,
+                      billingCycle: sub.billingCycle || 'Monthly',
+                      amount: sub.amount || 1999,
+                      autoRenew: sub.autoRenew ?? true,
+                      paymentMethod: 'Razorpay',
+                    });
+                    setIsAssignModalOpen(true);
+                  }}
+                  style={{
+                    backgroundColor: '#a855f718',
+                    borderRadius: 8,
+                    paddingVertical: 8,
+                    alignItems: 'center',
+                    marginTop: 6,
+                    borderWidth: 1,
+                    borderColor: '#a855f740',
+                  }}
+                >
+                  <Text style={{ color: '#a855f7', fontWeight: '700', fontSize: 12 }}>
+                    Manage / Upgrade Plan
+                  </Text>
+                </TouchableOpacity>
               </View>
             ))}
           </View>

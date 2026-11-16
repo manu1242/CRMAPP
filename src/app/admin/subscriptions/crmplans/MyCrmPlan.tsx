@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Modal,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
@@ -29,6 +30,7 @@ import {
   ShieldCheck,
   X,
   ChevronRight,
+  ChevronLeft,
 } from 'lucide-react-native';
 import {
   subscriptionService,
@@ -37,6 +39,7 @@ import {
 } from '../../../../admin/services/subscriptionService';
 
 export default function MyCrmPlanScreen() {
+  const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
 
@@ -296,6 +299,21 @@ export default function MyCrmPlanScreen() {
           gap: 10,
         }}
       >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            backgroundColor: bgColor,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: borderCol,
+          }}
+        >
+          <ChevronLeft size={20} color={textColor} />
+        </TouchableOpacity>
         <View
           style={{
             width: 38,

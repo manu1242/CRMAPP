@@ -7,6 +7,9 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       },
@@ -15,6 +18,12 @@
 
     "preview": {
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://uproptech.com",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
@@ -27,6 +36,9 @@
       "android": {
         "buildType": "app-bundle"
       },
+      "ios": {
+        "simulator": false
+      },
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://uproptech.com",
@@ -37,10 +49,25 @@
 
     "production": {
       "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "simulator": false
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://uproptech.com",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       },
+      "channel": "production"
+    }
+  },
+
+  "update": {
+    "preview": {
+      "channel": "preview"
+    },
+    "production": {
       "channel": "production"
     }
   },
@@ -50,6 +77,9 @@
       "android": {
         "track": "alpha",
         "releaseStatus": "completed"
+      },
+      "ios": {
+        "appleId": "manohar.ios@example.com"
       }
     }
   }
