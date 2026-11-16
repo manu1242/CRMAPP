@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname, useSegments } from 'expo-router';
 import { LayoutDashboard, Users, Settings, User } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
@@ -11,6 +11,7 @@ import { useAuthStore } from '../../auth/store/authStore';
 import { usePermissions } from '../../authorization/hooks/usePermission';
 import { triggerHaptic } from '../../utils/haptics';
 import { useHeaderScrollStore } from '../store/useHeaderScrollStore';
+import { resetNavigationLock } from '../../navigation/safeNavigation';
 
 interface BottomNavProps {
   active: 'dashboard' | 'users' | 'settings' | 'profile';
@@ -18,6 +19,8 @@ interface BottomNavProps {
 
 const BottomNav = React.memo(({ active }: BottomNavProps) => {
   const router = useRouter();
+  const pathname = usePathname();
+  const segments = useSegments();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
   const insets = useSafeAreaInsets();
@@ -47,7 +50,39 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
   const navigateToDashboard = useCallback(() => {
     triggerHaptic('selection');
     useHeaderScrollStore.getState().resetHeader();
-    if (active === 'dashboard') return;
+
+    const cleanPath = (pathname || '').replace(/^\/+|\/+$/g, '').toLowerCase();
+    const isActualDashboard =
+      cleanPath === 'admin/dashboard' ||
+      cleanPath === 'admin/partnerdashboard' ||
+      (segments.length === 2 &&
+        segments[0] === 'admin' &&
+        (segments[1]?.toLowerCase() === 'dashboard' || segments[1]?.toLowerCase() === 'partnerdashboard'));
+
+    if (active === 'dashboard') {
+      if (isActualDashboard) {
+        // Already on root dashboard screen - do not pop out of app
+        return;
+      }
+
+      // Any subscreen opened where bottom nav is active on Home:
+      // Redirect to the previous screen when user clicks Home
+      resetNavigationLock();
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        if (role === 'partner' || isPartner) {
+          router.navigate('/admin/PartnerDashboard' as any);
+        } else if (role === 'agent' || role === 'sales' || isAgent) {
+          router.navigate({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
+        } else {
+          router.navigate('/admin/dashboard' as any);
+        }
+      }
+      return;
+    }
+
+    // Navigating to dashboard from another bottom nav tab (users, settings, profile)
     if (role === 'partner' || isPartner) {
       router.navigate('/admin/PartnerDashboard' as any);
     } else if (role === 'agent' || role === 'sales' || isAgent) {
@@ -55,7 +90,7 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
     } else {
       router.navigate('/admin/dashboard' as any);
     }
-  }, [router, role, isPartner, isAgent, active]);
+  }, [router, role, isPartner, isAgent, active, pathname, segments]);
 
   const navigateToUsers = useCallback(() => {
     triggerHaptic('selection');

@@ -31,6 +31,7 @@ import {
   Shield,
   Building2,
   Trash2,
+  ChevronRight,
 } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getSuperAdminTheme } from '../../theme/adminTheme';
@@ -38,6 +39,7 @@ import { NotificationService } from '../../Services/NotificationService';
 import { Notification } from '../../authorization/models/Notification';
 import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 import { triggerHaptic } from '../../utils/haptics';
+import { resolveNotificationRoute, navigateToNotification } from '../../utils/notificationNavigator';
 
 export default function SuperAdminNotificationScreen() {
   const router = useRouter();
@@ -130,6 +132,25 @@ export default function SuperAdminNotificationScreen() {
     } finally {
       clearingIds.current.delete(notifId);
     }
+  };
+
+  const handleNotificationClick = async (item: Notification) => {
+    const notifId = item.notificationId ?? item.id;
+    if (notifId) {
+      NotificationService.markAsRead(notifId).catch(() => {});
+      queryClient.setQueryData(['superadmin-unread-notifications'], (old: any) => {
+        if (!old) return old;
+        const currentList: Notification[] = old.notifications || [];
+        return {
+          ...old,
+          notifications: currentList.map((n: any) =>
+            (n.id || n.notificationId) === notifId ? { ...n, isRead: true } : n
+          ),
+          unreadCount: Math.max(0, (old.unreadCount || 1) - 1),
+        };
+      });
+    }
+    await navigateToNotification(item, router);
   };
 
   const getNotificationIcon = (title: string, message: string) => {
@@ -386,7 +407,9 @@ export default function SuperAdminNotificationScreen() {
                   onSwipeableWillOpen={() => handleClearSingle(notifId)}
                   onSwipeableOpen={() => handleClearSingle(notifId)}
                 >
-                  <View
+                  <TouchableOpacity
+                    onPress={() => handleNotificationClick(item)}
+                    activeOpacity={0.7}
                     style={[
                       styles.notificationRow,
                       {
@@ -425,14 +448,22 @@ export default function SuperAdminNotificationScreen() {
                       <Text style={[styles.itemMessage, { color: superTheme.textSecondary }]}>
                         {item.message}
                       </Text>
-                      <View style={styles.timeRow}>
-                        <Clock size={10} color={superTheme.textMuted} />
-                        <Text style={[styles.timeText, { color: superTheme.textMuted }]}>
-                          {item.createdOn ? new Date(item.createdOn).toLocaleString() : ''}
-                        </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                        <View style={styles.timeRow}>
+                          <Clock size={10} color={superTheme.textMuted} />
+                          <Text style={[styles.timeText, { color: superTheme.textMuted }]}>
+                            {item.createdOn ? new Date(item.createdOn).toLocaleString() : ''}
+                          </Text>
+                        </View>
+                        {Boolean(resolveNotificationRoute(item)) && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                            <Text style={{ fontSize: 10, color: superTheme.brand, fontWeight: '600' }}>View Details</Text>
+                            <ChevronRight size={10} color={superTheme.brand} />
+                          </View>
+                        )}
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 </Swipeable>
               );
             })}

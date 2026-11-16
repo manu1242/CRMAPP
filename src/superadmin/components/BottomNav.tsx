@@ -8,7 +8,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname, useSegments } from 'expo-router';
 import {
   LayoutDashboard,
   School,
@@ -28,6 +28,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { getSuperAdminTheme } from '../../theme/adminTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { triggerHaptic } from '../../utils/haptics';
+import { resetNavigationLock } from '../../navigation/safeNavigation';
 
 export type SuperAdminActiveTab =
   | 'dashboard'
@@ -47,6 +48,8 @@ const TABS = ['dashboard', 'tenants', 'inquiries', 'subscriptions', 'more', 'pro
 
 const BottomNav = React.memo(({ active }: BottomNavProps) => {
   const router = useRouter();
+  const pathname = usePathname();
+  const segments = useSegments();
   const { isDark } = useTheme();
   const superTheme = getSuperAdminTheme(isDark);
   const insets = useSafeAreaInsets();
@@ -58,9 +61,29 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
 
   const navigateToDashboard = useCallback(() => {
     triggerHaptic('selection');
-    if (active === 'dashboard') return;
+
+    const cleanPath = (pathname || '').replace(/^\/+|\/+$/g, '').toLowerCase();
+    const isActualDashboard =
+      cleanPath === 'superadmin/dashboard' ||
+      (segments.length === 2 &&
+        segments[0] === 'superadmin' &&
+        segments[1]?.toLowerCase() === 'dashboard');
+
+    if (active === 'dashboard') {
+      if (isActualDashboard) {
+        return;
+      }
+      resetNavigationLock();
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.navigate('/superadmin/dashboard');
+      }
+      return;
+    }
+
     router.navigate('/superadmin/dashboard');
-  }, [router, active]);
+  }, [router, active, pathname, segments]);
 
   const navigateToTenants = useCallback(() => {
     triggerHaptic('selection');

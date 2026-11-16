@@ -42,6 +42,7 @@ import { NotificationService } from '../../Services/NotificationService';
 import { NotificationItem, TodayTaskItem } from '../../authorization/models/Notification';
 import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 import { triggerHaptic } from '../../utils/haptics';
+import { resolveNotificationRoute, navigateToNotification } from '../../utils/notificationNavigator';
 
 export default function AdminNotificationScreen() {
     const router = useRouter();
@@ -160,30 +161,7 @@ export default function AdminNotificationScreen() {
 
     const handleNotificationClick = async (item: NotificationItem) => {
         await handleMarkSingleRead(item);
-
-        if (item.link) {
-            if (item.link.startsWith('http://') || item.link.startsWith('https://')) {
-                Linking.openURL(item.link).catch(() => {});
-                return;
-            }
-            // Route navigation based on entity or link
-            if (item.relatedEntityType?.toLowerCase() === 'lead' && item.relatedEntityId) {
-                router.push(`/admin/leads/${item.relatedEntityId}` as any);
-                return;
-            }
-            if (item.link.includes('lead')) {
-                router.push('/admin/leads' as any);
-                return;
-            }
-            if (item.link.includes('quotation')) {
-                router.push('/admin/salesunit/quotation' as any);
-                return;
-            }
-            if (item.link.includes('invoice') || item.link.includes('payment')) {
-                router.push('/admin/salesunit/payments' as any);
-                return;
-            }
-        }
+        await navigateToNotification(item, router);
     };
 
     const getNotificationIcon = (type?: string, title: string = '', message: string = '') => {
@@ -250,9 +228,7 @@ export default function AdminNotificationScreen() {
                     <Text style={{ fontSize: 17, fontWeight: '800', color: adminTheme.textPrimary }}>
                         Notification Center
                     </Text>
-                    <Text style={{ fontSize: 11, color: adminTheme.textSecondary, marginTop: 1 }}>
-                        {unreadCount} unread alert{unreadCount !== 1 ? 's' : ''} • {taskCount} follow-up task{taskCount !== 1 ? 's' : ''}
-                    </Text>
+                   
                 </View>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -290,7 +266,6 @@ export default function AdminNotificationScreen() {
                                 borderRadius: 14,
                             }}
                         >
-                            <Trash2 size={12} color={isDark ? '#ef4444' : '#ef4444'} />
                             <Text style={{ color: isDark ? '#ef4444' : '#ef4444', fontSize: 11, fontWeight: '700', opacity: 0.8 }}>
                                 Clear All
                             </Text>
@@ -624,7 +599,7 @@ export default function AdminNotificationScreen() {
                                                             {item.createdOnFormatted || (item.createdOn ? new Date(item.createdOn).toLocaleString() : '')}
                                                         </Text>
                                                     </View>
-                                                    {item.link && (
+                                                    {Boolean(resolveNotificationRoute(item)) && (
                                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
                                                             <Text style={{ fontSize: 10, color: adminTheme.brand, fontWeight: '600' }}>View Details</Text>
                                                             <ChevronRight size={10} color={adminTheme.brand} />

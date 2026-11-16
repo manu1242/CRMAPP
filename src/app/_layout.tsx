@@ -420,7 +420,10 @@ function InnerLayout() {
       <Stack.Screen name="admin/AdminNotification" />
       <Stack.Screen name="admin/PartnerDashboard" />
       <Stack.Screen name="admin/leads" />
+      <Stack.Screen name="admin/leads/[id]" />
       <Stack.Screen name="admin/leads/LeadIntegrations" />
+      <Stack.Screen name="admin/properties/propertydetails" />
+      <Stack.Screen name="admin/SalesUnit/bookings/[id]" />
       <Stack.Screen name="admin/users" />
       <Stack.Screen name="admin/settings" />
       <Stack.Screen name="admin/paymentconfig/index" />
@@ -431,6 +434,7 @@ function InnerLayout() {
       <Stack.Screen name="admin/payouts/AgentPayout" />
       <Stack.Screen name="admin/payouts/PartnerPayout" />
       <Stack.Screen name="admin/teammanagement/Agent" />
+      <Stack.Screen name="admin/teammanagement/AgentDetails" />
       <Stack.Screen name="admin/teammanagement/AgentLeadTracking" />
       <Stack.Screen name="admin/teammanagement/CreateAgent" />
       <Stack.Screen name="admin/teammanagement/channelpartner/channel" />

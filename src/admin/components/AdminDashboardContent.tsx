@@ -68,6 +68,7 @@ import DashboardSkeleton from './DashboardSkeleton';
 import { NotificationService } from '../../Services/NotificationService';
 import { NotificationItem } from '../../authorization/models/Notification';
 import { useDashboardScrollHandler } from '../store/useHeaderScrollStore';
+import { resolveNotificationRoute, navigateToNotification } from '../../utils/notificationNavigator';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -1714,8 +1715,17 @@ export default function AdminDashboardContent() {
           ) : (
             <View style={{ gap: 10 }}>
               {notifications.map((n, i) => (
-                <View
+                <TouchableOpacity
                   key={n.notificationId ?? n.id ?? i}
+                  onPress={async () => {
+                    setIsNotificationSheetOpen(false);
+                    const notifId = n.notificationId ?? n.id;
+                    if (notifId) {
+                      NotificationService.markAsRead(notifId).catch(() => {});
+                    }
+                    await navigateToNotification(n, router);
+                  }}
+                  activeOpacity={0.7}
                   style={{
                     backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
                     padding: 14,
@@ -1731,13 +1741,21 @@ export default function AdminDashboardContent() {
                     {n.message ? (
                       <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>{n.message}</Text>
                     ) : null}
-                    {n.createdOnFormatted || n.createdOn ? (
-                      <Text style={{ fontSize: 10, color: subTextColor, marginTop: 4 }}>
-                        {n.createdOnFormatted || n.createdOn}
-                      </Text>
-                    ) : null}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                      {n.createdOnFormatted || n.createdOn ? (
+                        <Text style={{ fontSize: 10, color: subTextColor }}>
+                          {n.createdOnFormatted || n.createdOn}
+                        </Text>
+                      ) : <View />}
+                      {Boolean(resolveNotificationRoute(n)) && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                          <Text style={{ fontSize: 10, color: '#10b981', fontWeight: '600' }}>View Details</Text>
+                          <ChevronRight size={10} color="#10b981" />
+                        </View>
+                      )}
+                    </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}

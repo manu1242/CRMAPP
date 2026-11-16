@@ -56,10 +56,6 @@ export default function AdminSettingsContent() {
     }
   }, [isAdmin, isPartner, router]);
 
-  if (!isAdmin) {
-    return null;
-  }
-
   const handleUpdateApp = useCallback(async () => {
     if (otaService.isEnabled()) {
       const state = otaService.getState();
@@ -105,14 +101,7 @@ export default function AdminSettingsContent() {
 
   const menuSections = useMemo(
     () => [
-      {
-        title: 'Subscriptions & Billing',
-        items: [
-          { title: 'Subscriptions Hub', icon: Award, desc: 'Manage plans, partner subscriptions, and refunds', route: '/admin/subscriptions', color: '#10b981' },
-          { title: 'My CRM Plan', icon: Zap, desc: 'View current plan quotas, trial days, and upgrade', route: '/admin/subscriptions/crmplans', color: '#3b82f6' },
-          { title: 'Billing Invoices', icon: FileText, desc: 'View payment receipts, taxes, and transaction history', route: '/admin/subscriptions/crmtransactions', color: '#6366f1' },
-        ],
-      },
+    
       {
         title: 'Settings',
         items: [
@@ -121,13 +110,7 @@ export default function AdminSettingsContent() {
           { title: 'User Impersonation', icon: UserCheck, desc: 'Login as any user to test permissions and experience', route: '/admin/usemanagement/ManageUsers', color: '#8b5cf6' },
         ],
       },
-      {
-        title: 'Payment & Banking',
-        items: [
-          { title: 'Payment Gateways', icon: CreditCard, desc: 'Manage Razorpay, Cashfree, and other gateways', route: '/admin/paymentconfig', color: '#ec4899' },
-          { title: 'Bank Accounts', icon: Landmark, desc: 'Organization bank details & payouts setup', route: '/admin/bankaccountconfig', color: '#8b5cf6' },
-        ],
-      },
+   
       {
         title: 'Legal & Support',
         items: [
@@ -140,6 +123,10 @@ export default function AdminSettingsContent() {
     ],
     []
   );
+
+  if (!isAdmin) {
+    return null;
+  }
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: bgColor }} contentContainerStyle={{ padding: 16, paddingBottom: 160, flexGrow: 1 }} showsVerticalScrollIndicator={false}>
