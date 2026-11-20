@@ -32,6 +32,71 @@ export default function SubscriptionsHubScreen() {
 
         {/* Cards container */}
         <View style={{ gap: 16 }}>
+          {/* Primary Quick Access: My CRM Plan & CRM Transactions */}
+          <TouchableOpacity
+            onPress={() => router.push('/admin/subscriptions/crmplans')}
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: 16,
+              borderWidth: 1.5,
+              borderColor: '#3b82f6',
+              padding: 20,
+              flexDirection: 'row',
+              alignItems: 'center',
+              shadowColor: '#3b82f6',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 4,
+            }}
+          >
+            <View style={{ backgroundColor: isDark ? '#1e3a8a40' : '#dbeafe', padding: 12, borderRadius: 12, marginRight: 16 }}>
+              <Ionicons name="ribbon-outline" size={24} color="#3b82f6" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>My CRM Plan</Text>
+                <View style={{ backgroundColor: '#3b82f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#ffffff' }}>CURRENT</Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4 }}>Company plan status, usage quotas, active limits, and immediate upgrades.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#3b82f6" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/admin/subscriptions/crmtransactions')}
+            style={{
+              backgroundColor: cardBg,
+              borderRadius: 16,
+              borderWidth: 1.5,
+              borderColor: '#6366f1',
+              padding: 20,
+              flexDirection: 'row',
+              alignItems: 'center',
+              shadowColor: '#6366f1',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 4,
+            }}
+          >
+            <View style={{ backgroundColor: isDark ? '#312e8140' : '#e0e7ff', padding: 12, borderRadius: 12, marginRight: 16 }}>
+              <Ionicons name="receipt-outline" size={24} color="#6366f1" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: textColor }}>CRM Transactions</Text>
+                <View style={{ backgroundColor: '#6366f1', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#ffffff' }}>HISTORY</Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4 }}>Monitor all CRM subscription payments, order IDs, retry payments and receipts.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6366f1" />
+          </TouchableOpacity>
+
           {/* 1. Subscription Plans */}
           <TouchableOpacity
             onPress={() => router.push('/superadmin/plans')}
@@ -174,7 +239,7 @@ export default function SubscriptionsHubScreen() {
 
           {/* 6. Payment Transactions */}
           <TouchableOpacity
-            onPress={() => router.push('/superadmin/transactions')}
+            onPress={() => router.push('/admin/subscriptions/crmtransactions')}
             style={{
               backgroundColor: cardBg,
               borderRadius: 16,

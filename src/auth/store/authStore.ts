@@ -532,6 +532,14 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error('Original admin token not found.');
       }
 
+      // Wipe the impersonated user's cached data, both in memory and the AsyncStorage
+      // snapshot, so it can never be restored under the admin's session after an app restart.
+      try {
+        queryClient.cancelQueries();
+        queryClient.clear();
+        await QueryPersister.clearCache();
+      } catch {}
+
       await TokenStorage.saveTokens(originalToken, '');
       await SecureStorage.removeItem('crm_original_admin_token');
       await SecureStorage.removeItem('crm_is_impersonating');

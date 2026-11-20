@@ -12,11 +12,13 @@ import {
 
 export const TaskService = {
   getTasksByDate: async (weekStart?: string, signal?: AbortSignal): Promise<GetTasksByDateResponse> => {
-    return apiClient.get<GetTasksByDateResponse>(
+    const res = await apiClient.get<any>(
       API_ENDPOINTS.TASKS.GET_TASKS_BY_DATE(weekStart),
       undefined,
       { signal }
     );
+    if (res?.data?.tasksByDate) return res.data;
+    return res;
   },
 
   updateTaskDate: async (payload: UpdateTaskDateRequest): Promise<UpdateTaskDateResponse> => {
@@ -34,11 +36,13 @@ export const TaskService = {
   },
 
   getTodayNotifications: async (signal?: AbortSignal): Promise<GetTodayTaskNotificationsResponse> => {
-    return apiClient.get<GetTodayTaskNotificationsResponse>(
+    const res = await apiClient.get<any>(
       API_ENDPOINTS.TASKS.GET_TODAY_NOTIFICATIONS,
       undefined,
       { signal }
     );
+    if (res?.data?.tasks) return res.data;
+    return res;
   },
 
   markTodayTasksAsRead: async (): Promise<MarkNotificationsReadResponse> => {

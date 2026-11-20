@@ -10,7 +10,8 @@ export function useTasksQuery(weekStart?: string) {
   return useQuery<GetTasksByDateResponse, Error>({
     queryKey: ['tasks', weekStart],
     queryFn: ({ signal }) => TaskService.getTasksByDate(weekStart, signal),
-    staleTime: 3 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -18,7 +19,8 @@ export function useTodayNotificationsQuery() {
   return useQuery({
     queryKey: ['todayNotifications'],
     queryFn: ({ signal }) => TaskService.getTodayNotifications(signal),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 

@@ -27,6 +27,7 @@ import {
   X,
   RotateCcw,
   ExternalLink,
+  AlertCircle,
 } from 'lucide-react-native';
 import { TaskService } from '../services/TaskService';
 import {
@@ -45,11 +46,11 @@ import TaskCard from './TaskCard';
 import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 
 // Helper date utilities
-function getMonday(d: Date): Date {
+// Week runs Sunday–Saturday to match the Web Tasks page (TasksController.GetTasksByDate
+// defaults to Today - DayOfWeek). A Monday start shifted which tasks fell in the week.
+function getWeekStart(d: Date): Date {
   const date = new Date(d);
-  const day = date.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  date.setDate(date.getDate() + diff);
+  date.setDate(date.getDate() - date.getDay());
   date.setHours(0, 0, 0, 0);
   return date;
 }
@@ -101,8 +102,8 @@ export default function TasksContent() {
   //   • useTodayNotificationsQuery — same
   //   • useMarkTaskCompleteMutation / useRescheduleTaskMutation — invalidate cache
 
-  const [currentMondayDate, setCurrentMondayDate] = useState<Date>(() => getMonday(new Date()));
-  const weekStartStr = formatDateISO(currentMondayDate);
+  const [currentWeekStartDate, setCurrentWeekStartDate] = useState<Date>(() => getWeekStart(new Date()));
+  const weekStartStr = formatDateISO(currentWeekStartDate);
 
   const {
     data: tasksData,
@@ -162,15 +163,15 @@ export default function TasksContent() {
   }, [refetchTasks, refetchNotifications]);
 
   const handlePrevWeek = useCallback(() => {
-    setCurrentMondayDate((prev) => addDays(prev, -7));
+    setCurrentWeekStartDate((prev) => addDays(prev, -7));
   }, []);
 
   const handleNextWeek = useCallback(() => {
-    setCurrentMondayDate((prev) => addDays(prev, 7));
+    setCurrentWeekStartDate((prev) => addDays(prev, 7));
   }, []);
 
   const handleTodayClick = useCallback(() => {
-    setCurrentMondayDate(getMonday(new Date()));
+    setCurrentWeekStartDate(getWeekStart(new Date()));
   }, []);
 
   const handleToggleComplete = useCallback(async (leadId: number, currentCompleted: boolean) => {
@@ -271,6 +272,13 @@ export default function TasksContent() {
   const completedCountForDay = allTasksForActiveDay.filter((t) => t.isCompleted).length;
   const rescheduleLoading = rescheduleMutation.isPending;
 
+  const errorMessage = tasksError
+    ? (tasksError as any).response?.data?.message ||
+      ((tasksError as any).response?.status === 401
+        ? 'Session unauthorized or expired. Please sign in again.'
+        : tasksError.message || 'Unable to load tasks for this week.')
+    : null;
+
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView
@@ -341,40 +349,7 @@ export default function TasksContent() {
             </Text>
           </View>
 
-          {/* Today's Follow-up Alerts button */}
-          <TouchableOpacity
-            onPress={() => setShowNotifModal(true)}
-            style={{
-              position: 'relative',
-              backgroundColor: inputBg,
-              padding: 10,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: borderCol,
-            }}
-          >
-            <Bell size={18} color={textColor} />
-            {notificationCount > 0 && (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: -4,
-                  right: -4,
-                  backgroundColor: '#ef4444',
-                  borderRadius: 10,
-                  minWidth: 18,
-                  height: 18,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  paddingHorizontal: 4,
-                }}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '700' }}>
-                  {notificationCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+         
         </View>
 
         {tasksData?.debug && (
@@ -496,63 +471,186 @@ export default function TasksContent() {
           })}
         </ScrollView>
 
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingHorizontal: 16,
-            marginBottom: 12,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
-              {activeDayData?.dayName || ''}, {activeDayData?.displayDate || ''}
-            </Text>
-            {activeDayData?.isToday && (
+        {/* Day Header & Filter Controls */}
+        <View style={{ paddingHorizontal: 16, marginTop: 8, marginBottom: 14 }}>
+          {/* Top Title & Quick Stats */}
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 10,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: '700',
+                  color: textColor,
+                  letterSpacing: -0.2,
+                }}
+                numberOfLines={1}
+              >
+                {activeDayData?.dayName ? `${activeDayData.dayName}, ${activeDayData.displayDate}` : 'Scheduled Tasks'}
+              </Text>
+              {activeDayData?.isToday && (
+                <View
+                  style={{
+                    backgroundColor: brandCol + '18',
+                    borderColor: brandCol + '35',
+                    borderWidth: 1,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: brandCol, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>
+                    TODAY
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Quick Progress Badge */}
+            {allTasksForActiveDay.length > 0 && (
               <View
                 style={{
-                  backgroundColor: adminTheme.badgeBg,
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  borderRadius: 10,
-                }}
-              >
-                <Text style={{ color: adminTheme.badgeText, fontSize: 10, fontWeight: '700' }}>TODAY</Text>
-              </View>
-            )}
-            <Text style={{ fontSize: 12, color: subTextColor }}>
-              ({pendingCountForDay} pending, {completedCountForDay} done)
-            </Text>
-          </View>
-
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            {(['all', 'pending', 'completed'] as const).map((filter) => (
-              <TouchableOpacity
-                key={filter}
-                onPress={() => setStatusFilter(filter)}
-                style={{
-                  paddingHorizontal: 10,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 5,
+                  paddingHorizontal: 9,
                   paddingVertical: 4,
-                  borderRadius: 12,
+                  borderRadius: 10,
                   backgroundColor:
-                    statusFilter === filter
-                      ? inputBg
-                      : 'transparent',
+                    completedCountForDay === allTasksForActiveDay.length
+                      ? '#10b98118'
+                      : isDark
+                      ? 'rgba(255,255,255,0.06)'
+                      : '#f1f5f9',
+                  borderWidth: 1,
+                  borderColor:
+                    completedCountForDay === allTasksForActiveDay.length
+                      ? '#10b98135'
+                      : borderCol,
                 }}
               >
+                {completedCountForDay === allTasksForActiveDay.length ? (
+                  <CheckCircle2 size={12} color="#10b981" />
+                ) : (
+                  <Clock size={12} color={subTextColor} />
+                )}
                 <Text
                   style={{
                     fontSize: 11,
-                    fontWeight: '600',
-                    color: statusFilter === filter ? textColor : subTextColor,
-                    textTransform: 'capitalize',
+                    fontWeight: '700',
+                    color: completedCountForDay === allTasksForActiveDay.length ? '#10b981' : subTextColor,
                   }}
                 >
-                  {filter}
+                  {completedCountForDay}/{allTasksForActiveDay.length} done
                 </Text>
-              </TouchableOpacity>
-            ))}
+              </View>
+            )}
+          </View>
+
+          {/* Segmented Filter Bar */}
+          <View
+            style={{
+              flexDirection: 'row',
+              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
+              padding: 4,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: borderCol,
+              gap: 4,
+            }}
+          >
+            {(
+              [
+                { id: 'all', label: 'All', count: allTasksForActiveDay.length },
+                { id: 'pending', label: 'Pending', count: pendingCountForDay },
+                { id: 'completed', label: 'Completed', count: completedCountForDay },
+              ] as const
+            ).map((item) => {
+              const isActive = statusFilter === item.id;
+              const countBadgeColor = isActive
+                ? item.id === 'completed'
+                  ? '#10b981'
+                  : item.id === 'pending'
+                  ? '#f59e0b'
+                  : brandCol
+                : subTextColor;
+
+              const countBadgeBg = isActive
+                ? item.id === 'completed'
+                  ? '#10b98120'
+                  : item.id === 'pending'
+                  ? '#f59e0b20'
+                  : brandCol + '18'
+                : isDark
+                ? 'rgba(255,255,255,0.08)'
+                : '#e2e8f0';
+
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => setStatusFilter(item.id)}
+                  activeOpacity={0.7}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingVertical: 7,
+                    paddingHorizontal: 8,
+                    borderRadius: 10,
+                    gap: 6,
+                    backgroundColor: isActive
+                      ? isDark
+                        ? cardBg
+                        : '#ffffff'
+                      : 'transparent',
+                    shadowColor: isActive ? '#000' : 'transparent',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: isActive ? (isDark ? 0.3 : 0.08) : 0,
+                    shadowRadius: 2,
+                    elevation: isActive ? 2 : 0,
+                    borderWidth: isActive && isDark ? 1 : 0,
+                    borderColor: borderCol,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: isActive ? '700' : '500',
+                      color: isActive ? textColor : subTextColor,
+                    }}
+                  >
+                    {item.label}
+                  </Text>
+                  <View
+                    style={{
+                      backgroundColor: countBadgeBg,
+                      paddingHorizontal: 6,
+                      paddingVertical: 1.5,
+                      borderRadius: 8,
+                      minWidth: 18,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontWeight: '700',
+                        color: countBadgeColor,
+                      }}
+                    >
+                      {item.count}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
         <ConnectionStateView
@@ -566,6 +664,38 @@ export default function TasksContent() {
             <View style={{ padding: 40, alignItems: 'center' }}>
               <ActivityIndicator size="large" color={brandCol} />
               <Text style={{ color: subTextColor, marginTop: 12, fontSize: 13 }}>Loading tasks...</Text>
+            </View>
+          ) : errorMessage && days.length === 0 ? (
+            <View
+              style={{
+                marginHorizontal: 16,
+                backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
+                borderRadius: 16,
+                padding: 28,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : '#fecaca',
+              }}
+            >
+              <AlertCircle size={36} color="#ef4444" />
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#ef4444', marginTop: 10 }}>
+                Unable to Load Tasks
+              </Text>
+              <Text style={{ fontSize: 12.5, color: subTextColor, textAlign: 'center', marginTop: 4, lineHeight: 18 }}>
+                {errorMessage}
+              </Text>
+              <TouchableOpacity
+                onPress={() => refetchTasks()}
+                style={{
+                  backgroundColor: brandCol,
+                  paddingHorizontal: 18,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  marginTop: 14,
+                }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 12.5, fontWeight: '700' }}>Retry</Text>
+              </TouchableOpacity>
             </View>
           ) : filteredTasks.length === 0 ? (
             <View

@@ -3,8 +3,6 @@ import { View, ScrollView, Animated, Dimensions, Platform } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 export default function DashboardSkeleton() {
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);

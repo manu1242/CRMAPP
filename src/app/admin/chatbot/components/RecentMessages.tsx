@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
 import { ChatbotMessage } from '../../../../admin/services/ChatbotDashboardService';
-import { MessageSquare, Bot, User, UserCog } from 'lucide-react-native';
+import { MessageCircle, Bot, User, UserCog } from 'lucide-react-native';
 
 interface RecentMessagesProps {
   messages: ChatbotMessage[];

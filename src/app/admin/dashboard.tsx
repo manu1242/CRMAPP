@@ -13,15 +13,18 @@ import {
   TrendingUp,
   Users,
   CheckSquare,
+  Activity,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { usePermissions } from '../../authorization/hooks/usePermission';
+import { usePartnerPlanEligibility } from '../../admin/hooks/usePartnerPlanEligibility';
 import AdminDashboardContent from '../../admin/components/AdminDashboardContent';
 import SalesDashboardContent from '../../admin/components/SalesDashboardContent';
 import TeamDashboardContent from '../../admin/components/TeamDashboardContent';
 import MilestoneDashboardContent from '../../admin/components/MilestoneDashboardContent';
+import LeadTrackingDashboardContent from '../../admin/components/LeadTrackingDashboardContent';
 import { useHeaderScrollStore } from '../../admin/store/useHeaderScrollStore';
 import { useDashboardTabStore, DashboardTab } from '../../admin/store/useDashboardTabStore';
 
@@ -36,6 +39,7 @@ const DASHBOARD_TABS: TabItem[] = [
   { id: 'admin', label: 'Admin', icon: LayoutDashboard },
   { id: 'sales', label: 'Sales', icon: TrendingUp },
   { id: 'team', label: 'Team', icon: Users },
+  { id: 'tracking', label: 'Lead Tracking', icon: Activity },
   { id: 'milestone', label: 'Milestone', icon: CheckSquare },
 ];
 
@@ -47,24 +51,28 @@ export default function AdminDashboardScreen() {
   const params = useLocalSearchParams<{ tab?: string }>();
   const resetHeader = useHeaderScrollStore((s) => s.resetHeader);
   const { isAgent, isPartner, role } = usePermissions();
+  const { isEligible: hasPartnerPlanEligibility } = usePartnerPlanEligibility();
+  const isPartnerRole = isPartner || role?.trim()?.toLowerCase() === 'partner';
   const isAgentRole = isAgent || ['agent', 'sales'].includes(role?.trim()?.toLowerCase() || '');
+  const isAdminRole = role?.trim()?.toLowerCase() === 'admin';
+  const isRestrictedRole = isAgentRole || (isPartnerRole && !hasPartnerPlanEligibility);
 
   const activeTab = useDashboardTabStore((s) => s.activeTab);
   const setActiveTab = useDashboardTabStore((s) => s.setActiveTab);
 
-  // If a Partner lands on this screen, redirect immediately to PartnerDashboard (Web Parity)
+  // If an eligible Partner lands on this screen, redirect immediately to PartnerDashboard (Web Parity)
   useEffect(() => {
-    if (isPartner || role?.trim()?.toLowerCase() === 'partner') {
+    if (isPartnerRole && hasPartnerPlanEligibility && activeTab !== 'tracking' && params.tab !== 'tracking') {
       router.replace('/admin/PartnerDashboard');
     }
-  }, [isPartner, role, router]);
+  }, [isPartnerRole, hasPartnerPlanEligibility, activeTab, params.tab, router]);
 
-  // For Agents, ensure activeTab defaults to 'sales' if it was 'admin'
+  // For Agents or Partners without partner plan eligibility, ensure activeTab defaults to 'sales' if it was 'admin'
   useEffect(() => {
-    if (isAgentRole && activeTab === 'admin' && !params.tab) {
+    if (isRestrictedRole && activeTab === 'admin' && !params.tab) {
       setActiveTab('sales');
     }
-  }, [isAgentRole, activeTab, params.tab, setActiveTab]);
+  }, [isRestrictedRole, activeTab, params.tab, setActiveTab]);
 
   useEffect(() => {
     resetHeader();
@@ -76,24 +84,31 @@ export default function AdminDashboardScreen() {
   useEffect(() => {
     if (params.tab) {
       const t = params.tab.toLowerCase().trim();
-      if (t === 'admin' || t === 'sales' || t === 'team' || t === 'milestone') {
-        // Prevent agent from switching to admin tab
-        if (isAgentRole && t === 'admin') {
+      if (t === 'admin' || t === 'sales' || t === 'team' || t === 'tracking' || t === 'milestone') {
+        // Prevent restricted role from switching to admin tab
+        if (isRestrictedRole && t === 'admin') {
           setActiveTab('sales');
         } else {
           setActiveTab(t as DashboardTab);
         }
       }
     }
-  }, [params.tab, isAgentRole, setActiveTab]);
+  }, [params.tab, isRestrictedRole, setActiveTab]);
 
-  // Filter dashboard tabs: Agents do not see the 'Admin' financial overview tab (Web Parity)
+  // Filter dashboard tabs: Restricted roles do not see the 'Admin' financial overview tab
+  // Lead Tracking: Partner (own leads, web parity) + Admin (all partners)
   const visibleTabs = useMemo(() => {
-    if (isAgentRole) {
-      return DASHBOARD_TABS.filter((tab) => tab.id !== 'admin');
-    }
-    return DASHBOARD_TABS;
-  }, [isAgentRole]);
+    return DASHBOARD_TABS.filter((tab) => {
+      if (tab.id === 'admin' && isRestrictedRole) return false;
+      if (tab.id === 'tracking' && !isPartnerRole && !isAdminRole) return false;
+      return true;
+    });
+  }, [isRestrictedRole, isPartnerRole, isAdminRole]);
+
+  // Non-partners landing on ?tab=tracking fall back to Team
+  useEffect(() => {
+    if (activeTab === 'tracking' && !isPartnerRole && !isAdminRole) setActiveTab('team');
+  }, [activeTab, isPartnerRole, isAdminRole, setActiveTab]);
 
   const palette = {
     screenBg: adminTheme.primaryBg,
@@ -180,6 +195,7 @@ export default function AdminDashboardScreen() {
         {activeTab === 'admin' && !isAgentRole && <AdminDashboardContent />}
         {activeTab === 'sales' && <SalesDashboardContent />}
         {activeTab === 'team' && <TeamDashboardContent />}
+        {activeTab === 'tracking' && (isPartnerRole || isAdminRole) && <LeadTrackingDashboardContent />}
         {activeTab === 'milestone' && <MilestoneDashboardContent />}
       </View>
     </View>
@@ -205,9 +221,11 @@ const styles = StyleSheet.create({
     }),
   },
   tabsScrollContent: {
+    flexGrow: 1,
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
   },
   tabButton: {
     flexDirection: 'row',

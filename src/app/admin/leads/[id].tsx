@@ -1,3 +1,5 @@
+import { useLeadFormOptionsQuery } from '../../../admin/hooks/useLeadsQuery';
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -12,6 +14,7 @@ import {
   Platform,
   Modal,
   Pressable,
+  Alert,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -22,7 +25,7 @@ import {
   RefreshCw,
   Phone,
   Mail,
-  MessageSquare,
+  MessageCircle,
   User,
   Home,
   Activity,
@@ -72,6 +75,7 @@ import * as InvoiceService from '../../../admin/services/InvoiceService';
 import * as PaymentService from '../../../admin/services/PaymentService';
 import { getApiUrl } from '../../../api/remoteConfig';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
+import { usePermission } from '../../../authorization/hooks/usePermission';
 
 function openFileUrl(path: string | null | undefined) {
   if (!path) return;
@@ -98,6 +102,42 @@ function formatDate(dateStr: string | null | undefined): string {
   } catch {
     return 'N/A';
   }
+}
+
+const LONG_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// Web Lead Details format: "MMMM dd, yyyy hh:mm tt"
+function formatLongDateTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '-';
+  let hours = d.getHours();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${LONG_MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')}, ${d.getFullYear()} ${String(hours).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} ${ampm}`;
+}
+
+// Web Lead Details format: "MMMM dd, yyyy"
+function formatLongDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '-';
+  return `${LONG_MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')}, ${d.getFullYear()}`;
+}
+
+// Web "Next Follow-up" countdown: Today / Tomorrow / N days overdue / N days remaining
+function getFollowUpCountdown(dateStr: string | null | undefined): { text: string; color?: string } | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const today = new Date();
+  const a = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const b = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const days = Math.round((a - b) / 86400000);
+  if (days === 0) return { text: 'Today', color: '#ef4444' };
+  if (days === 1) return { text: 'Tomorrow', color: '#f59e0b' };
+  if (days < 0) return { text: `${Math.abs(days)} days overdue`, color: '#ef4444' };
+  return { text: `${days} days remaining` };
 }
 
 function formatDateTime(dateStr: string | null | undefined): string {
@@ -128,7 +168,7 @@ type TabType =
   | 'documents'
   | 'sitevisits'
   | 'transactions'
-  // | 'transitions';
+// | 'transitions';
 
 // Helper to determine file icon and colors matching Web CRM
 function getFileIconInfo(fileName?: string) {
@@ -190,13 +230,73 @@ export default function LeadDetailsScreen() {
     deleteLeadDocument,
     updateLeadStatus,
     updateInterestStatus,
-  } = useLeadStore();
+  } = useLeadStore(
+    // Subscribe only to the fields used here (was: whole store → re-render on any change)
+    useShallow((s) => ({ selectedLeadDetails: s.selectedLeadDetails, isLoadingDetails: s.isLoadingDetails, detailsError: s.detailsError, fetchLeadDetails: s.fetchLeadDetails, addLeadNote: s.addLeadNote, deleteLeadNote: s.deleteLeadNote, addLeadFollowUp: s.addLeadFollowUp, editLeadFollowUp: s.editLeadFollowUp, uploadLeadDocument: s.uploadLeadDocument, deleteLeadDocument: s.deleteLeadDocument, updateLeadStatus: s.updateLeadStatus, updateInterestStatus: s.updateInterestStatus }))
+  );
+
+  const { can, canEdit, canDelete, isAdmin, isSuperAdmin } = usePermission();
+  const canEditLead = isAdmin || isSuperAdmin || canEdit('Leads') || can('Edit', '/admin/leads') || can('Edit', 'Leads');
+  const canDeleteLead = isAdmin || isSuperAdmin || canDelete('Leads') || can('Delete', '/admin/leads') || can('Delete', 'Leads');
 
   const [activeTab, setActiveTab] = useState<TabType>('contact');
   const [refreshing, setRefreshing] = useState(false);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [stageModalOpen, setStageModalOpen] = useState(false);
   const [updatingInterestFollowUpId, setUpdatingInterestFollowUpId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleEditLead = () => {
+    const targetId = leadId || selectedLeadDetails?.contactInformation?.leadId || (selectedLeadDetails as any)?.leadId;
+    if (!targetId) return;
+    router.push({
+      pathname: '/admin/leads/AddLead',
+      params: { id: String(targetId) },
+    } as any);
+  };
+
+  const handleDeleteLead = () => {
+    const targetId = leadId || selectedLeadDetails?.contactInformation?.leadId || (selectedLeadDetails as any)?.leadId;
+    if (!targetId) return;
+
+    Alert.alert(
+      'Delete Lead',
+      'Are you sure you want to delete this lead? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsDeleting(true);
+              const res = await LeadService.deleteLead(targetId);
+              if (res && (res.success || (res as any)?.message?.toLowerCase().includes('success'))) {
+                Toast.show({
+                  type: 'success',
+                  text1: 'Lead Deleted',
+                  text2: (res as any)?.message || 'Lead has been deleted successfully.',
+                });
+                router.replace('/admin/leads' as any);
+              } else if (res?.isReferenceError) {
+                Alert.alert(
+                  'Cannot Delete Lead',
+                  res.message || 'This lead has associated Quotations, Bookings, or Invoices. Please delete or reassign those documents first before removing this lead.'
+                );
+              } else {
+                Alert.alert('Delete Failed', res?.message || 'Failed to delete lead. Please try again.');
+              }
+            } catch (err: any) {
+              const errMsg = err?.response?.data?.message || err?.message || 'Failed to delete lead.';
+              Alert.alert('Error', errMsg);
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleUpdateInterest = async (followUpId: number, status: 'Interested' | 'Not Interested' | 'Cold') => {
     if (!leadId || !followUpId) return;
@@ -425,19 +525,11 @@ export default function LeadDetailsScreen() {
     }
   }, [leadId]);
 
+  // Static dropdown options — cached for 30 min (was re-downloaded every time a lead was opened)
+  const { data: formOptionsRes } = useLeadFormOptionsQuery();
   useEffect(() => {
-    const fetchOptions = async () => {
-      try {
-        const response = await LeadService.getFormOptions();
-        if (response.success && response.data) {
-          setFormOptions(response.data);
-        }
-      } catch (err) {
-        console.warn("Failed to fetch form options from API, using fallback options", err);
-      }
-    };
-    fetchOptions();
-  }, []);
+    if (formOptionsRes?.success && formOptionsRes.data) setFormOptions(formOptionsRes.data);
+  }, [formOptionsRes]);
 
   const onRefresh = async () => {
     if (!leadId) return;
@@ -820,7 +912,7 @@ export default function LeadDetailsScreen() {
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 16,
-        paddingVertical: 14,
+        paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: borderCol,
         backgroundColor: cardBg,
@@ -830,17 +922,70 @@ export default function LeadDetailsScreen() {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            gap: 12,
+            gap: 10,
+            flex: 1,
+            marginRight: 8,
           }}
           activeOpacity={0.7}
         >
           <ArrowLeft size={20} color={textColor} />
-          <Text style={{ fontSize: 18, fontWeight: '700', color: textColor }}>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: textColor }} numberOfLines={1}>
             Lead Details
           </Text>
         </TouchableOpacity>
 
+        {/* Action Buttons: Edit and Delete */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {canEditLead && (
+            <TouchableOpacity
+              onPress={handleEditLead}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                backgroundColor: isDark ? 'rgba(59, 130, 246, 0.18)' : '#eff6ff',
+                paddingVertical: 7,
+                paddingHorizontal: 12,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(59, 130, 246, 0.4)' : '#bfdbfe',
+              }}
+              activeOpacity={0.7}
+            >
+              <Pen size={14} color="#3b82f6" />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#3b82f6' }}>Edit</Text>
+            </TouchableOpacity>
+          )}
 
+          {canDeleteLead && (
+            <TouchableOpacity
+              onPress={handleDeleteLead}
+              disabled={isDeleting}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
+                paddingVertical: 7,
+                paddingHorizontal: 11,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(239, 68, 68, 0.35)' : '#fecaca',
+                opacity: isDeleting ? 0.6 : 1,
+              }}
+              activeOpacity={0.7}
+            >
+              {isDeleting ? (
+                <ActivityIndicator size="small" color="#ef4444" />
+              ) : (
+                <>
+                  <Trash2 size={14} color="#ef4444" />
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#ef4444' }}>Delete</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
       {statusDropdownOpen && (
         <Pressable
@@ -1025,7 +1170,7 @@ export default function LeadDetailsScreen() {
                 disabled={!contact?.phone}
                 style={[styles.actionBtn, { backgroundColor: contact?.phone ? '#22c55e15' : inputBg }]}
               >
-                <MessageSquare size={16} color={contact?.phone ? '#22c55e' : subTextColor} />
+                <MessageCircle size={16} color={contact?.phone ? '#22c55e' : subTextColor} />
                 <Text style={[styles.actionBtnText, { color: contact?.phone ? '#22c55e' : subTextColor }]}>
                   WhatsApp
                 </Text>
@@ -1104,52 +1249,108 @@ export default function LeadDetailsScreen() {
             {activeTab === 'contact' && (
               <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Contact Information</Text>
+                {/* Same titles/values/visibility as web Lead Details > Contact Information */}
                 <View style={styles.gridContainer}>
-                  <GridItem label="Lead ID" value={`#${contact?.leadId || 'N/A'}`} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Full Name" value={contact?.fullName || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Email" value={contact?.email || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Phone" value={contact?.phone || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Stage" value={contact?.stage || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Status" value={contact?.status || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Source" value={contact?.source || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Rating" value={contact?.rating || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Handover Status" value={contact?.handoverStatus || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Assigned Agent" value={contact?.assignedToAgentName || (contact?.assignedToAgentId ? `Agent #${contact.assignedToAgentId}` : 'Admin')} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Follow-Up Date" value={formatDateTime(contact?.followUpDate)} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Created Date" value={formatDateTime(contact?.createdDate)} textColor={textColor} subTextColor={subTextColor} />
+                  <GridItem label="Email" value={contact?.email || 'Not provided'} textColor={textColor} subTextColor={subTextColor} />
+                  <GridItem label="Phone" value={contact?.phone || '-'} textColor={textColor} subTextColor={subTextColor} />
+                  {contact?.groupName || requirements?.groupName ? (
+                    <GridItem label="Group Name" value={(contact?.groupName || requirements?.groupName) as string} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                  <GridItem label="Assigned Executive" value={contact?.assignedToAgentName || (contact?.assignedToAgentId ? `Agent #${contact.assignedToAgentId}` : 'Unassigned')} textColor={textColor} subTextColor={subTextColor} />
+                  {contact?.source ? (
+                    <GridItem label="Lead Source" value={contact.source} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                  <GridItem label="Created On" value={formatLongDateTime(contact?.createdDate)} textColor={textColor} subTextColor={subTextColor} />
+                  {contact?.modifiedOn ? (
+                    <GridItem label="Last Modified" value={formatLongDateTime(contact.modifiedOn)} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
                 </View>
-
-                {contact?.comments ? (
-                  <View style={[styles.commentBox, { backgroundColor: inputBg, borderColor: borderCol }]}>
-                    <Text style={[styles.commentTitle, { color: subTextColor }]}>Executive Comments:</Text>
-                    <Text style={[styles.commentText, { color: textColor }]}>{contact.comments}</Text>
-                  </View>
-                ) : null}
               </View>
             )}
+
+            {/* Next Follow-up — same as web Lead Details card */}
+            {activeTab === 'contact' && contact?.followUpDate ? (() => {
+              const countdown = getFollowUpCountdown(contact.followUpDate);
+              return (
+                <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol, marginTop: 12 }]}>
+                  <Text style={[styles.sectionTitle, { color: textColor }]}>Next Follow-up</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: textColor }}>
+                    {formatLongDate(contact.followUpDate)}
+                  </Text>
+                  {countdown ? (
+                    <Text style={{ fontSize: 12, marginTop: 2, fontWeight: countdown.color ? '700' : '400', color: countdown.color || subTextColor }}>
+                      {countdown.text}
+                    </Text>
+                  ) : null}
+                  {contact.stage ? (
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#3b82f6', backgroundColor: '#3b82f615', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, overflow: 'hidden' }}>
+                        {contact.stage}
+                      </Text>
+                      {contact.status ? (
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: subTextColor, backgroundColor: inputBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, overflow: 'hidden' }}>
+                          {contact.status}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })() : null}
 
             {/* TAB 2: Property Requirements */}
             {activeTab === 'requirements' && (
               <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Property Requirements</Text>
+                {/* Same titles/values as web Lead Details > Property Requirements (shown only when set) */}
                 <View style={styles.gridContainer}>
-                  <GridItem label="Group Name" value={requirements?.groupName || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Preferred Location" value={requirements?.preferredLocation || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Property Type" value={requirements?.propertyType || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Requirement Type" value={requirements?.type || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="BHK Configuration" value={requirements?.bhk || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Area (Sq. Ft.)" value={requirements?.sqft ? `${requirements.sqft} sqft` : 'N/A'} textColor={textColor} subTextColor={subTextColor} />
-                  <GridItem label="Facing" value={requirements?.facing || 'N/A'} textColor={textColor} subTextColor={subTextColor} />
+                  {requirements?.preferredLocation ? (
+                    <GridItem label="Preferred Location" value={requirements.preferredLocation} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                  {requirements?.type ? (
+                    <GridItem label="Type" value={requirements.type} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                  {requirements?.propertyType ? (
+                    <GridItem label="Property Type" value={requirements.propertyType} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                  {requirements?.bhk ? (
+                    <GridItem label="BHK" value={requirements.bhk} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                  {requirements?.sqft ? (
+                    <GridItem label="Square Feet" value={`${requirements.sqft} sq.ft`} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                  {requirements?.facing ? (
+                    <GridItem label="Facing" value={requirements.facing} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
+                  {(requirements?.locationDistance || contact?.locationDistance) ? (
+                    <GridItem label="Location Distance" value={(requirements?.locationDistance || contact?.locationDistance) as string} textColor={textColor} subTextColor={subTextColor} />
+                  ) : null}
                 </View>
-
-                {requirements?.requirement ? (
-                  <View style={[styles.commentBox, { backgroundColor: inputBg, borderColor: borderCol }]}>
-                    <Text style={[styles.commentTitle, { color: subTextColor }]}>Detailed Requirement:</Text>
-                    <Text style={[styles.commentText, { color: textColor }]}>{requirements.requirement}</Text>
-                  </View>
+                {!(requirements?.preferredLocation || requirements?.type || requirements?.propertyType || requirements?.bhk ||
+                  requirements?.sqft || requirements?.facing || requirements?.locationDistance || contact?.locationDistance) ? (
+                  <Text style={{ fontSize: 13, color: subTextColor }}>No property requirements added.</Text>
                 ) : null}
               </View>
             )}
+
+            {/* Additional Details — same as web (shown when Requirements or Comments exist) */}
+            {activeTab === 'requirements' && (requirements?.requirement || contact?.comments) ? (
+              <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: borderCol, marginTop: 12 }]}>
+                <Text style={[styles.sectionTitle, { color: textColor }]}>Additional Details</Text>
+                {requirements?.requirement ? (
+                  <View style={{ marginBottom: contact?.comments ? 12 : 0 }}>
+                    <Text style={[styles.gridLabel, { color: subTextColor }]}>Requirements</Text>
+                    <Text style={[styles.commentText, { color: textColor }]}>{requirements.requirement}</Text>
+                  </View>
+                ) : null}
+                {contact?.comments ? (
+                  <View>
+                    <Text style={[styles.gridLabel, { color: subTextColor }]}>Comments</Text>
+                    <Text style={[styles.commentText, { color: textColor }]}>{contact.comments}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
 
             {/* TAB 3: Activities */}
             {activeTab === 'activities' && (
@@ -1606,8 +1807,8 @@ export default function LeadDetailsScreen() {
                                   q.status === 'Accepted'
                                     ? '#10b981'
                                     : q.status === 'Rejected'
-                                    ? '#ef4444'
-                                    : '#f59e0b',
+                                      ? '#ef4444'
+                                      : '#f59e0b',
                                 marginTop: 4,
                                 fontWeight: 'bold',
                               }}
@@ -1919,8 +2120,8 @@ export default function LeadDetailsScreen() {
                                   backgroundColor: isInterested
                                     ? '#28a745'
                                     : isDark
-                                    ? '#14532d25'
-                                    : '#d4edda',
+                                      ? '#14532d25'
+                                      : '#d4edda',
                                 }}
                                 activeOpacity={0.7}
                               >
@@ -1951,8 +2152,8 @@ export default function LeadDetailsScreen() {
                                   backgroundColor: isNotInterested
                                     ? '#dc3545'
                                     : isDark
-                                    ? '#7f1d1d25'
-                                    : '#f8d7da',
+                                      ? '#7f1d1d25'
+                                      : '#f8d7da',
                                 }}
                                 activeOpacity={0.7}
                               >
@@ -1983,8 +2184,8 @@ export default function LeadDetailsScreen() {
                                   backgroundColor: isCold
                                     ? '#17a2b8'
                                     : isDark
-                                    ? '#164e6325'
-                                    : '#d1ecf1',
+                                      ? '#164e6325'
+                                      : '#d1ecf1',
                                 }}
                                 activeOpacity={0.7}
                               >

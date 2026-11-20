@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   RefreshControl,
   Modal,
   Pressable,
-  Image,
   StyleSheet,
   Alert,
 } from 'react-native';
@@ -25,16 +24,16 @@ import {
   LogIn,
   LogOut,
   CheckCircle,
-  XCircle,
   AlertCircle,
-  RefreshCw,
   User,
-  Users,
   FileText,
   X,
   Check,
   Send,
-  Sliders,
+  Search,
+  ChevronDown,
+  CalendarX,
+  ArrowLeft,
 } from 'lucide-react-native';
 import {
   attendanceService,
@@ -48,7 +47,24 @@ import {
 import { DeviceNotificationService } from '../../../Services/DeviceNotificationService';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+const AVAILABLE_YEARS = [2024, 2025, 2026, 2027, 2028];
 
 export default function AgentCalender() {
   const router = useRouter();
@@ -64,15 +80,26 @@ export default function AgentCalender() {
   const [year, setYear] = useState(currentDate.getFullYear());
   const [month, setMonth] = useState(currentDate.getMonth() + 1);
 
+  // View mode: 'month' vs 'week' (matching web FullCalendar switch)
+  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
+  const [focusedWeekDate, setFocusedWeekDate] = useState<Date>(new Date());
+
+  // Search input in the top control bar
+  const [agentSearchQuery, setAgentSearchQuery] = useState('');
+
+  // Modals state
+  const [showAgentPicker, setShowAgentPicker] = useState(false);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
-  const [showAgentPicker, setShowAgentPicker] = useState(false);
 
-  // Intervals Modal State
+  // Selected Day for inspecting intervals (defaults to today or selected calendar day)
   const [selectedDay, setSelectedDay] = useState<CalendarDayItem | null>(null);
   const [intervalsData, setIntervalsData] = useState<DateIntervalsData | null>(null);
   const [intervalsLoading, setIntervalsLoading] = useState(false);
@@ -87,6 +114,7 @@ export default function AgentCalender() {
   const [approveTargetRequest, setApproveTargetRequest] = useState<PendingCorrectionRequest | null>(null);
   const [approvedHoursInput, setApprovedHoursInput] = useState('8.0');
 
+  // Fetch Calendar Data from backend
   const fetchCalendarData = useCallback(
     async (isRefresh = false) => {
       if (isRefresh) {
@@ -108,6 +136,15 @@ export default function AgentCalender() {
           if (!selectedAgentId && response.data.selectedAgent?.encodedAgentId) {
             setSelectedAgentId(response.data.selectedAgent.encodedAgentId);
           }
+
+          // On pull-to-refresh keep the selected day in sync with fresh data. Not on an
+          // agent/month switch: the closure's selectedDay belongs to the previous context.
+          if (isRefresh && selectedDay) {
+            const matchedDay = response.data.calendarDays?.find((d) => d.date === selectedDay.date);
+            if (matchedDay) {
+              setSelectedDay(matchedDay);
+            }
+          }
         } else {
           setError(response.message || 'Failed to fetch calendar data');
         }
@@ -119,39 +156,138 @@ export default function AgentCalender() {
         setRefreshing(false);
       }
     },
-    [selectedAgentId, year, month]
+    [selectedAgentId, year, month, selectedDay]
   );
+
+  // Switching agent or month invalidates the selected day and its session intervals.
+  // Without this, the previous agent's/month's intervals stayed on screen under the new agent.
+  // Reset during render (React's "adjust state when inputs change" pattern), not in an effect.
+  const calendarContextKey = `${selectedAgentId}|${year}|${month}`;
+  const [prevCalendarContextKey, setPrevCalendarContextKey] = useState(calendarContextKey);
+  if (prevCalendarContextKey !== calendarContextKey) {
+    setPrevCalendarContextKey(calendarContextKey);
+    setSelectedDay(null);
+    setIntervalsData(null);
+    setIntervalsLoading(false);
+  }
+
+  // Lets an in-flight intervals request detect that the agent/month changed or that a newer
+  // day was tapped, so a slow response cannot overwrite the current selection.
+  const latestCalendarContextRef = useRef(calendarContextKey);
+  const intervalsRequestRef = useRef(0);
+  useEffect(() => {
+    latestCalendarContextRef.current = calendarContextKey;
+  }, [calendarContextKey]);
 
   useEffect(() => {
     fetchCalendarData();
-  }, [fetchCalendarData]);
+  }, [selectedAgentId, year, month]);
 
-  // Month navigation
-  const handlePrevMonth = () => {
-    if (month === 1) {
-      setMonth(12);
-      setYear((prev) => prev - 1);
+  // When calendarData loads, initialize selectedDay to today if present
+  useEffect(() => {
+    if (calendarData?.calendarDays && !selectedDay) {
+      const todayItem = calendarData.calendarDays.find((d) => d.isToday);
+      if (todayItem) {
+        setSelectedDay(todayItem);
+      }
+    }
+  }, [calendarData]);
+
+  // Load intervals when selectedDay changes
+  const loadDayIntervals = useCallback(
+    async (day: CalendarDayItem) => {
+      const requestId = ++intervalsRequestRef.current;
+      const requestContext = calendarContextKey;
+      const isCurrent = () =>
+        requestId === intervalsRequestRef.current &&
+        requestContext === latestCalendarContextRef.current;
+
+      setSelectedDay(day);
+      setIntervalsData(null);
+      setIntervalsLoading(true);
+      try {
+        const targetAgentId = selectedAgentId || calendarData?.selectedAgent?.encodedAgentId || '';
+        const res = await attendanceService.getIntervals({
+          agentId: targetAgentId,
+          date: day.date,
+        });
+        if (!isCurrent()) return; // superseded by a newer day, agent or month
+        if (res.success && res.data) {
+          setIntervalsData(res.data);
+        } else {
+          setIntervalsData(null);
+        }
+      } catch (err) {
+        if (!isCurrent()) return;
+        console.error('Error loading day intervals:', err);
+        setIntervalsData(null);
+      } finally {
+        if (isCurrent()) setIntervalsLoading(false);
+      }
+    },
+    [selectedAgentId, calendarData, calendarContextKey]
+  );
+
+  // Trigger day select
+  const handleDayPress = (day: CalendarDayItem) => {
+    loadDayIntervals(day);
+  };
+
+  // Calendar toolbar navigation handlers
+  const handlePrev = () => {
+    if (viewMode === 'month') {
+      if (month === 1) {
+        setMonth(12);
+        setYear((prev) => prev - 1);
+      } else {
+        setMonth((prev) => prev - 1);
+      }
     } else {
-      setMonth((prev) => prev - 1);
+      // Move 7 days back in week mode
+      const nextDate = new Date(focusedWeekDate);
+      nextDate.setDate(nextDate.getDate() - 7);
+      setFocusedWeekDate(nextDate);
+      if (nextDate.getMonth() + 1 !== month || nextDate.getFullYear() !== year) {
+        setMonth(nextDate.getMonth() + 1);
+        setYear(nextDate.getFullYear());
+      }
     }
   };
 
-  const handleNextMonth = () => {
-    if (month === 12) {
-      setMonth(1);
-      setYear((prev) => prev + 1);
+  const handleNext = () => {
+    if (viewMode === 'month') {
+      if (month === 12) {
+        setMonth(1);
+        setYear((prev) => prev + 1);
+      } else {
+        setMonth((prev) => prev + 1);
+      }
     } else {
-      setMonth((prev) => prev + 1);
+      // Move 7 days forward in week mode
+      const nextDate = new Date(focusedWeekDate);
+      nextDate.setDate(nextDate.getDate() + 7);
+      setFocusedWeekDate(nextDate);
+      if (nextDate.getMonth() + 1 !== month || nextDate.getFullYear() !== year) {
+        setMonth(nextDate.getMonth() + 1);
+        setYear(nextDate.getFullYear());
+      }
     }
   };
 
-  const handleResetToday = () => {
+  const handleToday = () => {
     const now = new Date();
     setYear(now.getFullYear());
     setMonth(now.getMonth() + 1);
+    setFocusedWeekDate(now);
+    if (calendarData?.calendarDays) {
+      const todayItem = calendarData.calendarDays.find((d) => d.isToday);
+      if (todayItem) {
+        loadDayIntervals(todayItem);
+      }
+    }
   };
 
-  // Clock-in / Clock-out Action
+  // Clock In / Clock Out Action
   const handleClockToggle = async () => {
     if (!calendarData) return;
     const hasActive = calendarData.headerStats?.hasActiveSession;
@@ -165,10 +301,10 @@ export default function AgentCalender() {
         if (res.success) {
           Toast.show({
             type: 'success',
-            text1: 'Clock Out',
+            text1: 'Clock Out Successful',
             text2: res.message || 'Logged out successfully',
           });
-          fetchCalendarData();
+          fetchCalendarData(true);
         } else {
           Toast.show({
             type: 'error',
@@ -185,10 +321,10 @@ export default function AgentCalender() {
         if (res.success) {
           Toast.show({
             type: 'success',
-            text1: 'Clock In',
+            text1: 'Clock In Successful',
             text2: res.message || 'Logged in successfully',
           });
-          fetchCalendarData();
+          fetchCalendarData(true);
         } else {
           Toast.show({
             type: 'error',
@@ -208,36 +344,12 @@ export default function AgentCalender() {
     }
   };
 
-  // Open Day Details / Intervals
-  const handleDayPress = async (day: CalendarDayItem) => {
-    setSelectedDay(day);
-    setIntervalsLoading(true);
-    setIntervalsData(null);
-
-    try {
-      const targetAgentId = selectedAgentId || calendarData?.selectedAgent?.encodedAgentId || '';
-      const res = await attendanceService.getIntervals({
-        agentId: targetAgentId,
-        date: day.date,
-      });
-
-      if (res.success && res.data) {
-        setIntervalsData(res.data);
-      }
-    } catch (err) {
-      console.error('Error loading day intervals:', err);
-    } finally {
-      setIntervalsLoading(false);
-    }
-  };
-
   // Submit Correction Request
   const handleSubmitCorrection = async () => {
     if (!correctionReason.trim()) {
       Alert.alert('Validation', 'Please provide a reason for the correction request');
       return;
     }
-
     if (!correctionTargetDay) return;
 
     setActionLoading(true);
@@ -253,13 +365,12 @@ export default function AgentCalender() {
       if (res.success) {
         DeviceNotificationService.triggerSystemNotification({
           title: 'Attendance Correction Submitted',
-          body: res.message || `Your correction request for ${correctionTargetDay.date} was submitted successfully.`,
+          body: res.message || `Correction request for ${correctionTargetDay.date} submitted.`,
         });
         Alert.alert('Success', res.message || 'Correction request submitted successfully');
         setShowCorrectionModal(false);
         setCorrectionReason('');
-        setSelectedDay(null);
-        fetchCalendarData();
+        fetchCalendarData(true);
       } else {
         Alert.alert('Submission Failed', res.message || 'Unable to submit correction request');
       }
@@ -270,7 +381,7 @@ export default function AgentCalender() {
     }
   };
 
-  // Approve Correction Request
+  // Approve Correction Request (Admin/Partner)
   const handleApproveCorrectionSubmit = async () => {
     if (!approveTargetRequest) return;
     const hours = parseFloat(approvedHoursInput);
@@ -290,7 +401,7 @@ export default function AgentCalender() {
         Alert.alert('Approved', res.message || 'Correction request approved');
         setShowApproveModal(false);
         setApproveTargetRequest(null);
-        fetchCalendarData();
+        fetchCalendarData(true);
       } else {
         Alert.alert('Approval Failed', res.message || 'Unable to approve request');
       }
@@ -301,11 +412,11 @@ export default function AgentCalender() {
     }
   };
 
-  // Reject Correction Request
+  // Reject Correction Request (Admin/Partner)
   const handleRejectCorrection = async (req: PendingCorrectionRequest) => {
     Alert.alert(
       'Confirm Rejection',
-      `Are you sure you want to reject the correction request for ${req.agentName} on ${req.formattedDate}?`,
+      `Reject correction request for ${req.agentName} on ${req.formattedDate}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -319,7 +430,7 @@ export default function AgentCalender() {
               });
               if (res.success) {
                 Alert.alert('Rejected', res.message || 'Correction request rejected');
-                fetchCalendarData();
+                fetchCalendarData(true);
               } else {
                 Alert.alert('Action Failed', res.message || 'Unable to reject request');
               }
@@ -334,78 +445,147 @@ export default function AgentCalender() {
     );
   };
 
-  // Calculate calendar grid padding offsets
-  const getFirstDayOffset = () => {
-    const firstDay = new Date(year, month - 1, 1);
-    return firstDay.getDay(); // 0 = Sun, 1 = Mon, ...
-  };
-
-  const getDayBadgeColor = (statusKey: string, status: string) => {
+  // Status badge styling helper (Absent: red, Present: green, In Progress: blue, Holiday: slate)
+  const getStatusBadge = (statusKey: string, status: string) => {
     const s = (statusKey || status || '').toLowerCase();
-    if (s.includes('present')) {
-      return { bg: '#10b98120', text: '#10b981', dot: '#10b981' };
+    if (s.includes('present') && !s.includes('partial')) {
+      return { label: 'Present', bg: '#10b981', textColor: '#ffffff' };
+    }
+    if (s.includes('partial') || s.includes('progress') || s.includes('active')) {
+      return { label: 'In Progress', bg: '#2563eb', textColor: '#ffffff' };
     }
     if (s.includes('absent')) {
-      return { bg: '#ef444420', text: '#ef4444', dot: '#ef4444' };
+      return { label: 'Absent', bg: '#ef4444', textColor: '#ffffff' };
+    }
+    if (s.includes('holiday') || s.includes('weekend')) {
+      return { label: 'Holiday', bg: '#64748b', textColor: '#ffffff' };
     }
     if (s.includes('leave')) {
-      return { bg: '#f59e0b20', text: '#f59e0b', dot: '#f59e0b' };
+      return { label: 'Leave', bg: '#f59e0b', textColor: '#ffffff' };
     }
-    if (s.includes('weekend')) {
-      return { bg: '#64748b20', text: '#64748b', dot: '#64748b' };
-    }
-    return { bg: '#64748b15', text: '#64748b', dot: '#94a3b8' };
+    return { label: status || 'Pending', bg: '#64748b', textColor: '#ffffff' };
   };
+
+  // Filter agents for agent picker modal
+  const filteredAgents = useMemo(() => {
+    if (!calendarData?.selectableAgents) return [];
+    if (!agentSearchQuery.trim()) return calendarData.selectableAgents;
+    const q = agentSearchQuery.toLowerCase();
+    return calendarData.selectableAgents.filter(
+      (a) =>
+        (a.username && a.username.toLowerCase().includes(q)) ||
+        (a.email && a.email.toLowerCase().includes(q)) ||
+        (a.role && a.role.toLowerCase().includes(q))
+    );
+  }, [calendarData?.selectableAgents, agentSearchQuery]);
+
+  // First day offset for month view
+  const firstDayOffset = useMemo(() => {
+    const firstDay = new Date(year, month - 1, 1);
+    return firstDay.getDay(); // 0 = Sun, 1 = Mon...
+  }, [year, month]);
+
+  // Days to display based on viewMode ('month' vs 'week')
+  const displayedDays = useMemo(() => {
+    if (!calendarData?.calendarDays) return [];
+
+    if (viewMode === 'month') {
+      return calendarData.calendarDays;
+    }
+
+    // Week view: calculate the 7 days of the currently focused week
+    const curr = new Date(focusedWeekDate);
+    const dayOfWeek = curr.getDay(); // 0 (Sun) - 6 (Sat)
+    const sunday = new Date(curr);
+    sunday.setDate(curr.getDate() - dayOfWeek);
+
+    const weekDays: CalendarDayItem[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sunday);
+      d.setDate(sunday.getDate() + i);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+        d.getDate()
+      ).padStart(2, '0')}`;
+
+      // Check if day exists in calendarDays
+      const existing = calendarData.calendarDays.find((cd) => cd.date === dateStr);
+      if (existing) {
+        weekDays.push(existing);
+      } else {
+        weekDays.push({
+          date: dateStr,
+          dayNumber: d.getDate(),
+          status: 'No Data',
+          statusKey: 'nodata',
+          totalHours: 0,
+          loginTime: null,
+          logoutTime: null,
+          hasLogin: false,
+          hasLogout: false,
+          correctionRequested: false,
+          correctionStatus: '',
+          correctionReason: null,
+          attendanceId: 0,
+          isToday:
+            d.getDate() === currentDate.getDate() &&
+            d.getMonth() === currentDate.getMonth() &&
+            d.getFullYear() === currentDate.getFullYear(),
+          isFuture: d > currentDate,
+        });
+      }
+    }
+    return weekDays;
+  }, [calendarData?.calendarDays, viewMode, focusedWeekDate]);
 
   const selectedAgent = calendarData?.selectedAgent;
   const headerStats = calendarData?.headerStats;
-  const firstDayOffset = getFirstDayOffset();
+
+  // Active intervals to display in bottom card (either for clicked day, or today's intervals)
+  const currentIntervals = useMemo(() => {
+    if (intervalsData?.intervals) {
+      return intervalsData.intervals;
+    }
+    if (selectedDay?.isToday && calendarData?.todayIntervals) {
+      return calendarData.todayIntervals;
+    }
+    return [];
+  }, [intervalsData, selectedDay, calendarData?.todayIntervals]);
+
+  const isTodayActive = headerStats?.hasActiveSession;
 
   return (
     <View style={[styles.container, { backgroundColor: adminTheme.primaryBg }]}>
-      {/* Header Bar */}
+      {/* 1. Header Navigation Bar */}
       <View
         style={[
-          styles.headerBar,
+          styles.headerNav,
           { backgroundColor: adminTheme.cardBg, borderBottomColor: adminTheme.border },
         ]}
       >
         <TouchableOpacity
           onPress={() => router.back()}
-          style={[styles.iconButton, { backgroundColor: adminTheme.inputBg }]}
+          style={[styles.backButton, { backgroundColor: adminTheme.inputBg }]}
         >
-          <ChevronLeft size={20} color={adminTheme.textPrimary} />
+          <ArrowLeft size={18} color={adminTheme.textPrimary} />
         </TouchableOpacity>
 
-        <View style={styles.headerTitleContainer}>
-          <Text style={[styles.headerTitle, { color: adminTheme.textPrimary }]}>
-            Attendance Calendar
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: adminTheme.textSecondary }]}>
-            {selectedAgent?.username || 'Select Agent'}
+        <View style={styles.headerTitleWrap}>
+          <Text style={[styles.headerBreadcrumb, { color: adminTheme.textSecondary }]}>
+            Attendance / Agent Attendance / <Text style={{ color: adminTheme.brand }}>Calendar</Text>
           </Text>
         </View>
 
-        {/* Switch Agent Dropdown Button */}
-        {calendarData?.selectableAgents && calendarData.selectableAgents.length > 0 && (
-          <TouchableOpacity
-            onPress={() => setShowAgentPicker(true)}
-            style={[styles.agentPickerButton, { backgroundColor: adminTheme.inputBg }]}
-          >
-            <User size={14} color={adminTheme.brand} />
-            <Text
-              style={[styles.agentPickerText, { color: adminTheme.textPrimary }]}
-              numberOfLines={1}
-            >
-              Switch Agent
-            </Text>
-            <Sliders size={12} color={adminTheme.textSecondary} />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          onPress={() => router.push('/admin/attendance/AgentAttendance' as any)}
+          style={[styles.backToAgentsBtn, { borderColor: adminTheme.border }]}
+        >
+          <ArrowLeft size={12} color={adminTheme.brand} />
+          <Text style={[styles.backToAgentsText, { color: adminTheme.brand }]}>Agents List</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomSpacing + 20 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomSpacing + 28 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -415,145 +595,204 @@ export default function AgentCalender() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Selected Agent Card Info */}
-        {selectedAgent && (
-          <View
-            style={[
-              styles.agentCard,
-              { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
-            ]}
-          >
-            <View style={styles.agentAvatarContainer}>
-              {selectedAgent.profileImage ? (
-                <Image source={{ uri: selectedAgent.profileImage }} style={styles.avatarImage} />
-              ) : (
-                <View style={[styles.avatarFallback, { backgroundColor: adminTheme.brand }]}>
-                  <Text style={styles.avatarText}>
-                    {selectedAgent.username ? selectedAgent.username.charAt(0).toUpperCase() : 'A'}
-                  </Text>
-                </View>
-              )}
+        {/* 2. Banner Matching Web Screenshot 2 */}
+        <View style={styles.bannerContainer}>
+          <View style={styles.bannerContent}>
+            <View style={styles.bannerIconBox}>
+              <CalendarIcon size={22} color="#ffd68a" />
             </View>
-
             <View style={{ flex: 1 }}>
-              <Text style={[styles.agentName, { color: adminTheme.textPrimary }]}>
-                {selectedAgent.username}
-              </Text>
-              <Text style={[styles.agentEmail, { color: adminTheme.textSecondary }]}>
-                {selectedAgent.email} • {selectedAgent.role}
-              </Text>
-            </View>
-
-            <View style={styles.agentRateBadge}>
-              <Text style={[styles.agentRateValue, { color: adminTheme.brand }]}>
-                {selectedAgent.attendancePercentage?.toFixed(1) ?? '0.0'}%
-              </Text>
-              <Text style={[styles.agentRateLabel, { color: adminTheme.textSecondary }]}>
-                Attendance
+              <Text style={styles.bannerTitle}>Agent Attendance</Text>
+              <Text style={styles.bannerSubtitle}>
+                View and track agent attendance calendar in place
               </Text>
             </View>
           </View>
-        )}
 
-        {/* Today's Activity Stats & Clock Action Banner */}
-        {headerStats && (
-          <View
-            style={[
-              styles.statsBanner,
-              { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
-            ]}
-          >
-            <View style={styles.statsBannerRow}>
-              <View style={styles.bannerStat}>
-                <Text style={[styles.bannerValue, { color: adminTheme.textPrimary }]}>
-                  {headerStats.todayTotalLogins}
-                </Text>
-                <Text style={[styles.bannerLabel, { color: adminTheme.textSecondary }]}>
-                  Logins Today
-                </Text>
+          {/* Today's Header Badges */}
+          {headerStats && (headerStats.todayTotalLogins > 0 || headerStats.todayTotalHours > 0) ? (
+            <View style={styles.bannerBadgesRow}>
+              <View style={styles.bannerBadge}>
+                <LogIn size={11} color="#ffffff" />
+                <Text style={styles.bannerBadgeText}>Logins: {headerStats.todayTotalLogins}</Text>
               </View>
-
-              <View style={styles.bannerStat}>
-                <Text style={[styles.bannerValue, { color: adminTheme.textPrimary }]}>
-                  {headerStats.todayTotalLogouts}
-                </Text>
-                <Text style={[styles.bannerLabel, { color: adminTheme.textSecondary }]}>
-                  Logouts Today
-                </Text>
+              <View style={styles.bannerBadge}>
+                <LogOut size={11} color="#ffffff" />
+                <Text style={styles.bannerBadgeText}>Logouts: {headerStats.todayTotalLogouts}</Text>
               </View>
-
-              <View style={styles.bannerStat}>
-                <Text style={[styles.bannerValue, { color: adminTheme.brand }]}>
+              <View style={[styles.bannerBadge, styles.bannerBadgeGold]}>
+                <Clock size={11} color="#ffd68a" />
+                <Text style={[styles.bannerBadgeText, { color: '#ffd68a' }]}>
                   {headerStats.todayTotalHours.toFixed(1)}h
                 </Text>
-                <Text style={[styles.bannerLabel, { color: adminTheme.textSecondary }]}>
-                  Today Hours
-                </Text>
               </View>
             </View>
+          ) : null}
+        </View>
 
-            {/* Clock In / Out Action Button */}
-            <TouchableOpacity
-              onPress={handleClockToggle}
-              disabled={actionLoading}
-              style={[
-                styles.clockActionButton,
-                headerStats.hasActiveSession
-                  ? { backgroundColor: '#ef4444' }
-                  : { backgroundColor: adminTheme.brand },
-              ]}
-            >
-              {actionLoading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : headerStats.hasActiveSession ? (
-                <>
-                  <LogOut size={18} color="#ffffff" />
-                  <Text style={styles.clockActionText}>Clock Out (Active Session)</Text>
-                </>
-              ) : (
-                <>
-                  <LogIn size={18} color="#ffffff" />
-                  <Text style={styles.clockActionText}>Clock In For Today</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Month & Year Navigation Header */}
+        {/* 3. Top Controls Bar: SELECT AGENT + JUMP TO (Month / Year) */}
         <View
           style={[
-            styles.calendarNavRow,
+            styles.controlsCard,
             { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
           ]}
         >
-          <TouchableOpacity onPress={handlePrevMonth} style={styles.navArrowButton}>
-            <ChevronLeft size={20} color={adminTheme.textPrimary} />
-          </TouchableOpacity>
+          {/* SELECT AGENT Group */}
+          <View style={styles.controlGroupSection}>
+            <View style={styles.controlLabelRow}>
+              <User size={13} color={adminTheme.brand} />
+              <Text style={[styles.controlLabel, { color: adminTheme.brand }]}>SELECT AGENT:</Text>
+            </View>
 
-          <View style={styles.monthYearTitleContainer}>
-            <CalendarIcon size={16} color={adminTheme.brand} />
-            <Text style={[styles.monthYearTitle, { color: adminTheme.textPrimary }]}>
-              {new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' })} {year}
-            </Text>
+            <View style={styles.agentInputsRow}>
+              {/* Quick Search Input */}
+              <View
+                style={[
+                  styles.agentSearchBox,
+                  { backgroundColor: adminTheme.inputBg, borderColor: adminTheme.border },
+                ]}
+              >
+                <Search size={13} color={adminTheme.textMuted} />
+                <TextInput
+                  style={[styles.agentSearchInput, { color: adminTheme.textPrimary }]}
+                  placeholder="Search agent..."
+                  placeholderTextColor={adminTheme.textMuted}
+                  value={agentSearchQuery}
+                  onChangeText={(text) => {
+                    setAgentSearchQuery(text);
+                    if (text.length > 0 && !showAgentPicker) {
+                      setShowAgentPicker(true);
+                    }
+                  }}
+                />
+              </View>
+
+              {/* Agent Select Combobox Button */}
+              <TouchableOpacity
+                onPress={() => setShowAgentPicker(true)}
+                style={[
+                  styles.agentComboboxBtn,
+                  { backgroundColor: adminTheme.inputBg, borderColor: adminTheme.border },
+                ]}
+              >
+                <Text
+                  style={[styles.agentComboboxText, { color: adminTheme.textPrimary }]}
+                  numberOfLines={1}
+                >
+                  {selectedAgent
+                    ? `${selectedAgent.username} (${selectedAgent.email || selectedAgent.role})`
+                    : 'Select Agent...'}
+                </Text>
+                <ChevronDown size={14} color={adminTheme.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* JUMP TO Group: Month & Year Dropdowns */}
+          <View style={styles.jumpToSection}>
+            <View style={styles.controlLabelRow}>
+              <CalendarIcon size={13} color="#f59e0b" />
+              <Text style={[styles.controlLabel, { color: '#f59e0b' }]}>JUMP TO:</Text>
+            </View>
+
+            <View style={styles.jumpDropdownsRow}>
+              {/* Month Dropdown Button */}
+              <TouchableOpacity
+                onPress={() => setShowMonthPicker(true)}
+                style={[
+                  styles.jumpDropdownBtn,
+                  { backgroundColor: adminTheme.inputBg, borderColor: adminTheme.border },
+                ]}
+              >
+                <Text style={[styles.jumpDropdownText, { color: adminTheme.textPrimary }]}>
+                  {MONTH_NAMES[month - 1]}
+                </Text>
+                <ChevronDown size={13} color={adminTheme.textSecondary} />
+              </TouchableOpacity>
+
+              {/* Year Dropdown Button */}
+              <TouchableOpacity
+                onPress={() => setShowYearPicker(true)}
+                style={[
+                  styles.jumpDropdownBtn,
+                  { backgroundColor: adminTheme.inputBg, borderColor: adminTheme.border, width: 85 },
+                ]}
+              >
+                <Text style={[styles.jumpDropdownText, { color: adminTheme.textPrimary }]}>
+                  {year}
+                </Text>
+                <ChevronDown size={13} color={adminTheme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* 4. Calendar Toolbar (FullCalendar Parity) */}
+        <View
+          style={[
+            styles.calendarToolbar,
+            { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
+          ]}
+        >
+          {/* Left: Nav Buttons (< today >) */}
+          <View style={styles.toolbarNavGroup}>
+            <TouchableOpacity onPress={handlePrev} style={styles.toolbarIconBtn}>
+              <ChevronLeft size={16} color="#ffffff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleToday} style={styles.toolbarTodayBtn}>
+              <Text style={styles.toolbarTodayText}>today</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleNext} style={styles.toolbarIconBtn}>
+              <ChevronRight size={16} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Center: Month Year Title */}
+          <Text style={[styles.toolbarTitle, { color: adminTheme.textPrimary }]}>
+            {MONTH_NAMES[month - 1]} {year}
+          </Text>
+
+          {/* Right: View Switcher ([month] [week]) */}
+          <View style={styles.viewSwitcherGroup}>
             <TouchableOpacity
-              onPress={handleResetToday}
-              style={[styles.todayButton, { backgroundColor: adminTheme.inputBg }]}
+              onPress={() => setViewMode('month')}
+              style={[
+                styles.viewSwitchBtn,
+                viewMode === 'month' ? styles.viewSwitchActive : styles.viewSwitchInactive,
+              ]}
             >
-              <Text style={[styles.todayButtonText, { color: adminTheme.textPrimary }]}>
-                Today
+              <Text
+                style={[
+                  styles.viewSwitchText,
+                  viewMode === 'month' ? styles.viewSwitchTextActive : styles.viewSwitchTextInactive,
+                ]}
+              >
+                month
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleNextMonth} style={styles.navArrowButton}>
-              <ChevronRight size={20} color={adminTheme.textPrimary} />
+
+            <TouchableOpacity
+              onPress={() => setViewMode('week')}
+              style={[
+                styles.viewSwitchBtn,
+                viewMode === 'week' ? styles.viewSwitchActive : styles.viewSwitchInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.viewSwitchText,
+                  viewMode === 'week' ? styles.viewSwitchTextActive : styles.viewSwitchTextInactive,
+                ]}
+              >
+                week
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Calendar Grid View */}
+        {/* 5. Calendar Grid (Month / Week View) */}
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={adminTheme.brand} />
@@ -566,93 +805,331 @@ export default function AgentCalender() {
             <AlertCircle size={20} color="#ef4444" />
             <Text style={styles.errorText}>{error}</Text>
           </View>
-        ) : calendarData?.calendarDays ? (
+        ) : (
           <View
             style={[
-              styles.gridContainer,
+              styles.calendarCard,
               { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
             ]}
           >
-            {/* Weekday Labels Header */}
-            <View style={styles.weekdaysRow}>
-              {WEEKDAYS.map((wd, i) => (
-                <Text
-                  key={wd}
-                  style={[
-                    styles.weekdayHeaderCell,
-                    { color: i === 0 || i === 6 ? adminTheme.brand : adminTheme.textSecondary },
-                  ]}
-                >
-                  {wd}
-                </Text>
+            {/* Weekday Column Headers: SUN MON TUE WED THU FRI SAT */}
+            <View style={styles.weekdayHeaderRow}>
+              {WEEKDAYS.map((day, idx) => (
+                <View key={day} style={styles.weekdayHeaderCell}>
+                  <Text
+                    style={[
+                      styles.weekdayHeaderText,
+                      { color: idx === 0 || idx === 6 ? '#2563eb' : adminTheme.textSecondary },
+                    ]}
+                  >
+                    {day}
+                  </Text>
+                </View>
               ))}
             </View>
 
-            {/* Grid Cells */}
-            <View style={styles.daysGrid}>
-              {/* Blank Padding Offset Cells */}
-              {Array.from({ length: firstDayOffset }).map((_, idx) => (
-                <View key={`empty-${idx}`} style={styles.dayCellEmpty} />
-              ))}
+            {/* Day Cells Grid */}
+            <View style={styles.gridDaysContainer}>
+              {/* If month view, display blank offset cells for first week */}
+              {viewMode === 'month' &&
+                Array.from({ length: firstDayOffset }).map((_, idx) => (
+                  <View key={`empty-${idx}`} style={styles.dayGridCellEmpty} />
+                ))}
 
-              {/* Month Day Cells */}
-              {calendarData.calendarDays.map((day) => {
-                const badge = getDayBadgeColor(day.statusKey, day.status);
+              {/* Render Days */}
+              {displayedDays.map((day) => {
+                const badge = getStatusBadge(day.statusKey, day.status);
+                const isSelected = selectedDay?.date === day.date;
+                const hasStatus =
+                  !day.isFuture &&
+                  day.status &&
+                  day.status.toLowerCase() !== 'nodata' &&
+                  day.status.toLowerCase() !== 'no data';
+
                 return (
                   <TouchableOpacity
                     key={day.date}
                     onPress={() => handleDayPress(day)}
+                    activeOpacity={0.7}
                     style={[
-                      styles.dayCell,
-                      { backgroundColor: adminTheme.primaryBg, borderColor: adminTheme.border },
-                      day.isToday && { borderColor: adminTheme.brand, borderWidth: 2 },
+                      styles.dayGridCell,
+                      {
+                        backgroundColor: isSelected
+                          ? adminTheme.badgeBg
+                          : adminTheme.primaryBg,
+                        borderColor: isSelected
+                          ? adminTheme.brand
+                          : day.isToday
+                          ? '#2563eb'
+                          : adminTheme.border,
+                        borderWidth: isSelected || day.isToday ? 2 : 1,
+                      },
                       day.isFuture && { opacity: 0.4 },
                     ]}
                   >
-                    <View style={styles.dayTopRow}>
+                    {/* Top Row: Day Number */}
+                    <View style={styles.dayCellTopRow}>
                       <Text
                         style={[
-                          styles.dayNumberText,
-                          { color: day.isToday ? adminTheme.brand : adminTheme.textPrimary },
+                          styles.dayCellNumber,
+                          {
+                            color: day.isToday
+                              ? '#2563eb'
+                              : isSelected
+                              ? adminTheme.brand
+                              : adminTheme.textPrimary,
+                            fontWeight: day.isToday || isSelected ? '800' : '600',
+                          },
                         ]}
                       >
                         {day.dayNumber}
                       </Text>
 
                       {day.correctionRequested && (
-                        <View style={styles.correctionDot}>
-                          <AlertCircle size={10} color="#f59e0b" />
+                        <View style={styles.correctionIconWrap}>
+                          <AlertCircle size={9} color="#f59e0b" />
                         </View>
                       )}
                     </View>
 
-                    {/* Status Badge */}
-                    <View style={[styles.dayStatusBadge, { backgroundColor: badge.bg }]}>
-                      <Text style={[styles.dayStatusText, { color: badge.text }]}>
-                        {day.status}
-                      </Text>
-                    </View>
+                    {/* Status Pill Badge Matching Web */}
+                    {hasStatus ? (
+                      <View style={[styles.dayStatusPill, { backgroundColor: badge.bg }]}>
+                        <Text style={[styles.dayStatusPillText, { color: badge.textColor }]}>
+                          {badge.label}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={{ height: 16 }} />
+                    )}
 
-                    {/* Hours Logged */}
+                    {/* Total Hours Logged */}
                     {day.totalHours > 0 ? (
                       <Text style={[styles.dayHoursText, { color: adminTheme.textSecondary }]}>
                         {day.totalHours.toFixed(1)}h
                       </Text>
-                    ) : null}
+                    ) : (
+                      <View style={{ height: 10 }} />
+                    )}
                   </TouchableOpacity>
                 );
               })}
             </View>
           </View>
-        ) : null}
+        )}
 
-        {/* Pending Correction Requests (For Admin / Partner Users) */}
+        {/* 6. Today's / Selected Day's Logins & Action Panel (Matching Web Right Column) */}
+        <View
+          style={[
+            styles.dayDetailPanel,
+            { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
+          ]}
+        >
+          <View style={styles.panelHeaderRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Clock size={15} color={adminTheme.brand} />
+              <Text style={[styles.panelTitle, { color: adminTheme.brand }]}>
+                {selectedDay?.isToday
+                  ? "Today's Login/Logout Intervals"
+                  : `Session Intervals (${selectedDay?.date || 'Selected Day'})`}
+              </Text>
+            </View>
+
+            {selectedDay && (
+              <View
+                style={[
+                  styles.selectedDayBadge,
+                  {
+                    backgroundColor: getStatusBadge(
+                      selectedDay.statusKey,
+                      selectedDay.status
+                    ).bg + '20',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.selectedDayBadgeText,
+                    {
+                      color: getStatusBadge(
+                        selectedDay.statusKey,
+                        selectedDay.status
+                      ).bg,
+                    },
+                  ]}
+                >
+                  {selectedDay.status}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {intervalsLoading ? (
+            <View style={styles.panelLoadingBox}>
+              <ActivityIndicator size="small" color={adminTheme.brand} />
+              <Text style={[styles.loadingText, { color: adminTheme.textSecondary }]}>
+                Loading session intervals...
+              </Text>
+            </View>
+          ) : currentIntervals.length > 0 ? (
+            <View style={styles.intervalsTableContainer}>
+              {/* Table Header */}
+              <View
+                style={[
+                  styles.tableHeaderRow,
+                  { backgroundColor: adminTheme.inputBg, borderBottomColor: adminTheme.border },
+                ]}
+              >
+                <Text style={[styles.tableColHeader, { flex: 0.8, color: adminTheme.textSecondary }]}>
+                  #
+                </Text>
+                <Text style={[styles.tableColHeader, { flex: 2, color: adminTheme.textSecondary }]}>
+                  LOGIN
+                </Text>
+                <Text style={[styles.tableColHeader, { flex: 2, color: adminTheme.textSecondary }]}>
+                  LOGOUT
+                </Text>
+                <Text style={[styles.tableColHeader, { flex: 1.8, color: adminTheme.textSecondary }]}>
+                  DURATION
+                </Text>
+              </View>
+
+              {/* Table Rows */}
+              {currentIntervals.map((interval: DayIntervalItem) => (
+                <View
+                  key={interval.index}
+                  style={[styles.tableDataRow, { borderBottomColor: adminTheme.border }]}
+                >
+                  <Text style={[styles.tableCell, { flex: 0.8, fontWeight: '700', color: adminTheme.textPrimary }]}>
+                    {interval.index}
+                  </Text>
+                  <Text style={[styles.tableCell, { flex: 2, color: '#10b981', fontWeight: '700' }]}>
+                    {interval.login}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.tableCell,
+                      {
+                        flex: 2,
+                        color: interval.logout ? '#ef4444' : '#f59e0b',
+                        fontWeight: '700',
+                      },
+                    ]}
+                  >
+                    {interval.logout || 'Active'}
+                  </Text>
+                  <View style={{ flex: 1.8, alignItems: 'center' }}>
+                    <View
+                      style={[
+                        styles.durationBadge,
+                        {
+                          backgroundColor:
+                            interval.duration === 'Active' ? '#f59e0b20' : '#10b98120',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.durationBadgeText,
+                          {
+                            color:
+                              interval.duration === 'Active' ? '#f59e0b' : '#10b981',
+                          },
+                        ]}
+                      >
+                        {interval.duration}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+
+              {/* Action Buttons for Logged-In User */}
+              <View style={styles.actionButtonsWrap}>
+                {isTodayActive ? (
+                  <TouchableOpacity
+                    onPress={handleClockToggle}
+                    disabled={actionLoading}
+                    style={[styles.webActionButton, { backgroundColor: '#ef4444' }]}
+                  >
+                    {actionLoading ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <LogOut size={16} color="#ffffff" />
+                        <Text style={styles.webActionBtnText}>LOGOUT</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleClockToggle}
+                    disabled={actionLoading}
+                    style={[styles.webActionButton, { backgroundColor: '#10b981' }]}
+                  >
+                    {actionLoading ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <LogIn size={16} color="#ffffff" />
+                        <Text style={styles.webActionBtnText}>LOGIN</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+
+                {/* Request Attendance Correction Button */}
+                {selectedDay && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setCorrectionTargetDay(selectedDay);
+                      setCorrectionReason('');
+                      setShowCorrectionModal(true);
+                    }}
+                    style={[styles.correctionActionBtn, { borderColor: adminTheme.border }]}
+                  >
+                    <Send size={14} color={adminTheme.brand} />
+                    <Text style={[styles.correctionActionText, { color: adminTheme.brand }]}>
+                      Request Correction
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          ) : (
+            /* Empty State Matching Web Screenshot 2 */
+            <View style={styles.emptyIntervalsBox}>
+              <CalendarX size={36} color={adminTheme.textMuted} />
+              <Text style={[styles.emptyIntervalsText, { color: adminTheme.textSecondary }]}>
+                No login records for {selectedDay?.isToday ? "Today's" : selectedDay?.date || 'this day'}
+              </Text>
+
+              {/* Green LOGIN Button Matching Web Screenshot 2 */}
+              <TouchableOpacity
+                onPress={handleClockToggle}
+                disabled={actionLoading}
+                style={[styles.webLoginBtn, { backgroundColor: '#10b981' }]}
+              >
+                {actionLoading ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <>
+                    <LogIn size={18} color="#ffffff" />
+                    <Text style={styles.webLoginBtnText}>LOGIN</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* 7. Pending Correction Requests (Admin / Partner Parity) */}
         {calendarData?.canManageAttendance &&
           calendarData?.pendingCorrectionRequests &&
           calendarData.pendingCorrectionRequests.length > 0 && (
             <View style={styles.pendingSection}>
               <View style={styles.pendingHeader}>
-                <FileText size={18} color="#f59e0b" />
+                <FileText size={17} color="#f59e0b" />
                 <Text style={[styles.pendingTitle, { color: adminTheme.textPrimary }]}>
                   Pending Correction Requests ({calendarData.pendingCorrectionRequests.length})
                 </Text>
@@ -686,7 +1163,6 @@ export default function AgentCalender() {
                     "{req.reason}"
                   </Text>
 
-                  {/* Actions */}
                   <View style={styles.pendingActions}>
                     <TouchableOpacity
                       onPress={() => {
@@ -712,138 +1188,232 @@ export default function AgentCalender() {
               ))}
             </View>
           )}
+
+        {/* 8. Footer Info Note */}
+        <View style={styles.footerNote}>
+          <Text style={[styles.footerText, { color: adminTheme.textMuted }]}>
+            Agent Attendance Tracking • UPropTech CRM • Indian Standard Time (IST)
+          </Text>
+        </View>
       </ScrollView>
 
-      {/* 1. Switch Agent Picker Modal */}
+      {/* ═══ MODALS ═══ */}
+
+      {/* Modal 1: Select Agent Dropdown Combobox */}
       <Modal visible={showAgentPicker} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <Pressable style={styles.backdrop} onPress={() => setShowAgentPicker(false)} />
           <View style={[styles.modalSheet, { backgroundColor: adminTheme.cardBg }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: adminTheme.textPrimary }]}>
-                Select Employee Agent
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <User size={18} color={adminTheme.brand} />
+                <Text style={[styles.modalTitle, { color: adminTheme.textPrimary }]}>
+                  Select Employee Agent
+                </Text>
+              </View>
               <TouchableOpacity onPress={() => setShowAgentPicker(false)}>
                 <X size={20} color={adminTheme.textPrimary} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ maxHeight: 300 }}>
-              {calendarData?.selectableAgents?.map((agent: SelectableAgent) => (
-                <TouchableOpacity
-                  key={agent.userId || agent.encodedUserId}
-                  onPress={() => {
-                    setSelectedAgentId(agent.encodedUserId || agent.userId.toString());
-                    setShowAgentPicker(false);
-                  }}
-                  style={[
-                    styles.agentListItem,
-                    { borderBottomColor: adminTheme.border },
-                    selectedAgentId === (agent.encodedUserId || agent.userId.toString()) && {
-                      backgroundColor: adminTheme.badgeBg,
-                    },
-                  ]}
-                >
-                  <View style={[styles.miniAvatar, { backgroundColor: adminTheme.brand }]}>
-                    <Text style={styles.miniAvatarText}>
-                      {agent.username ? agent.username.charAt(0).toUpperCase() : 'U'}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.agentListItemName, { color: adminTheme.textPrimary }]}>
-                      {agent.username}
-                    </Text>
-                    <Text style={[styles.agentListItemEmail, { color: adminTheme.textSecondary }]}>
-                      {agent.email} ({agent.role})
-                    </Text>
-                  </View>
-                  {selectedAgentId === (agent.encodedUserId || agent.userId.toString()) && (
-                    <CheckCircle size={18} color={adminTheme.brand} />
-                  )}
+            {/* In-modal Agent Search */}
+            <View
+              style={[
+                styles.modalSearchBar,
+                { backgroundColor: adminTheme.inputBg, borderColor: adminTheme.border },
+              ]}
+            >
+              <Search size={14} color={adminTheme.textMuted} />
+              <TextInput
+                style={[styles.modalSearchInput, { color: adminTheme.textPrimary }]}
+                placeholder="Search by agent name, email or role..."
+                placeholderTextColor={adminTheme.textMuted}
+                value={agentSearchQuery}
+                onChangeText={setAgentSearchQuery}
+                autoFocus
+              />
+              {agentSearchQuery ? (
+                <TouchableOpacity onPress={() => setAgentSearchQuery('')}>
+                  <X size={14} color={adminTheme.textMuted} />
                 </TouchableOpacity>
-              ))}
+              ) : null}
+            </View>
+
+            <ScrollView style={{ maxHeight: 340 }}>
+              {filteredAgents.length > 0 ? (
+                filteredAgents.map((agent: SelectableAgent) => {
+                  const agentKey = agent.encodedUserId || agent.userId.toString();
+                  const isCurSel = selectedAgentId === agentKey;
+
+                  return (
+                    <TouchableOpacity
+                      key={agentKey}
+                      onPress={() => {
+                        setSelectedAgentId(agentKey);
+                        setShowAgentPicker(false);
+                      }}
+                      style={[
+                        styles.agentListItem,
+                        { borderBottomColor: adminTheme.border },
+                        isCurSel && { backgroundColor: adminTheme.badgeBg },
+                      ]}
+                    >
+                      <View style={[styles.miniAvatar, { backgroundColor: adminTheme.brand }]}>
+                        <Text style={styles.miniAvatarText}>
+                          {agent.username ? agent.username.substring(0, 2).toUpperCase() : 'AG'}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.agentListItemName, { color: adminTheme.textPrimary }]}>
+                          {agent.username}
+                        </Text>
+                        <Text
+                          style={[styles.agentListItemEmail, { color: adminTheme.textSecondary }]}
+                        >
+                          {agent.email}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.roleBadge,
+                          {
+                            backgroundColor:
+                              agent.role === 'Commission' ? '#3b82f620' : '#10b98120',
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.roleBadgeText,
+                            {
+                              color:
+                                agent.role === 'Commission' ? '#3b82f6' : '#10b981',
+                            },
+                          ]}
+                        >
+                          {agent.role}
+                        </Text>
+                      </View>
+                      {isCurSel && <CheckCircle size={18} color={adminTheme.brand} />}
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                  <Text style={{ color: adminTheme.textMuted, fontSize: 13 }}>
+                    No agents match "{agentSearchQuery}"
+                  </Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* 2. Date Intervals & Session Details Modal */}
-      <Modal visible={!!selectedDay} transparent animationType="slide">
+      {/* Modal 2: Jump To Month Selector */}
+      <Modal visible={showMonthPicker} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.backdrop} onPress={() => setSelectedDay(null)} />
+          <Pressable style={styles.backdrop} onPress={() => setShowMonthPicker(false)} />
           <View style={[styles.modalSheet, { backgroundColor: adminTheme.cardBg }]}>
             <View style={styles.modalHeader}>
-              <View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <CalendarIcon size={18} color="#f59e0b" />
                 <Text style={[styles.modalTitle, { color: adminTheme.textPrimary }]}>
-                  Session Intervals - {selectedDay?.date}
-                </Text>
-
-                <Text style={[styles.modalSubtitle, { color: adminTheme.textSecondary }]}>
-                  Status: {selectedDay?.status} • {selectedDay?.totalHours.toFixed(1)} hrs total
+                  Select Month
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setSelectedDay(null)}>
+              <TouchableOpacity onPress={() => setShowMonthPicker(false)}>
                 <X size={20} color={adminTheme.textPrimary} />
               </TouchableOpacity>
             </View>
 
-            {intervalsLoading ? (
-              <View style={styles.modalLoading}>
-                <ActivityIndicator size="small" color={adminTheme.brand} />
-                <Text style={[styles.loadingText, { color: adminTheme.textSecondary }]}>
-                  Loading intervals...
-                </Text>
-              </View>
-            ) : intervalsData?.intervals && intervalsData.intervals.length > 0 ? (
-              <ScrollView style={{ maxHeight: 250, marginVertical: 10 }}>
-                {intervalsData.intervals.map((item: DayIntervalItem) => (
-                  <View
-                    key={item.index}
+            <ScrollView style={{ maxHeight: 320 }}>
+              {MONTH_NAMES.map((name, idx) => {
+                const mVal = idx + 1;
+                const isCur = mVal === month;
+                return (
+                  <TouchableOpacity
+                    key={name}
+                    onPress={() => {
+                      setMonth(mVal);
+                      setShowMonthPicker(false);
+                    }}
                     style={[
-                      styles.intervalCard,
-                      { backgroundColor: adminTheme.inputBg, borderColor: adminTheme.border },
+                      styles.pickerListItem,
+                      { borderBottomColor: adminTheme.border },
+                      isCur && { backgroundColor: adminTheme.badgeBg },
                     ]}
                   >
-                    <View style={styles.intervalIndexBadge}>
-                      <Text style={styles.intervalIndexText}>#{item.index}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.intervalTimeText, { color: adminTheme.textPrimary }]}>
-                        Login: {item.login} | Logout: {item.logout || 'Active'}
-                      </Text>
-                      <Text style={[styles.intervalDuration, { color: adminTheme.textSecondary }]}>
-                        Duration: {item.duration}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
-            ) : (
-              <View style={styles.noIntervalsBox}>
-                <Clock size={24} color={adminTheme.textMuted} />
-                <Text style={[styles.noIntervalsText, { color: adminTheme.textSecondary }]}>
-                  No session intervals recorded for this day.
-                </Text>
-              </View>
-            )}
-
-            {/* Request Correction Footer Action */}
-            <TouchableOpacity
-              onPress={() => {
-                setCorrectionTargetDay(selectedDay);
-                setCorrectionReason('');
-                setShowCorrectionModal(true);
-              }}
-              style={[styles.modalCorrectionButton, { backgroundColor: adminTheme.brand }]}
-            >
-              <Send size={16} color="#ffffff" />
-              <Text style={styles.modalCorrectionButtonText}>Request Attendance Correction</Text>
-            </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.pickerItemText,
+                        { color: isCur ? adminTheme.brand : adminTheme.textPrimary },
+                        isCur && { fontWeight: '700' },
+                      ]}
+                    >
+                      {name}
+                    </Text>
+                    {isCur && <Check size={18} color={adminTheme.brand} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* 3. Submit Correction Request Form Modal */}
+      {/* Modal 3: Jump To Year Selector */}
+      <Modal visible={showYearPicker} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowYearPicker(false)} />
+          <View style={[styles.modalSheet, { backgroundColor: adminTheme.cardBg }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <CalendarIcon size={18} color="#f59e0b" />
+                <Text style={[styles.modalTitle, { color: adminTheme.textPrimary }]}>
+                  Select Year
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowYearPicker(false)}>
+                <X size={20} color={adminTheme.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 260 }}>
+              {AVAILABLE_YEARS.map((yr) => {
+                const isCur = yr === year;
+                return (
+                  <TouchableOpacity
+                    key={yr}
+                    onPress={() => {
+                      setYear(yr);
+                      setShowYearPicker(false);
+                    }}
+                    style={[
+                      styles.pickerListItem,
+                      { borderBottomColor: adminTheme.border },
+                      isCur && { backgroundColor: adminTheme.badgeBg },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.pickerItemText,
+                        { color: isCur ? adminTheme.brand : adminTheme.textPrimary },
+                        isCur && { fontWeight: '700' },
+                      ]}
+                    >
+                      {yr}
+                    </Text>
+                    {isCur && <Check size={18} color={adminTheme.brand} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal 4: Request Attendance Correction */}
       <Modal visible={showCorrectionModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <Pressable style={styles.backdrop} onPress={() => setShowCorrectionModal(false)} />
@@ -870,7 +1440,7 @@ export default function AgentCalender() {
                   borderColor: adminTheme.border,
                 },
               ]}
-              placeholder="Provide reason for missing/incomplete session..."
+              placeholder="Provide reason for missing or incomplete login/logout sessions..."
               placeholderTextColor={adminTheme.textMuted}
               multiline
               numberOfLines={4}
@@ -886,14 +1456,14 @@ export default function AgentCalender() {
               {actionLoading ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={styles.submitReasonText}>Submit Request</Text>
+                <Text style={styles.submitReasonText}>Submit Correction Request</Text>
               )}
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* 4. Admin Approve Correction Hours Input Modal */}
+      {/* Modal 5: Admin Approve Correction Hours */}
       <Modal visible={showApproveModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <Pressable style={styles.backdrop} onPress={() => setShowApproveModal(false)} />
@@ -915,7 +1485,7 @@ export default function AgentCalender() {
             </Text>
 
             <Text style={[styles.inputLabel, { color: adminTheme.textSecondary }]}>
-              Enter Approved Working Hours:
+              Approved Working Hours:
             </Text>
 
             <TextInput
@@ -930,7 +1500,7 @@ export default function AgentCalender() {
               keyboardType="decimal-pad"
               value={approvedHoursInput}
               onChangeText={setApprovedHoursInput}
-              placeholder="e.g. 8.5"
+              placeholder="e.g. 8.0"
               placeholderTextColor={adminTheme.textMuted}
             />
 
@@ -956,277 +1526,480 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerBar: {
+  headerNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    gap: 10,
+    gap: 8,
   },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitleContainer: {
+  headerTitleWrap: {
     flex: 1,
   },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  headerSubtitle: {
+  headerBreadcrumb: {
     fontSize: 11,
-    marginTop: 1,
+    fontWeight: '500',
   },
-  agentPickerButton: {
+  backToAgentsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 16,
-    gap: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
   },
-  agentPickerText: {
+  backToAgentsText: {
     fontSize: 11,
-    fontWeight: '600',
-    maxWidth: 90,
+    fontWeight: '700',
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-    gap: 14,
+    padding: 14,
+    gap: 12,
   },
-  agentCard: {
+
+  // Banner
+  bannerContainer: {
+    backgroundColor: '#0f223a',
+    borderRadius: 12,
+    padding: 14,
+    borderBottomWidth: 3,
+    borderBottomColor: '#d4a45a',
+    gap: 10,
+  },
+  bannerContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  bannerIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: 'rgba(212, 164, 90, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 164, 90, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerTitle: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  bannerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  bannerBadgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  bannerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 16,
+    gap: 4,
+  },
+  bannerBadgeGold: {
+    backgroundColor: 'rgba(212, 164, 90, 0.28)',
+  },
+  bannerBadgeText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  // Controls Card
+  controlsCard: {
+    borderRadius: 12,
     borderWidth: 1,
     padding: 12,
     gap: 12,
   },
-  agentAvatarContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    overflow: 'hidden',
+  controlGroupSection: {
+    gap: 6,
   },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
+  controlLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
-  avatarFallback: {
-    width: '100%',
-    height: '100%',
+  controlLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  agentInputsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  agentSearchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    height: 38,
+    gap: 6,
+  },
+  agentSearchInput: {
+    flex: 1,
+    fontSize: 12,
+    paddingVertical: 0,
+  },
+  agentComboboxBtn: {
+    flex: 1.4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 38,
+    gap: 4,
+  },
+  agentComboboxText: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  jumpToSection: {
+    gap: 6,
+  },
+  jumpDropdownsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  jumpDropdownBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 38,
+  },
+  jumpDropdownText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Calendar Toolbar
+  calendarToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  toolbarNavGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  toolbarIconBtn: {
+    backgroundColor: '#166299',
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
+  toolbarTodayBtn: {
+    backgroundColor: '#166299',
+    paddingHorizontal: 8,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolbarTodayText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  agentName: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  agentEmail: {
     fontSize: 11,
-    marginTop: 2,
-  },
-  agentRateBadge: {
-    alignItems: 'flex-end',
-  },
-  agentRateValue: {
-    fontSize: 16,
     fontWeight: '700',
   },
-  agentRateLabel: {
-    fontSize: 10,
-    marginTop: 1,
+  toolbarTitle: {
+    fontSize: 13,
+    fontWeight: '800',
   },
-  statsBanner: {
-    borderRadius: 16,
+  viewSwitcherGroup: {
+    flexDirection: 'row',
+    backgroundColor: '#0f223a',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  viewSwitchBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  viewSwitchActive: {
+    backgroundColor: '#166299',
+  },
+  viewSwitchInactive: {
+    backgroundColor: 'transparent',
+  },
+  viewSwitchText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  viewSwitchTextActive: {
+    color: '#ffffff',
+  },
+  viewSwitchTextInactive: {
+    color: '#94a3b8',
+  },
+
+  // Calendar Card
+  calendarCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 8,
+  },
+  weekdayHeaderRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f030',
+    paddingBottom: 6,
+    marginBottom: 4,
+  },
+  weekdayHeaderCell: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  weekdayHeaderText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  gridDaysContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  dayGridCellEmpty: {
+    width: '14.28%',
+    aspectRatio: 1.15,
+  },
+  dayGridCell: {
+    width: '14.28%',
+    aspectRatio: 1.15,
+    borderRadius: 8,
+    padding: 2,
+    marginVertical: 2,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dayCellTopRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  dayCellNumber: {
+    fontSize: 11,
+  },
+  correctionIconWrap: {
+    padding: 1,
+  },
+  dayStatusPill: {
+    borderRadius: 10,
+    paddingHorizontal: 4,
+    paddingVertical: 1.5,
+    maxWidth: '96%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayStatusPillText: {
+    fontSize: 7.5,
+    fontWeight: '800',
+  },
+  dayHoursText: {
+    fontSize: 8,
+    fontWeight: '600',
+  },
+
+  // Day Details Panel
+  dayDetailPanel: {
+    borderRadius: 12,
     borderWidth: 1,
     padding: 14,
     gap: 12,
   },
-  statsBannerRow: {
+  panelHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  bannerStat: {
     alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f030',
+    paddingBottom: 8,
   },
-  bannerValue: {
-    fontSize: 18,
+  panelTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  selectedDayBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  selectedDayBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  panelLoadingBox: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  intervalsTableContainer: {
+    gap: 6,
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    borderBottomWidth: 1,
+  },
+  tableColHeader: {
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  tableDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+  },
+  tableCell: {
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  durationBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  durationBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
   },
-  bannerLabel: {
-    fontSize: 11,
-    marginTop: 2,
+  actionButtonsWrap: {
+    marginTop: 8,
+    gap: 8,
   },
-  clockActionButton: {
+  webActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 14,
-    gap: 8,
-  },
-  clockActionText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  calendarNavRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 12,
     paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
   },
-  navArrowButton: {
-    padding: 6,
+  webActionBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  monthYearTitleContainer: {
+  correctionActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  monthYearTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  todayButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  todayButtonText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  loadingContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-    gap: 10,
-  },
-  loadingText: {
-    fontSize: 12,
-  },
-  errorCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#ef4444',
-  },
-  gridContainer: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 10,
-  },
-  weekdaysRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  weekdayHeaderCell: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  daysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  dayCellEmpty: {
-    width: '14.28%',
-    aspectRatio: 1,
-  },
-  dayCell: {
-    width: '14.28%',
-    aspectRatio: 1,
+    justifyContent: 'center',
+    paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    padding: 3,
-    justifyContent: 'space-between',
+    gap: 6,
+  },
+  correctionActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Empty Intervals State
+  emptyIntervalsBox: {
     alignItems: 'center',
-    marginVertical: 2,
+    paddingVertical: 20,
+    gap: 10,
   },
-  dayTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: 2,
-  },
-  dayNumberText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  correctionDot: {
-    padding: 1,
-  },
-  dayStatusBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 3,
-    paddingVertical: 1,
-  },
-  dayStatusText: {
-    fontSize: 8,
-    fontWeight: '700',
-  },
-  dayHoursText: {
-    fontSize: 8,
+  emptyIntervalsText: {
+    fontSize: 12,
     fontWeight: '500',
   },
+  webLoginBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+    borderRadius: 10,
+    gap: 6,
+    marginTop: 4,
+  },
+  webLoginBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+
+  // Pending Corrections
   pendingSection: {
-    gap: 10,
-    marginTop: 6,
+    gap: 8,
   },
   pendingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   pendingTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
   },
   pendingCard: {
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     padding: 12,
-    gap: 8,
+    gap: 6,
   },
   pendingCardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   pendingAgentName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   pendingDate: {
     fontSize: 11,
-    marginTop: 2,
+    marginTop: 1,
   },
   statusPendingBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
-    alignSelf: 'flex-start',
   },
   statusPendingText: {
     fontSize: 10,
@@ -1238,7 +2011,7 @@ const styles = StyleSheet.create({
   },
   pendingActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginTop: 4,
   },
   approveButton: {
@@ -1246,8 +2019,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
     gap: 4,
   },
   rejectButton: {
@@ -1255,14 +2028,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
     gap: 4,
   },
   actionBtnText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
+  },
+
+  // Footer Note
+  footerNote: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  footerText: {
+    fontSize: 10,
+    textAlign: 'center',
   },
 
   // Modals
@@ -1275,10 +2058,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   modalSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    gap: 14,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 18,
+    gap: 12,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1286,24 +2069,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
-  modalSubtitle: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  modalLoading: {
-    paddingVertical: 20,
+  modalSearchBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 38,
+    gap: 6,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 12,
   },
   agentListItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    gap: 12,
+    gap: 10,
   },
   miniAvatar: {
     width: 32,
@@ -1314,7 +2101,7 @@ const styles = StyleSheet.create({
   },
   miniAvatarText: {
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   agentListItemName: {
@@ -1325,64 +2112,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 1,
   },
-  intervalCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 8,
-    gap: 10,
+  roleBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  intervalIndexBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#3b82f620',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  intervalIndexText: {
-    color: '#3b82f6',
-    fontSize: 11,
+  roleBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
   },
-  intervalTimeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  intervalDuration: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  noIntervalsBox: {
-    paddingVertical: 20,
-    alignItems: 'center',
-    gap: 6,
-  },
-  noIntervalsText: {
-    fontSize: 12,
-  },
-  modalCorrectionButton: {
+  pickerListItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 12,
-    borderRadius: 12,
-    gap: 8,
-    marginTop: 6,
+    paddingHorizontal: 6,
+    borderBottomWidth: 1,
   },
-  modalCorrectionButtonText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
+  pickerItemText: {
+    fontSize: 14,
   },
   modalCenterCard: {
     marginHorizontal: 20,
     marginVertical: 'auto',
-    borderRadius: 20,
-    padding: 20,
-    gap: 14,
+    borderRadius: 16,
+    padding: 18,
+    gap: 12,
   },
   correctionDateLabel: {
     fontSize: 12,
@@ -1390,28 +2145,28 @@ const styles = StyleSheet.create({
   },
   reasonInput: {
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 13,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 12,
     textAlignVertical: 'top',
-    height: 90,
+    height: 80,
   },
   submitReasonButton: {
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
     alignItems: 'center',
   },
   submitReasonText: {
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   approveAgentText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   approveDateText: {
-    fontSize: 12,
+    fontSize: 11,
   },
   inputLabel: {
     fontSize: 12,
@@ -1419,9 +2174,29 @@ const styles = StyleSheet.create({
   },
   hoursInput: {
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-    fontSize: 14,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 40,
+    fontSize: 13,
+  },
+  loadingContainer: {
+    paddingVertical: 30,
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 12,
+  },
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#ef4444',
   },
 });

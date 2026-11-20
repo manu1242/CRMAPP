@@ -154,6 +154,8 @@ export const setupInterceptors = () => {
           '/AssignExecutive',
           '/Home/GetPartnerDashboardData',
           '/Home/GetPartnerSubscriptionStatus',
+          '/api/v1/dashboard/partner-data',
+          '/api/v1/dashboard/GetPartnerDashboardData',
           '/api/v1/usermanagement',
         ];
         const isNonExpiring = NON_SESSION_EXPIRING_ENDPOINTS.some((ep) => url.includes(ep));

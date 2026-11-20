@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { useHeaderScrollStore } from './useHeaderScrollStore';
 
-export type DashboardTab = 'admin' | 'sales' | 'team' | 'milestone';
+export type DashboardTab = 'admin' | 'sales' | 'team' | 'tracking' | 'milestone';
 
 interface DashboardTabState {
   activeTab: DashboardTab;

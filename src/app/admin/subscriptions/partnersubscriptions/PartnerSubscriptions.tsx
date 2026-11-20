@@ -33,11 +33,14 @@ import {
   PartnerSubStats,
   AssignSubscriptionPayload,
 } from '../../../../admin/services/subscriptionService';
+import { usePartnerPlanEligibility } from '../../../../admin/hooks/usePartnerPlanEligibility';
+import PartnerPlanUpgradeCard from '../../../../admin/components/PartnerPlanUpgradeCard';
 
 export default function PartnerSubscriptionsScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
+  const { isEligible: hasPartnerPlanEligibility, isLoading: eligibilityLoading } = usePartnerPlanEligibility();
 
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
@@ -128,6 +131,15 @@ export default function PartnerSubscriptionsScreen() {
       setAssignLoading(false);
     }
   };
+
+  if (!eligibilityLoading && !hasPartnerPlanEligibility) {
+    return (
+      <PartnerPlanUpgradeCard
+        title="Partner Subscriptions Not Included In Plan"
+        message="Partner subscriptions and plan allocations are only available on plans with Channel Partner capabilities. Upgrade your plan to manage partner subscriptions."
+      />
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>

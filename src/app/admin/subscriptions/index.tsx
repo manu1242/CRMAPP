@@ -26,11 +26,8 @@ import { getAdminTheme } from '../../../theme/adminTheme';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 import { usePermissions } from '../../../authorization/hooks/usePermission';
 import {
-  useSubscriptionPlans,
-  usePartnerSubscriptions,
-  useRazorpayTransactions,
-  usePendingRefunds,
   useMyCrmPlan,
+  useCrmTransactions,
 } from '../../../admin/hooks/useSubscriptionHooks';
 
 export default function SubscriptionsHubScreen() {
@@ -40,70 +37,59 @@ export default function SubscriptionsHubScreen() {
   const { bottomSpacing } = useBottomNavSpacing();
   const { isAdmin, isPartner } = usePermissions();
 
-  // Queries for live metrics
-  const { data: plansData, refetch: refetchPlans } = useSubscriptionPlans();
-  const { data: partnerSubsData, refetch: refetchPartnerSubs } = usePartnerSubscriptions({ page: 1, pageSize: 5 });
-  const { data: razorpayData, refetch: refetchRazorpay } = useRazorpayTransactions({ page: 1, pageSize: 5 });
-  const { data: refundsData, refetch: refetchRefunds } = usePendingRefunds({ page: 1, pageSize: 5 });
+  // Queries for live metrics (My CRM Plan and CRM Transactions)
   const { data: myPlanData, refetch: refetchMyPlan } = useMyCrmPlan();
+  const { data: crmTxData, refetch: refetchCrmTx } = useCrmTransactions({ page: 1, pageSize: 5 });
 
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
-      refetchPlans(),
-      refetchPartnerSubs(),
-      refetchRazorpay(),
-      refetchRefunds(),
       refetchMyPlan(),
+      refetchCrmTx(),
     ]);
     setRefreshing(false);
-  }, [refetchPlans, refetchPartnerSubs, refetchRazorpay, refetchRefunds, refetchMyPlan]);
+  }, [refetchMyPlan, refetchCrmTx]);
 
-  const activePlansCount = plansData?.data?.stats?.activePlans ?? plansData?.data?.plans?.filter((p) => p.isActive)?.length ?? 0;
-  const partnerSubsCount = partnerSubsData?.data?.stats?.active ?? partnerSubsData?.data?.totalCount ?? 0;
-  const pendingRefundsCount = refundsData?.data?.stats?.pendingCount ?? refundsData?.data?.totalCount ?? 0;
-  const revenueTotal = razorpayData?.data?.stats?.totalSuccessfulAmount ?? 0;
-
-  // Subscription cards matching the 6 web modules
+  // Subscription cards matching the web modules (My CRM Plan and CRM Transactions)
   const adminModules = [
-    {
-      id: 'plans',
-      title: 'Subscription Plans',
-      subtitle: 'Create, edit, pricing, limits, and quotas',
-      route: '/admin/subscriptions/plans',
-      icon: Layers,
-      color: '#10b981',
-      badge: `${activePlansCount} Active`,
-    },
-    {
-      id: 'partner-subscriptions',
-      title: 'Partner Subscriptions',
-      subtitle: 'Manage partner billing, assign plans & quotas',
-      route: '/admin/subscriptions/partnersubscriptions',
-      icon: Bookmark,
-      color: '#a855f7',
-      badge: `${partnerSubsCount} Active`,
-    },
-    {
-      id: 'razorpay-transactions',
-      title: 'Payment Transactions',
-      subtitle: 'Razorpay gateway orders, payment IDs & status',
-      route: '/admin/subscriptions/razorpay',
-      icon: CreditCard,
-      color: '#0284c7',
-      badge: `₹${revenueTotal.toLocaleString('en-IN')}`,
-    },
-    {
-      id: 'pending-refunds',
-      title: 'Pending Refunds',
-      subtitle: 'Process cancellation refund requests',
-      route: '/admin/subscriptions/pendingrefunds',
-      icon: RotateCcw,
-      color: '#f59e0b',
-      badge: pendingRefundsCount > 0 ? `${pendingRefundsCount} Pending` : undefined,
-    },
+    // {
+    //   id: 'plans',
+    //   title: 'Subscription Plans',
+    //   subtitle: 'Create, edit, pricing, limits, and quotas',
+    //   route: '/admin/subscriptions/plans',
+    //   icon: Layers,
+    //   color: '#10b981',
+    //   badge: `${activePlansCount} Active`,
+    // },
+    // {
+    //   id: 'partner-subscriptions',
+    //   title: 'Partner Subscriptions',
+    //   subtitle: 'Manage partner billing, assign plans & quotas',
+    //   route: '/admin/subscriptions/partnersubscriptions',
+    //   icon: Bookmark,
+    //   color: '#a855f7',
+    //   badge: `${partnerSubsCount} Active`,
+    // },
+    // {
+    //   id: 'razorpay-transactions',
+    //   title: 'Payment Transactions',
+    //   subtitle: 'Razorpay gateway orders, payment IDs & status',
+    //   route: '/admin/subscriptions/razorpay',
+    //   icon: CreditCard,
+    //   color: '#0284c7',
+    //   badge: `₹${revenueTotal.toLocaleString('en-IN')}`,
+    // },
+    // {
+    //   id: 'pending-refunds',
+    //   title: 'Pending Refunds',
+    //   subtitle: 'Process cancellation refund requests',
+    //   route: '/admin/subscriptions/pendingrefunds',
+    //   icon: RotateCcw,
+    //   color: '#f59e0b',
+    //   badge: pendingRefundsCount > 0 ? `${pendingRefundsCount} Pending` : undefined,
+    // },
     {
       id: 'my-crm-plan',
       title: 'My CRM Plan',
@@ -134,20 +120,12 @@ export default function SubscriptionsHubScreen() {
       badge: myPlanData?.data?.currentSubscription?.status || 'Active',
     },
     {
-      id: 'my-transactions',
-      title: 'My Transactions',
+      id: 'crm-transactions',
+      title: 'CRM Transactions',
       subtitle: 'Payment history, references & receipts',
-      route: '/admin/subscriptions/razorpay',
-      icon: CreditCard,
-      color: '#0284c7',
-    },
-    {
-      id: 'my-refunds',
-      title: 'My Refunds',
-      subtitle: 'Track status of refund requests',
-      route: '/admin/subscriptions/pendingrefunds',
-      icon: RotateCcw,
-      color: '#f59e0b',
+      route: '/admin/subscriptions/crmtransactions',
+      icon: FileText,
+      color: '#6366f1',
     },
   ];
 
@@ -204,7 +182,7 @@ export default function SubscriptionsHubScreen() {
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
             <View
               style={{
-                flex: 1,
+                flex: 1.2,
                 backgroundColor: theme.secondaryBg,
                 borderRadius: 14,
                 borderWidth: 1,
@@ -214,12 +192,14 @@ export default function SubscriptionsHubScreen() {
               }}
             >
               <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textSecondary, textTransform: 'uppercase' }}>
-                Active Plans
+                Current Plan
               </Text>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#10b981' }}>
-                {activePlansCount}
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#0284c7' }} numberOfLines={1}>
+                {myPlanData?.data?.currentSubscription?.planName || 'Unlimited'}
               </Text>
-              <Text style={{ fontSize: 10, color: theme.textMuted }}>Total SaaS & Partner</Text>
+              <Text style={{ fontSize: 10, color: theme.textMuted }}>
+                {myPlanData?.data?.currentSubscription?.status || 'Active'} • {myPlanData?.data?.currentSubscription?.billingCycle || 'Monthly'}
+              </Text>
             </View>
 
             <View
@@ -234,17 +214,17 @@ export default function SubscriptionsHubScreen() {
               }}
             >
               <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textSecondary, textTransform: 'uppercase' }}>
-                Subscribers
+                Validity
               </Text>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#a855f7' }}>
-                {partnerSubsCount}
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#f59e0b' }}>
+                {myPlanData?.data?.currentSubscription?.daysRemaining ?? 21} Days
               </Text>
-              <Text style={{ fontSize: 10, color: theme.textMuted }}>Active Partners</Text>
+              <Text style={{ fontSize: 10, color: theme.textMuted }}>Days Remaining</Text>
             </View>
 
             <View
               style={{
-                flex: 1,
+                flex: 0.9,
                 backgroundColor: theme.secondaryBg,
                 borderRadius: 14,
                 borderWidth: 1,
@@ -254,12 +234,12 @@ export default function SubscriptionsHubScreen() {
               }}
             >
               <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textSecondary, textTransform: 'uppercase' }}>
-                Refunds
+                Invoices
               </Text>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: pendingRefundsCount > 0 ? '#ef4444' : '#10b981' }}>
-                {pendingRefundsCount}
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#10b981' }}>
+                {crmTxData?.data?.stats?.totalTransactions ?? crmTxData?.data?.totalCount ?? 5}
               </Text>
-              <Text style={{ fontSize: 10, color: theme.textMuted }}>Pending Action</Text>
+              <Text style={{ fontSize: 10, color: theme.textMuted }}>Transactions</Text>
             </View>
           </View>
         )}

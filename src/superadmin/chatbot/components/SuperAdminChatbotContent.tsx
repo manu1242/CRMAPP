@@ -17,7 +17,7 @@ import {
   Search,
   X,
   RefreshCw,
-  MessageSquare,
+  MessageCircle,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -238,7 +238,7 @@ export const SuperAdminChatbotContent: React.FC = () => {
           </View>
         ) : items.length === 0 ? (
           <View style={[styles.emptyContainer, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-            <MessageSquare size={36} color={theme.textMuted} />
+            <MessageCircle size={36} color={theme.textMuted} />
             <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>
               No Conversations Found
             </Text>

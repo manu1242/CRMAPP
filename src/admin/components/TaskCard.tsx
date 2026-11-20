@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native'
 import { useRouter } from 'expo-router';
 import {
   Phone,
-  MessageSquare,
+  MessageCircle,
   MapPin,
   Clock,
   CheckCircle2,
@@ -31,7 +31,7 @@ interface TaskCardProps {
   onReschedule?: (task: any) => void;
 }
 
-export default function TaskCard({ task, onToggleComplete, onReschedule }: TaskCardProps) {
+function TaskCardComponent({ task, onToggleComplete, onReschedule }: TaskCardProps) {
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
@@ -68,21 +68,43 @@ export default function TaskCard({ task, onToggleComplete, onReschedule }: TaskC
 
   // Derive task fields safely for either TaskItem or TaskLeadItem
   const taskAny = task as any;
-  const taskType = taskAny.taskType || taskAny.stage || 'Follow-up';
-  const taskTime = taskAny.taskTime || (taskAny.followUpDate ? taskAny.followUpDate.split('T')[1]?.substring(0, 5) : undefined);
+  const taskType = taskAny.taskType || taskAny.stage || 'Follow-up Call';
+  const taskTime = taskAny.taskTime || (taskAny.followUpDate ? taskAny.followUpDate.split('T')[1]?.substring(0, 5) : '10:30 AM');
   const taskTitle = taskAny.taskTitle || taskAny.name || 'Task';
+  const stage = (taskAny.stage || 'New').trim();
+  const status = (taskAny.status || 'Active').trim();
 
-  // Icon mapping based on taskType
+  // Icon / color mapping based on taskType
   const getTypeColor = (type?: string) => {
     const t = (type || '').toLowerCase();
     if (t.includes('visit') || t.includes('site')) return '#10b981';
-    if (t.includes('meet') || t.includes('discuss')) return '#8b5cf6';
-    if (t.includes('quot') || t.includes('invoice')) return '#3b82f6';
+    if (t.includes('meet') || t.includes('discuss') || t.includes('office')) return '#8b5cf6';
+    if (t.includes('quot') || t.includes('invoice') || t.includes('negotiat')) return '#3b82f6';
     if (t.includes('book')) return '#f59e0b';
-    return '#06b6d4';
+    return '#0284c7';
   };
 
   const typeColor = getTypeColor(taskType);
+
+  // Status color pill matching Web
+  const getStatusPill = () => {
+    const s = status.toLowerCase();
+    if (s.includes('active') || s.includes('converted') || s.includes('booked')) {
+      return { bg: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7', text: isDark ? '#34d399' : '#14532d' };
+    }
+    if (s.includes('hot') || s.includes('lost')) {
+      return { bg: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2', text: isDark ? '#f87171' : '#991b1b' };
+    }
+    if (s.includes('warm')) {
+      return { bg: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7', text: isDark ? '#fbbf24' : '#78350f' };
+    }
+    if (s.includes('cold')) {
+      return { bg: isDark ? 'rgba(56, 189, 248, 0.2)' : '#e0f2fe', text: isDark ? '#38bdf8' : '#075985' };
+    }
+    return { bg: isDark ? '#334155' : '#f1f5f9', text: isDark ? '#cbd5e1' : '#475569' };
+  };
+
+  const statusStyle = getStatusPill();
 
   return (
     <View
@@ -92,6 +114,9 @@ export default function TaskCard({ task, onToggleComplete, onReschedule }: TaskC
         completed && { opacity: 0.65 },
       ]}
     >
+      {/* Left Priority Bar (Web Parity) */}
+      <View style={[styles.priorityBar, { backgroundColor: typeColor }]} />
+
       <View style={styles.topRow}>
         {/* Checkbox */}
         <TouchableOpacity onPress={handleToggle} style={styles.checkbox}>
@@ -108,7 +133,8 @@ export default function TaskCard({ task, onToggleComplete, onReschedule }: TaskC
           activeOpacity={0.7}
           onPress={() => router.push(`/admin/leads/${task.leadId}`)}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* Badges Row: Type & Time */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <View style={[styles.typeBadge, { backgroundColor: `${typeColor}15`, borderColor: `${typeColor}35` }]}>
               <Text style={[styles.typeText, { color: typeColor }]}>{taskType}</Text>
             </View>
@@ -120,6 +146,7 @@ export default function TaskCard({ task, onToggleComplete, onReschedule }: TaskC
             ) : null}
           </View>
 
+          {/* Task Title */}
           <Text
             style={[
               styles.taskTitle,
@@ -131,10 +158,22 @@ export default function TaskCard({ task, onToggleComplete, onReschedule }: TaskC
             {taskTitle}
           </Text>
 
+          {/* Lead Info */}
           <Text style={[styles.leadMeta, { color: subTextColor }]}>
             {task.name} {task.contact ? `· ${task.contact}` : ''}
           </Text>
 
+          {/* Stage & Status Badges Row (Web Parity) */}
+          <View style={styles.badgeRow}>
+            <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+              <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>{status}</Text>
+            </View>
+            <View style={[styles.stageBadge, { backgroundColor: isDark ? '#252840' : '#e2e8f0' }]}>
+              <Text style={[styles.stageBadgeText, { color: isDark ? '#cbd5e1' : '#334155' }]}>{stage}</Text>
+            </View>
+          </View>
+
+          {/* Comments / Notes */}
           {task.comments ? (
             <Text style={[styles.comments, { color: subTextColor }]} numberOfLines={2}>
               "{task.comments}"
@@ -153,8 +192,8 @@ export default function TaskCard({ task, onToggleComplete, onReschedule }: TaskC
           ) : null}
 
           {cleanPhone ? (
-            <TouchableOpacity onPress={handleWhatsApp} style={[styles.iconBtn, { backgroundColor: inputBg }]}>
-              <MessageSquare size={13} color="#25D366" />
+            <TouchableOpacity onPress={handleWhatsApp} style={[styles.iconBtn, { backgroundColor: '#10b98115', borderColor: '#10b98140' }]}>
+              <MessageCircle size={13} color="#10b981" />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -188,7 +227,17 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     padding: 14,
-    marginBottom: 12,
+    paddingLeft: 18,
+    marginBottom: 10,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  priorityBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 5,
   },
   topRow: {
     flexDirection: 'row',
@@ -201,11 +250,11 @@ const styles = StyleSheet.create({
   typeBadge: {
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 5,
     borderWidth: 1,
   },
   typeText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '700',
   },
   timeWrap: {
@@ -220,16 +269,44 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 14,
     fontWeight: '700',
-    marginTop: 6,
+    marginTop: 5,
+    lineHeight: 18,
   },
   leadMeta: {
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11.5,
+    fontWeight: '500',
+    marginTop: 3,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  statusBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  stageBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  stageBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   comments: {
     fontSize: 11,
     fontStyle: 'italic',
-    marginTop: 4,
+    marginTop: 5,
+    lineHeight: 15,
   },
   footer: {
     flexDirection: 'row',
@@ -255,9 +332,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 5,
-    borderRadius: 6,
+    borderRadius: 7,
     borderWidth: 1,
   },
   rescheduleText: {
@@ -265,3 +342,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+export default React.memo(TaskCardComponent);

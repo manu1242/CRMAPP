@@ -18,6 +18,8 @@ export interface AgentTrackingLead {
   followUpDate: string | null;
   assignedAgentId: number | null;
   assignedAgentName: string;
+  /** Web: partner team cannot reassign once a lead is handed over */
+  canReassign?: boolean;
 }
 
 export interface AgentTrackingData {

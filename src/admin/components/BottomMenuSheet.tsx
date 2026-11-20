@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -7,7 +8,7 @@ import {
   ScrollView,
   Modal,
   Pressable,
-  Dimensions,
+  useWindowDimensions,
   StyleSheet,
   Animated,
   PanResponder,
@@ -43,7 +44,7 @@ import {
   Mail,
   Shield,
   Bot,
-  MessageSquare,
+  MessageCircle,
   Landmark,
   Home,
   Handshake,
@@ -63,7 +64,6 @@ import { getAdminTheme } from '../../theme/adminTheme';
 import { useDashboardTabStore, DashboardTab } from '../store/useDashboardTabStore';
 import { useHeaderScrollStore } from '../store/useHeaderScrollStore';
 
-const windowHeight = Dimensions.get('window').height;
 
 export interface SubLinkItem {
   label: string;
@@ -94,6 +94,7 @@ export const MODULES: ModuleItem[] = [
       { label: 'Partner Dashboard', route: '/admin/PartnerDashboard' },
       { label: 'Sales Overview', route: '/admin/dashboard?tab=sales' },
       { label: 'Team Dashboard', route: '/admin/dashboard?tab=team' },
+      { label: ' Lead Tracking', route: '/admin/dashboard?tab=tracking' },
       { label: 'Milestone Payments', route: '/admin/dashboard?tab=milestone' },
     ],
   },
@@ -150,6 +151,7 @@ export const MODULES: ModuleItem[] = [
     subLinks: [
       { label: 'Agent List', route: '/admin/teammanagement/Agent' },
       { label: 'Agent Lead Tracking', route: '/admin/teammanagement/AgentLeadTracking' },
+      { label: 'Employees', route: '/admin/teammanagement/Employees' },
       { label: 'Channel Partner', route: '/admin/teammanagement/channelpartner/channel' },
     ],
   },
@@ -185,7 +187,7 @@ export const MODULES: ModuleItem[] = [
     category: 'System & Security',
     subLinks: [
       { label: 'Manage Users', route: '/admin/usemanagement/ManageUsers' },
-      { label: 'Roles Management', route: '/admin/usemanagement/RolesManagement' },
+      // { label: 'MessageCircleagement', route: '/admin/usemanagement/RolesManagement' },
     ],
   },
   {
@@ -209,7 +211,10 @@ export const MODULES: ModuleItem[] = [
     bgColor: '#14b8a61f',
     category: 'Subscriptions & Billing',
     route: '/admin/subscriptions',
-    subLinks: [],
+    subLinks: [
+      { label: 'My CRM Plan', route: '/admin/subscriptions/crmplans' },
+      { label: 'CRM Transactions', route: '/admin/subscriptions/crmtransactions' },
+    ],
   },
   {
     id: 'payment-and-banking',
@@ -256,15 +261,22 @@ interface BottomMenuSheetProps {
 import { useAuthStore } from '../../auth/store/authStore';
 import { usePermissionStore } from '../../authorization/store/permissionStore';
 import { usePermissions } from '../../authorization/hooks/usePermission';
+import { usePartnerPlanEligibility } from '../hooks/usePartnerPlanEligibility';
 
 export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSheetProps) {
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const isSmallPhone = windowWidth < 360;
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
   const user = useAuthStore((state) => state.user);
   const role = user?.role?.trim()?.toLowerCase() || '';
-  const { hasModuleAccess, can } = usePermissionStore();
+  const { hasModuleAccess, can } = usePermissionStore(
+    // Subscribe only to the fields used here (was: whole store → re-render on any change)
+    useShallow((s) => ({ hasModuleAccess: s.hasModuleAccess, can: s.can }))
+  );
   const { isAdmin } = usePermissions();
+  const { isEligible: hasPartnerPlanEligibility } = usePartnerPlanEligibility();
 
   const visibleModules = React.useMemo(() => {
     return MODULES.map((module) => {
@@ -293,6 +305,29 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
       // 2. Filter sublinks based on screen-level and page-level permission
       const filteredSubLinks = (module.subLinks || []).filter((link) => {
         const route = link.route;
+
+        // Channel Partner Feature Plan Eligibility Check:
+        // Partner Dashboard, Channel Partner (team mgmt), Partner Payouts, and Partner Subscriptions
+        // are strictly available ONLY IF the tenant's current plan is eligible (MaxPartners > 0 or -1).
+        const isPartnerSpecificRoute =
+          route === '/admin/PartnerDashboard' ||
+          route === '/admin/teammanagement/channelpartner/channel' ||
+          route === '/admin/payouts/PartnerPayout' ||
+          route.includes('/admin/subscriptions/partnersubscriptions');
+
+        if (isPartnerSpecificRoute && !hasPartnerPlanEligibility) {
+          return false;
+        }
+
+        // Web parity: Team Management → Channel Partner only for Admin with the partner feature
+        if (route === '/admin/teammanagement/channelpartner/channel') {
+          return role === 'admin' || isAdmin;
+        }
+
+        // Lead Tracking dashboard: Partner (own) + Admin (all partners)
+        if (route === '/admin/dashboard?tab=tracking') {
+          return role === 'partner' || role === 'admin' || isAdmin;
+        }
 
         // Settings links: purely only for Admin
         if (
@@ -399,8 +434,8 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
   const [contentHeight, setContentHeight] = useState(320); // Fallback content height
   const contentHeightRef = useRef(320);
 
-  const getMinHeight = () => Math.max(320, Math.min(contentHeightRef.current, windowHeight * 0.40));
-  const getMaxHeight = () => Math.max(320, Math.min(contentHeightRef.current, windowHeight * 0.92));
+  const getMinHeight = () => Math.max(260, Math.min(contentHeightRef.current, Math.round(windowHeight * 0.40)));
+  const getMaxHeight = () => Math.max(260, Math.min(contentHeightRef.current, Math.round(windowHeight * 0.92)));
 
   const sheetHeight = useRef(new Animated.Value(320)).current;
   const translateY = useRef(new Animated.Value(windowHeight)).current;
@@ -704,6 +739,8 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
         <Animated.View
           style={{
             width: '100%',
+            maxWidth: 640,
+            alignSelf: 'center',
             transform: [{ translateY }],
           }}
         >
@@ -847,7 +884,7 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
                     >
                       {filteredModules.length > 0 ? (
                         filteredModules.map((module, index) => {
-                          const IconComp = module.icon;
+                          const IconComp = module.icon ?? LayoutDashboard;
                           const anim = itemAnims[index] || new Animated.Value(1);
 
                           return (
@@ -879,10 +916,23 @@ export function BottomMenuSheet({ isOpen, onClose, blurTargetRef }: BottomMenuSh
                                 style={styles.moduleCard}
                                 activeOpacity={0.7}
                               >
-                                <View style={[styles.iconBadge, { backgroundColor: cardBg, borderColor }]}>
-                                  <IconComp size={32} color={module.color} />
+                                <View
+                                  style={[
+                                    styles.iconBadge,
+                                    isSmallPhone && { width: 56, height: 56, borderRadius: 28, marginBottom: 6 },
+                                    { backgroundColor: cardBg, borderColor },
+                                  ]}
+                                >
+                                  <IconComp size={isSmallPhone ? 26 : 32} color={module.color} />
                                 </View>
-                                <Text style={[styles.moduleTitle, { color: textColor }]} numberOfLines={1}>
+                                <Text
+                                  style={[
+                                    styles.moduleTitle,
+                                    isSmallPhone && { fontSize: 11 },
+                                    { color: textColor },
+                                  ]}
+                                  numberOfLines={1}
+                                >
                                   {module.title}
                                 </Text>
                               </TouchableOpacity>

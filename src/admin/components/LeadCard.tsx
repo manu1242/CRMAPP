@@ -11,12 +11,11 @@ import { useRouter } from 'expo-router';
 import {
   Phone,
   Mail,
-  MessageSquare,
+  MessageCircle,
   CalendarCheck,
   UserCheck,
   ChevronRight,
   MapPin,
-  Building2,
   UserPlus,
   Star,
   ChevronDown,
@@ -51,31 +50,16 @@ function getAvatarPalette(id: number | string) {
   return AVATAR_PALETTES[Math.abs(num) % AVATAR_PALETTES.length];
 }
 
+// Same format as web Leads list (formatDateNice): "DD Mon YYYY", '-' when empty
 function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return 'N/A';
+  if (!dateStr) return '-';
   try {
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return 'N/A';
+    if (isNaN(d.getTime())) return '-';
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]} ${d.getFullYear()}`;
   } catch {
-    return 'N/A';
-  }
-}
-
-function formatFollowUp(dateStr: string | null | undefined): string | null {
-  if (!dateStr) return null;
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return null;
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12;
-    return `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]}, ${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
-  } catch {
-    return null;
+    return '-';
   }
 }
 
@@ -94,10 +78,23 @@ export default function LeadCard({
   const [stageModalOpen, setStageModalOpen] = useState(false);
   const [currentStage, setCurrentStage] = useState(lead.stage || 'New');
   const [assignedAgentName, setAssignedAgentName] = useState(
-    lead.assignedToAgentName || (lead.assignedToAgentId ? `Agent #${lead.assignedToAgentId}` : 'Unassigned')
+    lead.assignedToAgentName ||
+    (lead as any).assignedAgentName ||
+    (lead as any).executiveName ||
+    (lead.assignedToAgentId ? 'Assigned' : 'Unassigned')
   );
 
-  const isAssigned = !!(lead.assignedToAgentId || (lead.assignedToAgentName && lead.assignedToAgentName !== 'Unassigned'));
+  React.useEffect(() => {
+    const nextName =
+      lead.assignedToAgentName ||
+      (lead as any).assignedAgentName ||
+      (lead as any).executiveName;
+    if (nextName) {
+      setAssignedAgentName(nextName);
+    }
+  }, [lead.assignedToAgentName, (lead as any).assignedAgentName, (lead as any).executiveName]);
+
+  const isAssigned = !!(lead.assignedToAgentId || (assignedAgentName && assignedAgentName !== 'Unassigned'));
 
   const cardBg = adminTheme.cardBg;
   const textColor = adminTheme.textPrimary;
@@ -108,11 +105,11 @@ export default function LeadCard({
   const initial = (leadName.trim() || 'L').charAt(0).toUpperCase();
   const avatarStyle = getAvatarPalette(lead.leadId || leadName);
 
+  // Same values/fallbacks as web Leads list columns
   const formattedDate = formatDate(lead.createdDate || lead.createdOn);
-  const formattedFollowUp = formatFollowUp(lead.followUpDate);
-
-  const specsList = [lead.bhk, lead.propertyType, lead.type].filter(Boolean);
-  const requirementText = specsList.length > 0 ? specsList.join(' · ') : (lead.requirement || null);
+  const formattedFollowUp = formatDate(lead.followUpDate);
+  const sourceText = lead.source || 'Website';
+  const locationText = lead.preferredLocation || lead.groupName || 'Direct / General';
 
   const cleanPhone = (lead.phone || '').replace(/[^0-9+]/g, '');
 
@@ -159,7 +156,7 @@ export default function LeadCard({
               </Text>
               <View style={styles.metaSubRow}>
                 <Text style={[styles.metaSubText, { color: subTextColor }]}>
-                  #{lead.leadId} • {lead.source || 'Website'}
+                  {lead.phone || '-'}
                 </Text>
                 {lead.rating ? (
                   <View style={styles.ratingChip}>
@@ -189,18 +186,12 @@ export default function LeadCard({
               <LeadStatusBadge value={currentStage || 'New'} type="stage" size="sm" />
             )}
 
-            <LeadStatusBadge value={lead.status || 'Active'} type="status" size="sm" />
           </View>
         </View>
 
         {/* Contact Strip with Quick Communication Actions (No border boxes) */}
         <View style={styles.contactRow}>
           <View style={styles.contactInfoCol}>
-            {lead.phone ? (
-              <Text style={[styles.contactPhone, { color: textColor }]} numberOfLines={1}>
-                {lead.phone}
-              </Text>
-            ) : null}
             {lead.email ? (
               <Text style={[styles.contactEmail, { color: subTextColor }]} numberOfLines={1}>
                 {lead.email}
@@ -225,7 +216,7 @@ export default function LeadCard({
                 style={[styles.iconButton]}
                 accessibilityLabel="WhatsApp Lead"
               >
-                <MessageSquare size={14} color="#16a34a" />
+                <MessageCircle size={14} color="#16a34a" />
               </TouchableOpacity>
             ) : null}
 
@@ -241,42 +232,21 @@ export default function LeadCard({
           </View>
         </View>
 
-        {/* Property Specs & Location (Simple inline tags, no box-in-box) */}
-        {(requirementText || lead.preferredLocation) ? (
-          <View style={styles.tagsRow}>
-            {requirementText ? (
-              <View style={[styles.tagItem]}>
-                <Building2 size={12} color="#64748b" />
-                <Text style={[styles.tagText, { color: textColor }]} numberOfLines={1}>
-                  {requirementText}
-                </Text>
-              </View>
-            ) : null}
-
-            {lead.preferredLocation ? (
-              <View style={[styles.tagItem]}>
-                <MapPin size={12} color="#8b5cf6" />
-                <Text style={[styles.tagText, { color: subTextColor }]} numberOfLines={1}>
-                  {lead.preferredLocation}
-                </Text>
-              </View>
-            ) : null}
+        {/* Labeled fields — same titles/values as web Leads list */}
+        <View style={styles.infoGrid}>
+          <View style={styles.infoCell}>
+            <Text style={[styles.infoLabel, { color: subTextColor }]}>SOURCE</Text>
+            <Text style={[styles.infoValue, { color: textColor }]} numberOfLines={1}>{sourceText}</Text>
           </View>
-        ) : null}
-
-        {/* Follow-up Banner (Seamless soft amber background, no borders) */}
-        {formattedFollowUp ? (
-          <View style={[styles.followUpWrap]}>
-            <CalendarCheck size={13} color="#d97706" />
-            <Text style={[styles.followUpText, { color: subTextColor }]} numberOfLines={1}>
-              Follow-up: <Text style={{ fontWeight: '700', color: subTextColor }}>{formattedFollowUp}</Text>
-            </Text>
+          <View style={styles.infoCell}>
+            <Text style={[styles.infoLabel, { color: subTextColor }]}>LOCATION</Text>
+            <View style={styles.infoValueRow}>
+              <MapPin size={11} color="#8b5cf6" />
+              <Text style={[styles.infoValue, { color: textColor }]} numberOfLines={1}>{locationText}</Text>
+            </View>
           </View>
-        ) : null}
-
-        {/* Footer: Assigned Agent & Created Date */}
-        <View style={styles.footerRow}>
-          <View style={styles.agentCol}>
+          <View style={styles.infoCell}>
+            <Text style={[styles.infoLabel, { color: subTextColor }]}>ASSIGNED TO</Text>
             {isAssigned ? (
               <TouchableOpacity
                 disabled={!canAssign}
@@ -286,7 +256,7 @@ export default function LeadCard({
                 }}
                 style={styles.agentButton}
               >
-                <UserCheck size={13} color="#059669" />
+                <UserCheck size={12} color="#059669" />
                 <Text style={styles.agentText} numberOfLines={1}>
                   {assignedAgentName}
                 </Text>
@@ -301,15 +271,24 @@ export default function LeadCard({
                 }}
                 style={styles.unassignedButton}
               >
-                <UserPlus size={13} color="#d97706" />
-                <Text style={styles.unassignedText}>+ Assign Agent</Text>
+                <UserPlus size={12} color="#d97706" />
+                <Text style={styles.unassignedText}>Unassigned</Text>
+                {canAssign ? <ChevronDown size={11} color="#d97706" /> : null}
               </TouchableOpacity>
             )}
           </View>
-
-          <View style={styles.dateCol}>
-            <Text style={[styles.dateText, { color: subTextColor }]}>{formattedDate}</Text>
-            <ChevronRight size={14} color={subTextColor} />
+          <View style={styles.infoCell}>
+            <Text style={[styles.infoLabel, { color: subTextColor }]}>CREATED</Text>
+            <Text style={[styles.infoValue, { color: textColor }]} numberOfLines={1}>{formattedDate}</Text>
+          </View>
+          <View style={[styles.infoCell, styles.infoCellFull]}>
+            <Text style={[styles.infoLabel, { color: subTextColor }]}>NEXT FOLLOW-UP</Text>
+            <View style={styles.infoValueRow}>
+              {lead.followUpDate ? <CalendarCheck size={11} color="#d97706" /> : null}
+              <Text style={[styles.infoValue, { color: textColor }]} numberOfLines={1}>{formattedFollowUp}</Text>
+              <View style={{ flex: 1 }} />
+              <ChevronRight size={14} color={subTextColor} />
+            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -522,6 +501,35 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '300',
     color: '#d97706',
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 10,
+    rowGap: 8,
+  },
+  infoCell: {
+    width: '50%',
+    paddingRight: 8,
+  },
+  infoCellFull: {
+    width: '100%',
+  },
+  infoLabel: {
+    fontSize: 9.5,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 12,
+    fontWeight: '400',
+    flexShrink: 1,
+  },
+  infoValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   dateCol: {
     flexDirection: 'row',

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
+  KeyboardAvoidingView,
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -71,6 +72,23 @@ export default function CreateAgentScreen() {
   const { data: dropdownData, isLoading: loadingDropdowns } = useAgentDropdowns();
   const agentTypes = dropdownData?.data?.agentTypes || ['Salary', 'Hybrid', 'Commission'];
   const commissionRules = dropdownData?.data?.commissionRules || ['None (0% of sale)'];
+
+  // Web parity: AgentController.CheckCanOnboard — block onboarding when plan/subscription limits are reached
+  useEffect(() => {
+    if (isEdit) return;
+    let cancelled = false;
+    AgentsService.checkCanOnboard()
+      .then((res) => {
+        if (cancelled || !res?.data || res.data.allowed) return;
+        Alert.alert('Cannot Onboard Agent', res.message || 'Agent limit reached.', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      })
+      .catch(() => {}); // server still enforces limits on submit
+    return () => {
+      cancelled = true;
+    };
+  }, [isEdit, router]);
 
   // Detail query for edit mode (only triggers if isEdit is true)
   const { data: agentDetailRes, isLoading: loadingDetails } = useAgent(isEdit ? id : undefined);
@@ -405,11 +423,17 @@ export default function CreateAgentScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16, paddingBottom: Math.max(bottomSpacing, 110), flexGrow: 1, gap: 16 }}
-        showsVerticalScrollIndicator={false}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: Math.max(bottomSpacing, 110), flexGrow: 1, gap: 16 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Form Card */}
         <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16, gap: 14 }}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: textColor, borderBottomWidth: 1, borderBottomColor: borderCol, paddingBottom: 8, marginBottom: 4 }}>
@@ -805,13 +829,14 @@ export default function CreateAgentScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+    </KeyboardAvoidingView>
 
       {/* ── Dropdowns Selection Modals ── */}
 
       {/* Agent Type Modal */}
       <Modal visible={typeModalOpen} transparent animationType="fade">
-        <TouchableOpacity activeOpacity={1} onPress={() => setTypeModalOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ width: 260, backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, paddingVertical: 8 }}>
+        <TouchableOpacity activeOpacity={1} onPress={() => setTypeModalOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+          <View style={{ width: '88%', maxWidth: 320, backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, paddingVertical: 8 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: subTextColor, paddingHorizontal: 16, paddingVertical: 8, textTransform: 'uppercase' }}>
               Select Agent Type
             </Text>
@@ -841,8 +866,8 @@ export default function CreateAgentScreen() {
 
       {/* Commission Rules Modal */}
       <Modal visible={rulesModalOpen} transparent animationType="fade">
-        <TouchableOpacity activeOpacity={1} onPress={() => setRulesModalOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ width: 280, maxHeight: 400, backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, paddingVertical: 8 }}>
+        <TouchableOpacity activeOpacity={1} onPress={() => setRulesModalOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+          <View style={{ width: '88%', maxWidth: 320, maxHeight: 400, backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, paddingVertical: 8 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: subTextColor, paddingHorizontal: 16, paddingVertical: 8, textTransform: 'uppercase' }}>
               Select Commission Rule
             </Text>

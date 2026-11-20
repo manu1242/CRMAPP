@@ -8,15 +8,22 @@ export const SalesPipelineService = {
     return apiClient.get<ApiResponse<string[]>>(API_ENDPOINTS.SALES_PIPELINE.STAGES);
   },
 
-  getLeadsByStage: async (): Promise<ApiResponse<SalesPipelineStageGroup[]>> => {
+  getLeadsByStage: async (params?: {
+    search?: string;
+    executiveId?: number;
+    source?: string;
+    from?: string;
+    to?: string;
+  }): Promise<ApiResponse<SalesPipelineStageGroup[]>> => {
     try {
       return await apiClient.get<ApiResponse<SalesPipelineStageGroup[]>>(
-        API_ENDPOINTS.SALES_PIPELINE.LEADS_BY_STAGE
+        API_ENDPOINTS.SALES_PIPELINE.LEADS_BY_STAGE,
+        params
       );
     } catch (err: any) {
       if (err.response?.status === 404) {
         // Fallback endpoint if /leads-by-stage returns 404
-        return await apiClient.get<ApiResponse<SalesPipelineStageGroup[]>>('/api/v1/sales-pipeline');
+        return await apiClient.get<ApiResponse<SalesPipelineStageGroup[]>>('/api/v1/sales-pipeline', params);
       }
       throw err;
     }

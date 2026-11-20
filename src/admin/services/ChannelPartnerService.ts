@@ -10,6 +10,8 @@ export interface GetPartnersResponse {
     pageNumber: number;
     pageSize: number;
     totalPages: number;
+    /** Web Channel Partner banner stats */
+    stats?: { total: number; pending: number; approved: number; rejected: number };
   };
 }
 
@@ -113,5 +115,23 @@ export const ChannelPartnerService = {
   // 10. Download All Channel Partner Documents
   async downloadAllDocuments(partnerId: number | string): Promise<Blob> {
     return apiClient.download(`/api/v1/ChannelPartnersApi/${partnerId}/documents/download-all`);
+  },
+
+  // Web parity: ManageUsersController.ApprovePartner / RejectPartner
+  async approvePartner(partnerId: number | string) {
+    return apiClient.post<{ success: boolean; message: string; data: any }>(`/api/v1/ChannelPartnersApi/${partnerId}/approve`);
+  },
+
+  async rejectPartner(partnerId: number | string) {
+    return apiClient.post<{ success: boolean; message: string; data: any }>(`/api/v1/ChannelPartnersApi/${partnerId}/reject`);
+  },
+
+  // Web parity: ManageUsersController.ApprovePartnerDocument / RejectPartnerDocument
+  async approveDocument(documentId: number | string) {
+    return apiClient.post<{ success: boolean; message: string; data: any }>(`/api/v1/ChannelPartnersApi/documents/${documentId}/approve`);
+  },
+
+  async rejectDocument(documentId: number | string, reason: string) {
+    return apiClient.post<{ success: boolean; message: string; data: any }>(`/api/v1/ChannelPartnersApi/documents/${documentId}/reject`, { reason });
   },
 };

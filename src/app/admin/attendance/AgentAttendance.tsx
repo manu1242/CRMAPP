@@ -1,659 +1,484 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  Image,
   StyleSheet,
   Modal,
   Pressable,
+  ScrollView,
+  Share,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '../../../contexts/ThemeContext';
-import { getAdminTheme } from '../../../theme/adminTheme';
+import Toast from 'react-native-toast-message';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
-  Users,
+  ArrowLeft,
   Search,
-  Calendar as CalendarIcon,
+  X,
+  Users,
+  Briefcase,
+  TrendingUp,
+  CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  TrendingUp,
-  Clock,
-  UserCheck,
-  UserX,
-  Filter,
-  ArrowRight,
-  RefreshCw,
-  AlertCircle,
-  ChevronDown,
   Check,
-  X,
   Mail,
-  Shield,
-  Briefcase,
-  Award,
+  Download,
+  ShieldAlert,
 } from 'lucide-react-native';
-import {
-  attendanceService,
-  AgentOverviewData,
-  AgentOverviewItem,
-} from '../../../Services/attendanceService';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { getAdminTheme, AdminThemeTokens } from '../../../theme/adminTheme';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
+import { useAuthStore } from '../../../auth/store/authStore';
+import { attendanceService, AgentOverviewItem } from '../../../Services/attendanceService';
 
-const ROLES = ['All', 'Agent', 'Sales'];
-const PERFORMANCE_OPTIONS = [
+const PAGE_SIZE = 10;
+
+// Web cards show the agent type (Salary / Commission / Hybrid) as the role
+const ROLES = [
+  { label: 'All Roles', value: '' },
+  { label: 'Salary', value: 'Salary' },
+  { label: 'Commission', value: 'Commission' },
+  { label: 'Hybrid', value: 'Hybrid' },
+];
+
+const PERFORMANCE = [
   { label: 'All Performance', value: '' },
-  { label: 'Excellent (≥90%)', value: 'excellent' },
+  { label: 'Excellent (90%+)', value: 'excellent' },
   { label: 'Good (75-89%)', value: 'good' },
   { label: 'Average (60-74%)', value: 'average' },
   { label: 'Poor (<60%)', value: 'poor' },
 ];
 
+// Web From/To filter = agent join date range
+type JoinRange = '' | 'month' | '3m' | 'year';
+const JOIN_RANGES: { label: string; value: JoinRange }[] = [
+  { label: 'Any join date', value: '' },
+  { label: 'Joined this month', value: 'month' },
+  { label: 'Joined last 3 months', value: '3m' },
+  { label: 'Joined this year', value: 'year' },
+];
+
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const joinRangeDates = (r: JoinRange): { fromDate?: string; toDate?: string } => {
+  const now = new Date();
+  if (r === 'month') return { fromDate: ymd(new Date(now.getFullYear(), now.getMonth(), 1)), toDate: ymd(now) };
+  if (r === '3m') return { fromDate: ymd(new Date(now.getFullYear(), now.getMonth() - 2, 1)), toDate: ymd(now) };
+  if (r === 'year') return { fromDate: ymd(new Date(now.getFullYear(), 0, 1)), toDate: ymd(now) };
+  return {};
+};
+
+// Web thresholds: Excellent ≥90, Good ≥75, Average ≥60, else Poor
+const perfTone = (key: string, t: AdminThemeTokens) =>
+  key === 'excellent' || key === 'good' ? t.brand : key === 'average' ? '#f59e0b' : '#ef4444';
+
+type Sheet = 'month' | 'role' | 'perf' | 'join' | null;
+
+/* ── Agent card ───────────────────────────────────────────────────── */
+const AgentCard = memo(function AgentCard({
+  a,
+  t,
+  onOpen,
+}: {
+  a: AgentOverviewItem;
+  t: AdminThemeTokens;
+  onOpen: (a: AgentOverviewItem) => void;
+}) {
+  const rate = Math.min(100, Math.max(0, a.attendancePercentage || 0));
+  const tone = perfTone(a.performanceKey, t);
+  const initials = (a.username || 'AG')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p.charAt(0).toUpperCase())
+    .join('');
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => onOpen(a)}
+      style={[styles.card, { backgroundColor: t.cardBg, borderColor: t.border }]}
+    >
+      <View style={styles.rowCenter}>
+        <View style={[styles.avatar, { backgroundColor: t.badgeBg }]}>
+          {a.profileImage ? (
+            <Image source={{ uri: a.profileImage }} style={styles.avatarImg} />
+          ) : (
+            <Text style={{ color: t.badgeText, fontSize: 14, fontWeight: '800' }}>{initials}</Text>
+          )}
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.name, { color: t.textPrimary }]} numberOfLines={1}>
+            {a.username}
+          </Text>
+          <View style={[styles.rowCenter, { gap: 6, marginTop: 3 }]}>
+            <View style={[styles.rolePill, { backgroundColor: t.inputBg }]}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: t.textSecondary }}>{a.role || 'Agent'}</Text>
+            </View>
+            {!!a.email && (
+              <View style={[styles.rowCenter, { gap: 4, flex: 1 }]}>
+                <Mail size={11} color={t.textMuted} />
+                <Text style={{ fontSize: 11, color: t.textMuted, flex: 1 }} numberOfLines={1}>
+                  {a.email}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={[styles.perfPill, { backgroundColor: `${tone}1A` }]}>
+          <Text style={{ fontSize: 10, fontWeight: '800', color: tone }}>{a.performance}</Text>
+        </View>
+      </View>
+
+      {/* Attendance rate */}
+      <View style={[styles.rowBetween, { marginTop: 14 }]}>
+        <Text style={[styles.smallLabel, { color: t.textMuted }]}>ATTENDANCE RATE</Text>
+        <Text style={{ fontSize: 14, fontWeight: '800', color: t.textPrimary }}>{rate.toFixed(1)}%</Text>
+      </View>
+      <View style={[styles.track, { backgroundColor: t.inputBg }]}>
+        <View style={[styles.fill, { width: `${rate}%`, backgroundColor: tone }]} />
+      </View>
+
+      {/* Present / Absent / Total */}
+      <View style={[styles.countsRow, { borderTopColor: t.border }]}>
+        {[
+          { label: 'Present', value: a.presentDays },
+          { label: 'Absent', value: a.absentDays },
+          { label: 'Total', value: a.workingDays },
+        ].map((c, i) => (
+          <View key={c.label} style={[styles.countCell, i > 0 && { borderLeftWidth: 1, borderLeftColor: t.border }]}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: t.textPrimary }}>{c.value}</Text>
+            <Text style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>{c.label}</Text>
+          </View>
+        ))}
+        <View style={[styles.calBtn, { backgroundColor: t.badgeBg }]}>
+          <CalendarDays size={15} color={t.brand} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+/* ── Screen ───────────────────────────────────────────────────────── */
 export default function AgentAttendance() {
   const router = useRouter();
   const { isDark } = useTheme();
-  const adminTheme = getAdminTheme(isDark);
+  const t = getAdminTheme(isDark);
   const { bottomSpacing } = useBottomNavSpacing();
+  const user = useAuthStore((s) => s.user);
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [overviewData, setOverviewData] = useState<AgentOverviewData | null>(null);
-
-  // Filter States
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [selectedRole, setSelectedRole] = useState('All');
-  const [selectedPerformance, setSelectedPerformance] = useState('');
-
-  // Dropdown Modal Visibility
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const [showPerfModal, setShowPerfModal] = useState(false);
-
-  const currentDate = new Date();
-  const [year, setYear] = useState(currentDate.getFullYear());
-  const [month, setMonth] = useState(currentDate.getMonth() + 1);
+  const [role, setRole] = useState('');
+  const [perf, setPerf] = useState('');
+  const [join, setJoin] = useState<JoinRange>('');
   const [page, setPage] = useState(1);
-  const pageSize = 10;
-
-  const fetchOverview = useCallback(
-    async (isRefresh = false) => {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      setError(null);
-
-      try {
-        const response = await attendanceService.getAgentOverview({
-          search: search.trim() || undefined,
-          role: selectedRole === 'All' ? undefined : selectedRole,
-          performance: selectedPerformance || undefined,
-          year,
-          month,
-          page,
-          pageSize,
-        });
-
-        if (response.success && response.data) {
-          setOverviewData(response.data);
-        } else {
-          setError(response.message || 'Failed to fetch attendance overview');
-        }
-      } catch (err: any) {
-        console.error('Error fetching attendance overview:', err);
-        setError(err.message || 'Error connecting to attendance service');
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [search, selectedRole, selectedPerformance, year, month, page]
-  );
+  const [sheet, setSheet] = useState<Sheet>(null);
 
   useEffect(() => {
-    fetchOverview();
-  }, [fetchOverview]);
+    const id = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(id);
+  }, [searchInput]);
 
-  const handlePrevMonth = () => {
-    if (month === 1) {
-      setMonth(12);
-      setYear((prev) => prev - 1);
-    } else {
-      setMonth((prev) => prev - 1);
+  const params = useMemo(
+    () => ({
+      search: search || undefined,
+      role: role || undefined,
+      performance: perf || undefined,
+      year,
+      month,
+      ...joinRangeDates(join),
+      page,
+      pageSize: PAGE_SIZE,
+    }),
+    [search, role, perf, year, month, join, page]
+  );
+
+  const { data, isLoading, isError, error, refetch, isRefetching, isFetching } = useQuery({
+    queryKey: ['agentAttendanceOverview', user?.userId, user?.tenantId, params],
+    queryFn: () => attendanceService.getAgentOverview(params).then((r) => r.data),
+    enabled: !!user,
+    placeholderData: keepPreviousData,
+    staleTime: 60 * 1000,
+  });
+
+  const stats = data?.headerStats;
+  const agents = data?.agents ?? [];
+  const totalCount = data?.totalCount ?? 0;
+  const totalPages = data?.totalPages ?? 1;
+  const hasFilters = !!(search || role || perf || join);
+
+  const monthOptions = useMemo(() => {
+    const list: { label: string; year: number; month: number }[] = [];
+    const base = new Date();
+    for (let i = 0; i < 18; i++) {
+      const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+      list.push({ label: d.toLocaleString('en-US', { month: 'long', year: 'numeric' }), year: d.getFullYear(), month: d.getMonth() + 1 });
     }
+    return list;
+  }, []);
+
+  const monthLabel = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
+
+  const clearFilters = () => {
+    setSearchInput('');
+    setSearch('');
+    setRole('');
+    setPerf('');
+    setJoin('');
     setPage(1);
   };
 
-  const handleNextMonth = () => {
-    if (month === 12) {
-      setMonth(1);
-      setYear((prev) => prev + 1);
-    } else {
-      setMonth((prev) => prev + 1);
+  const openCalendar = useCallback(
+    (a: AgentOverviewItem) =>
+      router.push({
+        pathname: '/admin/attendance/AgentCalender',
+        params: { agentId: a.encodedAgentId || String(a.userId ?? a.agentId), month: String(month), year: String(year) },
+      } as any),
+    [router, month, year]
+  );
+
+  const handleExport = async () => {
+    if (!agents.length) {
+      Toast.show({ type: 'info', text1: 'No Records', text2: 'No agent attendance records to export.' });
+      return;
     }
-    setPage(1);
+    const header = 'Agent Name,Email,Role,Present Days,Absent Days,Working Days,Attendance %,Performance\n';
+    const rows = agents
+      .map((a) => `"${a.username}","${a.email}","${a.role}",${a.presentDays},${a.absentDays},${a.workingDays},"${a.attendancePercentage.toFixed(1)}%","${a.performance}"`)
+      .join('\n');
+    try {
+      await Share.share({ title: `Agent_Attendance_${year}_${month}.csv`, message: header + rows });
+    } catch (e: any) {
+      Toast.show({ type: 'error', text1: 'Export Error', text2: e?.message || 'Failed to export.' });
+    }
   };
 
-  const getPerformanceBadgeColor = (key: string) => {
-    switch ((key || '').toLowerCase()) {
-      case 'excellent':
-        return { bg: '#10b98118', text: '#10b981', border: '#10b98140', dot: '#10b981' };
-      case 'good':
-        return { bg: '#3b82f618', text: '#3b82f6', border: '#3b82f640', dot: '#3b82f6' };
-      case 'average':
-        return { bg: '#f59e0b18', text: '#f59e0b', border: '#f59e0b40', dot: '#f59e0b' };
-      case 'poor':
-      default:
-        return { bg: '#ef444418', text: '#ef4444', border: '#ef444440', dot: '#ef4444' };
-    }
-  };
+  const sheetOptions: { label: string; selected: boolean; onPick: () => void }[] =
+    sheet === 'month'
+      ? monthOptions.map((m) => ({
+          label: m.label,
+          selected: m.year === year && m.month === month,
+          onPick: () => { setYear(m.year); setMonth(m.month); setPage(1); },
+        }))
+      : sheet === 'role'
+      ? ROLES.map((r) => ({ label: r.label, selected: role === r.value, onPick: () => { setRole(r.value); setPage(1); } }))
+      : sheet === 'perf'
+      ? PERFORMANCE.map((p) => ({ label: p.label, selected: perf === p.value, onPick: () => { setPerf(p.value); setPage(1); } }))
+      : sheet === 'join'
+      ? JOIN_RANGES.map((j) => ({ label: j.label, selected: join === j.value, onPick: () => { setJoin(j.value); setPage(1); } }))
+      : [];
 
-  const headerStats = overviewData?.headerStats;
-  const currentPerfLabel =
-    PERFORMANCE_OPTIONS.find((p) => p.value === selectedPerformance)?.label || 'All Performance';
+  const statCards = [
+    { label: 'Total Agents', value: String(stats?.totalAgents ?? 0), icon: Users },
+    { label: 'Working Days', value: String(stats?.workingDays ?? 0), icon: Briefcase },
+    { label: 'Avg Attendance', value: `${(stats?.avgAttendancePercentage ?? 0).toFixed(1)}%`, icon: TrendingUp },
+    { label: 'Current Month', value: stats?.currentMonthShort ? `${stats.currentMonthShort} ${stats.year}` : monthLabel, icon: CalendarDays },
+  ];
 
-  return (
-    <View style={[styles.container, { backgroundColor: adminTheme.primaryBg }]}>
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomSpacing + 20 }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchOverview(true)}
-            tintColor={adminTheme.brand}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Inline Top Header & Month Navigator */}
-        <View style={styles.topRowContainer}>
-          <View style={styles.topTitleRow}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={[styles.backButton, { backgroundColor: adminTheme.inputBg }]}
-            >
-              <ChevronLeft size={20} color={adminTheme.textPrimary} />
-            </TouchableOpacity>
+  const Chip = ({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) => (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.chip, { backgroundColor: active ? t.badgeBg : t.cardBg, borderColor: active ? t.brand : t.border }]}
+    >
+      <Text style={{ fontSize: 12, fontWeight: '600', color: active ? t.badgeText : t.textPrimary }} numberOfLines={1}>
+        {label}
+      </Text>
+      <ChevronDown size={13} color={active ? t.brand : t.textSecondary} />
+    </TouchableOpacity>
+  );
 
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.pageTitle, { color: adminTheme.textPrimary }]}>
-                Agent Attendance
-              </Text>
-              <Text style={[styles.pageSubtitle, { color: adminTheme.textSecondary }]}>
-                {headerStats?.currentMonthName || `Month ${month}, ${year}`} Performance
-              </Text>
-            </View>
-
-            {/* Inline Month Selector */}
-            <View style={[styles.monthSelector, { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border }]}>
-              <TouchableOpacity onPress={handlePrevMonth} style={styles.monthArrow}>
-                <ChevronLeft size={16} color={adminTheme.textPrimary} />
-              </TouchableOpacity>
-              <Text style={[styles.monthText, { color: adminTheme.textPrimary }]}>
-                {headerStats?.currentMonthShort || `${month}`}/{year.toString().substring(2)}
-              </Text>
-              <TouchableOpacity onPress={handleNextMonth} style={styles.monthArrow}>
-                <ChevronRight size={16} color={adminTheme.textPrimary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-
-        {/* Summary Header Stats Row */}
-        <View style={styles.statsGrid}>
-          {/* Card 1: Total Agents */}
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
-            ]}
-          >
-            <View style={[styles.statIconBadge, { backgroundColor: '#6366f115' }]}>
-              <Users size={16} color="#6366f1" />
-            </View>
-            <Text style={[styles.statValue, { color: adminTheme.textPrimary }]}>
-              {headerStats?.totalAgents ?? 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: adminTheme.textSecondary }]}>
-              Total Agents
-            </Text>
-          </View>
-
-          {/* Card 2: Working Days */}
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
-            ]}
-          >
-            <View style={[styles.statIconBadge, { backgroundColor: '#10b98115' }]}>
-              <Clock size={16} color="#10b981" />
-            </View>
-            <Text style={[styles.statValue, { color: adminTheme.textPrimary }]}>
-              {headerStats?.workingDays ?? 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: adminTheme.textSecondary }]}>
-              Working Days
-            </Text>
-          </View>
-
-          {/* Card 3: Avg Attendance */}
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
-            ]}
-          >
-            <View style={[styles.statIconBadge, { backgroundColor: '#f59e0b15' }]}>
-              <TrendingUp size={16} color="#f59e0b" />
-            </View>
-            <Text style={[styles.statValue, { color: adminTheme.textPrimary }]}>
-              {headerStats?.avgAttendancePercentage?.toFixed(1) ?? '0.0'}%
-            </Text>
-            <Text style={[styles.statLabel, { color: adminTheme.textSecondary }]}>
-              Avg Rate
-            </Text>
-          </View>
-        </View>
-
-        {/* Filters Section */}
-        <View
-          style={[
-            styles.filterContainer,
-            { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
-          ]}
-        >
-          {/* Search Input */}
-          <View style={[styles.searchBox, { backgroundColor: adminTheme.inputBg }]}>
-            <Search size={16} color={adminTheme.textSecondary} />
-            <TextInput
-              style={[styles.searchInput, { color: adminTheme.textPrimary }]}
-              placeholder="Search agent by name or email..."
-              placeholderTextColor={adminTheme.textMuted}
-              value={search}
-              onChangeText={(txt) => {
-                setSearch(txt);
-                setPage(1);
-              }}
-            />
-          </View>
-
-          {/* Role & Performance Dropdowns Row */}
-          <View style={styles.dropdownsRow}>
-            {/* Role Dropdown Button */}
-            <TouchableOpacity
-              onPress={() => setShowRoleModal(true)}
-              style={[
-                styles.dropdownSelector,
-                { backgroundColor: adminTheme.inputBg, borderColor: adminTheme.border },
-              ]}
-            >
-              <View style={styles.dropdownLabelContainer}>
-                <Text style={[styles.dropdownPreLabel, { color: adminTheme.textSecondary }]}>
-                  Role:
-                </Text>
-                <Text
-                  style={[styles.dropdownValueText, { color: adminTheme.textPrimary }]}
-                  numberOfLines={1}
-                >
-                  {selectedRole === 'All' ? 'All Roles' : selectedRole}
-                </Text>
+  const Header = (
+    <View style={{ gap: 14, marginBottom: 12 }}>
+      {/* Stats — one horizontal row */}
+      <View style={styles.statsRow}>
+        {statCards.map((s) => {
+          const Icon = s.icon;
+          return (
+            <View key={s.label} style={[styles.stat, { backgroundColor: t.cardBg, borderColor: t.border }]}>
+              <View style={[styles.statIcon, { backgroundColor: t.badgeBg }]}>
+                <Icon size={15} color={t.brand} />
               </View>
-              <ChevronDown size={16} color={adminTheme.textSecondary} />
-            </TouchableOpacity>
+              <Text style={[styles.statValue, { color: t.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
+                {s.value}
+              </Text>
+              <Text style={[styles.statLabel, { color: t.textSecondary }]} numberOfLines={1}>
+                {s.label}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
 
-            {/* Performance Dropdown Button */}
-            <TouchableOpacity
-              onPress={() => setShowPerfModal(true)}
-              style={[
-                styles.dropdownSelector,
-                { backgroundColor: adminTheme.inputBg, borderColor: adminTheme.border },
-              ]}
-            >
-              <View style={styles.dropdownLabelContainer}>
-                <Text style={[styles.dropdownPreLabel, { color: adminTheme.textSecondary }]}>
-                  Perf:
-                </Text>
-                <Text
-                  style={[styles.dropdownValueText, { color: adminTheme.textPrimary }]}
-                  numberOfLines={1}
-                >
-                  {currentPerfLabel.split(' ')[0]}
-                </Text>
-              </View>
-              <ChevronDown size={16} color={adminTheme.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Error State */}
-        {error && (
-          <View style={[styles.errorCard, { backgroundColor: '#ef444415', borderColor: '#ef444440' }]}>
-            <AlertCircle size={20} color="#ef4444" />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={() => fetchOverview()} style={styles.retryButton}>
-              <RefreshCw size={14} color="#ef4444" />
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Agents Redesigned Cards List */}
-        {loading && !refreshing ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={adminTheme.brand} />
-            <Text style={[styles.loadingText, { color: adminTheme.textSecondary }]}>
-              Loading agent attendance...
-            </Text>
-          </View>
-        ) : overviewData?.agents && overviewData.agents.length > 0 ? (
-          <View style={styles.cardsList}>
-            {overviewData.agents.map((agent: AgentOverviewItem) => {
-              const perfBadge = getPerformanceBadgeColor(agent.performanceKey || agent.performance);
-              const ratePercent = Math.min(100, Math.max(0, agent.attendancePercentage || 0));
-
-              return (
-                <View
-                  key={agent.agentId || agent.encodedAgentId}
-                  style={[
-                    styles.redesignedCard,
-                    { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
-                  ]}
-                >
-                  {/* Top Profile Header Row */}
-                  <View style={styles.cardHeaderRow}>
-                    <View style={styles.avatarWrapper}>
-                      {agent.profileImage ? (
-                        <Image source={{ uri: agent.profileImage }} style={styles.avatarImage} />
-                      ) : (
-                        <View style={[styles.avatarCircle, { backgroundColor: adminTheme.brand }]}>
-                          <Text style={styles.avatarInitial}>
-                            {agent.username ? agent.username.charAt(0).toUpperCase() : 'A'}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-
-                    <View style={styles.agentInfoCol}>
-                      <Text style={[styles.redesignedName, { color: adminTheme.textPrimary }]}>
-                        {agent.username}
-                      </Text>
-                      <View style={styles.emailRow}>
-                        <Mail size={12} color={adminTheme.textSecondary} />
-                        <Text
-                          style={[styles.redesignedEmail, { color: adminTheme.textSecondary }]}
-                          numberOfLines={1}
-                        >
-                          {agent.email}
-                        </Text>
-                      </View>
-
-                      {/* Role Pill */}
-                      <View style={[styles.rolePill, { backgroundColor: adminTheme.inputBg }]}>
-                        <Briefcase size={10} color={adminTheme.brand} />
-                        <Text style={[styles.rolePillText, { color: adminTheme.brand }]}>
-                          {agent.role || 'Agent'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Performance Status Badge */}
-                    <View
-                      style={[
-                        styles.redesignedPerfBadge,
-                        { backgroundColor: perfBadge.bg, borderColor: perfBadge.border },
-                      ]}
-                    >
-                      <View style={[styles.perfDot, { backgroundColor: perfBadge.dot }]} />
-                      <Text style={[styles.redesignedPerfText, { color: perfBadge.text }]}>
-                        {agent.performance}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Attendance Rate Hero Metric Bar */}
-                  <View style={[styles.rateBarContainer, { backgroundColor: adminTheme.inputBg }]}>
-                    <View style={styles.rateHeaderRow}>
-                      <Text style={[styles.rateTitleText, { color: adminTheme.textSecondary }]}>
-                        Attendance Score
-                      </Text>
-                      <Text style={[styles.rateValueText, { color: adminTheme.brand }]}>
-                        {agent.attendancePercentage.toFixed(1)}%
-                      </Text>
-                    </View>
-
-                    {/* Dynamic Progress Track Bar */}
-                    <View style={[styles.progressTrack, { backgroundColor: adminTheme.border }]}>
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            width: `${ratePercent}%`,
-                            backgroundColor: perfBadge.text,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
-
-                  {/* 3 Metric Pills Grid */}
-                  <View style={styles.metricsGrid}>
-                    {/* Present Pill */}
-                    <View
-                      style={[
-                        styles.metricTile,
-                        { backgroundColor: '#10b98110', borderColor: '#10b98130' },
-                      ]}
-                    >
-                      <UserCheck size={14} color="#10b981" />
-                      <Text style={[styles.metricTileValue, { color: '#10b981' }]}>
-                        {agent.presentDays}
-                      </Text>
-                      <Text style={[styles.metricTileLabel, { color: adminTheme.textSecondary }]}>
-                        Present
-                      </Text>
-                    </View>
-
-                    {/* Absent Pill */}
-                    <View
-                      style={[
-                        styles.metricTile,
-                        { backgroundColor: '#ef444410', borderColor: '#ef444430' },
-                      ]}
-                    >
-                      <UserX size={14} color="#ef4444" />
-                      <Text style={[styles.metricTileValue, { color: '#ef4444' }]}>
-                        {agent.absentDays}
-                      </Text>
-                      <Text style={[styles.metricTileLabel, { color: adminTheme.textSecondary }]}>
-                        Absent
-                      </Text>
-                    </View>
-
-                    {/* Working Days Pill */}
-                    <View
-                      style={[
-                        styles.metricTile,
-                        { backgroundColor: adminTheme.inputBg, borderColor: adminTheme.border },
-                      ]}
-                    >
-                      <Clock size={14} color={adminTheme.textPrimary} />
-                      <Text style={[styles.metricTileValue, { color: adminTheme.textPrimary }]}>
-                        {agent.workingDays}
-                      </Text>
-                      <Text style={[styles.metricTileLabel, { color: adminTheme.textSecondary }]}>
-                        Work Days
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Action Button */}
-                  <TouchableOpacity
-                    onPress={() =>
-                      router.push({
-                        pathname: '/admin/attendance/AgentCalender',
-                        params: { agentId: agent.encodedAgentId || agent.agentId.toString() },
-                      })
-                    }
-                    style={[
-                      styles.viewCalendarAction,
-                      { backgroundColor: adminTheme.brand },
-                    ]}
-                  >
-                    <CalendarIcon size={16} color="#ffffff" />
-                    <Text style={styles.viewCalendarActionText}>
-                      View Attendance Calendar
-                    </Text>
-                    <ArrowRight size={16} color="#ffffff" />
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Users size={36} color={adminTheme.textMuted} />
-            <Text style={[styles.emptyTitle, { color: adminTheme.textPrimary }]}>
-              No Agents Found
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: adminTheme.textSecondary }]}>
-              No agent attendance records matched your current filters.
-            </Text>
-          </View>
-        )}
-
-        {/* Pagination Bar */}
-        {overviewData && overviewData.totalPages > 1 && (
-          <View style={styles.paginationContainer}>
-            <TouchableOpacity
-              disabled={page <= 1}
-              onPress={() => setPage((p) => Math.max(1, p - 1))}
-              style={[
-                styles.pageButton,
-                { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
-                page <= 1 && { opacity: 0.4 },
-              ]}
-            >
-              <ChevronLeft size={16} color={adminTheme.textPrimary} />
-              <Text style={[styles.pageButtonText, { color: adminTheme.textPrimary }]}>Prev</Text>
-            </TouchableOpacity>
-
-            <Text style={[styles.pageInfoText, { color: adminTheme.textSecondary }]}>
-              Page {overviewData.pageNumber} of {overviewData.totalPages}
-            </Text>
-
-            <TouchableOpacity
-              disabled={page >= overviewData.totalPages}
-              onPress={() => setPage((p) => Math.min(overviewData.totalPages, p + 1))}
-              style={[
-                styles.pageButton,
-                { backgroundColor: adminTheme.cardBg, borderColor: adminTheme.border },
-                page >= overviewData.totalPages && { opacity: 0.4 },
-              ]}
-            >
-              <Text style={[styles.pageButtonText, { color: adminTheme.textPrimary }]}>Next</Text>
-              <ChevronRight size={16} color={adminTheme.textPrimary} />
-            </TouchableOpacity>
-          </View>
-        )}
+      {/* Filters */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 16 }} style={{ marginHorizontal: -16, paddingLeft: 16 }}>
+        <Chip label={monthLabel} active onPress={() => setSheet('month')} />
+        <Chip label={ROLES.find((r) => r.value === role)?.label || 'All Roles'} active={!!role} onPress={() => setSheet('role')} />
+        <Chip
+          label={perf ? PERFORMANCE.find((p) => p.value === perf)!.label.split(' (')[0] : 'All Performance'}
+          active={!!perf}
+          onPress={() => setSheet('perf')}
+        />
+        <Chip label={JOIN_RANGES.find((j) => j.value === join)!.label} active={!!join} onPress={() => setSheet('join')} />
       </ScrollView>
 
-      {/* Role Filter Modal Dropdown */}
-      <Modal visible={showRoleModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowRoleModal(false)} />
-          <View style={[styles.modalSheet, { backgroundColor: adminTheme.cardBg }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: adminTheme.textPrimary }]}>
-                Select Role Filter
-              </Text>
-              <TouchableOpacity onPress={() => setShowRoleModal(false)}>
-                <X size={20} color={adminTheme.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            {ROLES.map((r) => {
-              const isSelected = selectedRole === r;
-              return (
-                <TouchableOpacity
-                  key={r}
-                  onPress={() => {
-                    setSelectedRole(r);
-                    setPage(1);
-                    setShowRoleModal(false);
-                  }}
-                  style={[
-                    styles.optionItem,
-                    { borderBottomColor: adminTheme.border },
-                    isSelected && { backgroundColor: adminTheme.badgeBg },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      { color: adminTheme.textPrimary },
-                      isSelected && { fontWeight: '700', color: adminTheme.brand },
-                    ]}
-                  >
-                    {r === 'All' ? 'All Roles' : r}
-                  </Text>
-                  {isSelected && <Check size={18} color={adminTheme.brand} />}
-                </TouchableOpacity>
-              );
-            })}
+      <View style={styles.rowBetween}>
+        <View style={[styles.rowCenter, { gap: 8 }]}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: t.textPrimary }}>Agents</Text>
+          <View style={[styles.countChip, { backgroundColor: t.badgeBg }]}>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: t.badgeText }}>{totalCount}</Text>
           </View>
+          {isFetching && !isRefetching && <ActivityIndicator size="small" color={t.brand} />}
         </View>
-      </Modal>
+        {hasFilters && (
+          <TouchableOpacity onPress={clearFilters} hitSlop={8}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: t.brand }}>Clear filters</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
 
-      {/* Performance Filter Modal Dropdown */}
-      <Modal visible={showPerfModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowPerfModal(false)} />
-          <View style={[styles.modalSheet, { backgroundColor: adminTheme.cardBg }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: adminTheme.textPrimary }]}>
-                Select Performance Filter
+  const Empty = isLoading ? (
+    <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+      <ActivityIndicator size="large" color={t.brand} />
+      <Text style={{ marginTop: 10, color: t.textSecondary, fontSize: 13 }}>Loading attendance records...</Text>
+    </View>
+  ) : isError ? (
+    <View style={[styles.empty, { backgroundColor: t.cardBg, borderColor: t.border }]}>
+      <ShieldAlert size={32} color="#ef4444" />
+      <Text style={[styles.emptyTitle, { color: t.textPrimary }]}>Couldn't load attendance</Text>
+      <Text style={{ fontSize: 12, color: t.textSecondary, textAlign: 'center' }}>
+        {(error as any)?.response?.data?.message || (error as any)?.message || 'Something went wrong.'}
+      </Text>
+      <TouchableOpacity onPress={() => refetch()} style={[styles.primaryBtn, { backgroundColor: t.brand }]}>
+        <Text style={{ color: '#fff', fontWeight: '700' }}>Retry</Text>
+      </TouchableOpacity>
+    </View>
+  ) : (
+    <View style={[styles.empty, { backgroundColor: t.cardBg, borderColor: t.border }]}>
+      <Users size={32} color={t.textMuted} />
+      <Text style={[styles.emptyTitle, { color: t.textPrimary }]}>No Agents Found</Text>
+      <Text style={{ fontSize: 12, color: t.textSecondary, textAlign: 'center' }}>
+        No approved agents matched your search and filter criteria.
+      </Text>
+    </View>
+  );
+
+  const Footer =
+    totalPages > 1 ? (
+      <View style={[styles.rowBetween, { marginTop: 14 }]}>
+        <TouchableOpacity
+          disabled={page <= 1 || isFetching}
+          onPress={() => setPage((p) => Math.max(1, p - 1))}
+          style={[styles.pageBtn, { borderColor: t.border, backgroundColor: t.cardBg, opacity: page <= 1 ? 0.45 : 1 }]}
+        >
+          <ChevronLeft size={16} color={t.textPrimary} />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: t.textSecondary }}>
+          Page {page} of {totalPages}
+        </Text>
+        <TouchableOpacity
+          disabled={page >= totalPages || isFetching}
+          onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+          style={[styles.pageBtn, { borderColor: t.border, backgroundColor: t.cardBg, opacity: page >= totalPages ? 0.45 : 1 }]}
+        >
+          <ChevronRight size={16} color={t.textPrimary} />
+        </TouchableOpacity>
+      </View>
+    ) : null;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: t.primaryBg }}>
+      {/* Top bar */}
+      <View style={[styles.topBar, { backgroundColor: t.cardBg, borderBottomColor: t.border }]}>
+        <View style={[styles.rowCenter, { gap: 12 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.iconBtn, { backgroundColor: t.inputBg }]} hitSlop={6}>
+            <ArrowLeft size={18} color={t.textPrimary} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 17, fontWeight: '800', color: t.textPrimary }}>Agent Attendance</Text>
+            <Text style={{ fontSize: 12, color: t.textSecondary }} numberOfLines={1}>
+              Monitor approved agent attendance, working days and performance metrics
+            </Text>
+          </View>
+          <TouchableOpacity onPress={handleExport} style={[styles.iconBtn, { backgroundColor: t.inputBg }]} hitSlop={6}>
+            <Download size={17} color={t.textPrimary} />
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.search, { backgroundColor: t.inputBg, borderColor: t.border }]}>
+          <Search size={16} color={t.textSecondary} />
+          <TextInput
+            value={searchInput}
+            onChangeText={setSearchInput}
+            placeholder="Search by name, email, phone..."
+            placeholderTextColor={t.textMuted}
+            style={{ flex: 1, color: t.textPrimary, fontSize: 14, paddingVertical: 0 }}
+          />
+          {searchInput !== '' && (
+            <TouchableOpacity onPress={() => setSearchInput('')} hitSlop={8}>
+              <X size={16} color={t.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      <FlatList
+        data={isLoading || isError ? [] : agents}
+        keyExtractor={(a) => String(a.agentId)}
+        renderItem={({ item }) => <AgentCard a={item} t={t} onOpen={openCalendar} />}
+        ListHeaderComponent={Header}
+        ListEmptyComponent={Empty}
+        ListFooterComponent={Footer}
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing + 20, flexGrow: 1 }}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[t.brand]} tintColor={t.brand} />}
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={6}
+        windowSize={7}
+      />
+
+      {/* Filter sheet */}
+      <Modal visible={sheet !== null} transparent animationType="slide" onRequestClose={() => setSheet(null)}>
+        <View style={styles.overlay}>
+          <Pressable style={{ flex: 1 }} onPress={() => setSheet(null)} />
+          <View style={[styles.sheet, { backgroundColor: t.cardBg }]}>
+            <View style={[styles.handle, { backgroundColor: t.border }]} />
+            <View style={[styles.rowBetween, { marginBottom: 8 }]}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: t.textPrimary }}>
+                {sheet === 'month' ? 'Select Month' : sheet === 'role' ? 'Role' : sheet === 'perf' ? 'Performance' : 'Join Date'}
               </Text>
-              <TouchableOpacity onPress={() => setShowPerfModal(false)}>
-                <X size={20} color={adminTheme.textPrimary} />
+              <TouchableOpacity onPress={() => setSheet(null)} hitSlop={8}>
+                <X size={20} color={t.textSecondary} />
               </TouchableOpacity>
             </View>
-
-            {PERFORMANCE_OPTIONS.map((p) => {
-              const isSelected = selectedPerformance === p.value;
-              return (
+            <ScrollView style={{ maxHeight: 380 }}>
+              {sheetOptions.map((o) => (
                 <TouchableOpacity
-                  key={p.value}
-                  onPress={() => {
-                    setSelectedPerformance(p.value);
-                    setPage(1);
-                    setShowPerfModal(false);
-                  }}
-                  style={[
-                    styles.optionItem,
-                    { borderBottomColor: adminTheme.border },
-                    isSelected && { backgroundColor: adminTheme.badgeBg },
-                  ]}
+                  key={o.label}
+                  onPress={() => { o.onPick(); setSheet(null); }}
+                  style={[styles.option, o.selected && { backgroundColor: t.badgeBg }]}
                 >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      { color: adminTheme.textPrimary },
-                      isSelected && { fontWeight: '700', color: adminTheme.brand },
-                    ]}
-                  >
-                    {p.label}
+                  <Text style={{ flex: 1, fontSize: 14, fontWeight: o.selected ? '700' : '500', color: o.selected ? t.badgeText : t.textPrimary }}>
+                    {o.label}
                   </Text>
-                  {isSelected && <Check size={18} color={adminTheme.brand} />}
+                  {o.selected && <Check size={16} color={t.brand} />}
                 </TouchableOpacity>
-              );
-            })}
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -662,392 +487,42 @@ export default function AgentAttendance() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingTop: 12,
-    paddingBottom: 40,
-    gap: 16,
-  },
-  topRowContainer: {
-    marginBottom: 2,
-  },
-  topTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  pageSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  monthSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    gap: 4,
-  },
-  monthArrow: {
-    padding: 2,
-  },
-  monthText: {
-    fontSize: 12,
-    fontWeight: '700',
-    paddingHorizontal: 2,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 12,
-    alignItems: 'center',
-  },
-  statIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  statValue: {
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  statLabel: {
-    fontSize: 10,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  filterContainer: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 14,
-    gap: 10,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 42,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 13,
-  },
-  dropdownsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  dropdownSelector: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    height: 40,
-  },
-  dropdownLabelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    flex: 1,
-  },
-  dropdownPreLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  dropdownValueText: {
-    fontSize: 12,
-    fontWeight: '700',
-    flex: 1,
-  },
-  errorCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#ef4444',
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  retryText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#ef4444',
-  },
-  loadingContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 13,
-  },
-  cardsList: {
-    gap: 14,
-  },
+  rowCenter: { flexDirection: 'row', alignItems: 'center' },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
-  /* Redesigned Agent Card Styles */
-  redesignedCard: {
-    borderRadius: 22,
-    borderWidth: 1,
-    padding: 16,
-    gap: 14,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  avatarWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarCircle: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  agentInfoCol: {
-    flex: 1,
-  },
-  redesignedName: {
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  emailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  redesignedEmail: {
-    fontSize: 12,
-    flex: 1,
-  },
-  rolePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    gap: 4,
-    marginTop: 6,
-  },
-  rolePillText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  redesignedPerfBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 6,
-  },
-  perfDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  redesignedPerfText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  rateBarContainer: {
-    borderRadius: 14,
-    padding: 12,
-    gap: 8,
-  },
-  rateHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  rateTitleText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  rateValueText: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-    width: '100%',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  metricTile: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    gap: 4,
-  },
-  metricTileValue: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  metricTileLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  viewCalendarAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 14,
-    gap: 8,
-    marginTop: 2,
-  },
-  viewCalendarActionText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '800',
-  },
+  topBar: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, borderBottomWidth: 1, gap: 12 },
+  iconBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  search: { height: 42, borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
 
-  emptyContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  paginationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  pageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 4,
-  },
-  pageButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  pageInfoText: {
-    fontSize: 12,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-  },
-  modalSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    gap: 8,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 10,
-    marginBottom: 4,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  optionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    borderBottomWidth: 1,
-  },
-  optionText: {
-    fontSize: 14,
-  },
+  statsRow: { flexDirection: 'row', gap: 8 },
+  stat: { flex: 1, alignItems: 'center', paddingVertical: 12, paddingHorizontal: 4, borderRadius: 14, borderWidth: 1 },
+  statIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  statValue: { fontSize: 15, fontWeight: '800' },
+  statLabel: { fontSize: 10, fontWeight: '600', marginTop: 2 },
+
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, height: 34, borderRadius: 17, borderWidth: 1 },
+  countChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+
+  card: { borderRadius: 16, borderWidth: 1, padding: 14 },
+  avatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginRight: 12, overflow: 'hidden' },
+  avatarImg: { width: 42, height: 42 },
+  name: { fontSize: 15, fontWeight: '700' },
+  rolePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  perfPill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10, marginLeft: 8 },
+  smallLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  track: { height: 6, borderRadius: 3, marginTop: 6, overflow: 'hidden' },
+  fill: { height: 6, borderRadius: 3 },
+  countsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, paddingTop: 12, borderTopWidth: 1 },
+  countCell: { flex: 1, alignItems: 'center' },
+  calBtn: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+
+  empty: { borderRadius: 16, borderWidth: 1, padding: 28, alignItems: 'center', gap: 6 },
+  emptyTitle: { fontSize: 15, fontWeight: '700', marginTop: 4 },
+  primaryBtn: { paddingHorizontal: 20, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  pageBtn: { width: 40, height: 36, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32 },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 14 },
+  option: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 12, borderRadius: 12 },
 });

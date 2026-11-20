@@ -1,14 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Path, Circle, Rect, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { 
-  TrendingUp, 
-  Users, 
-  Calendar, 
-  MessageSquare, 
-  ShieldCheck, 
-  CheckCircle2, 
-  Briefcase, 
+import {
+  TrendingUp,
+  Users,
+  Calendar,
+  MessageCircle,
+  ShieldCheck,
+  CheckCircle2,
+  Briefcase,
   Activity,
   ArrowUpRight
 } from 'lucide-react-native';
@@ -83,14 +83,14 @@ export const LeadPipelineIllustration = ({ isDark }: IllustrationProps) => {
       {/* Central Connector Pipeline (Background) */}
       <View style={styles.pipelineLineContainer}>
         <Svg height="4" width="220" viewBox="0 0 220 4">
-          <Line 
-            x1="0" 
-            y1="2" 
-            x2="220" 
-            y2="2" 
-            stroke={isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.15)'} 
-            strokeWidth="3" 
-            strokeDasharray="6, 6" 
+          <Line
+            x1="0"
+            y1="2"
+            x2="220"
+            y2="2"
+            stroke={isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.15)'}
+            strokeWidth="3"
+            strokeDasharray="6, 6"
           />
         </Svg>
       </View>
@@ -108,7 +108,7 @@ export const LeadPipelineIllustration = ({ isDark }: IllustrationProps) => {
       {/* Pipeline Step 2 (Center) - Pulsing Target Node */}
       <Animated.View style={[
         styles.pipelineNodeActive,
-        { 
+        {
           transform: [{ translateY: float1 }, { scale: pulseScale }],
           left: '42%'
         }
@@ -320,7 +320,7 @@ export const TeamCollabIllustration = ({ isDark }: IllustrationProps) => {
       ]}>
         <View style={styles.notifHeader}>
           <View style={styles.notifIconBg}>
-            <MessageSquare size={14} color="#3b82f6" />
+            <MessageCircle size={14} color="#3b82f6" />
           </View>
           <View style={{ marginLeft: 8 }}>
             <Text style={[styles.notifTitle, { color: themeColors.textPrimary }]}>New Task Assigned</Text>
@@ -339,7 +339,7 @@ export const AnalyticsIllustration = ({ isDark }: IllustrationProps) => {
   const float1 = useRef(new Animated.Value(0)).current;
   const float2 = useRef(new Animated.Value(0)).current;
   const float3 = useRef(new Animated.Value(0)).current;
-  
+
   // Bar heights
   const bar1Height = useRef(new Animated.Value(10)).current;
   const bar2Height = useRef(new Animated.Value(10)).current;
@@ -369,7 +369,7 @@ export const AnalyticsIllustration = ({ isDark }: IllustrationProps) => {
       createFloatingAnim(float1, 3100, -8),
       createFloatingAnim(float2, 3400, -10),
       createFloatingAnim(float3, 2600, -6),
-      
+
       // Bar heights growth
       Animated.spring(bar1Height, { toValue: 60, friction: 5, useNativeDriver: false }),
       Animated.spring(bar2Height, { toValue: 90, friction: 5, delay: 200, useNativeDriver: false }),
@@ -417,50 +417,50 @@ export const AnalyticsIllustration = ({ isDark }: IllustrationProps) => {
             <View style={styles.barsRow}>
               {/* Bar 1 */}
               <View style={styles.barWrapper}>
-                <Animated.View 
+                <Animated.View
                   style={[
-                    styles.bar, 
-                    { 
-                      height: bar1Height, 
-                      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.4)' : '#a7f3d0' 
+                    styles.bar,
+                    {
+                      height: bar1Height,
+                      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.4)' : '#a7f3d0'
                     }
-                  ]} 
+                  ]}
                 />
               </View>
               {/* Bar 2 */}
               <View style={styles.barWrapper}>
-                <Animated.View 
+                <Animated.View
                   style={[
-                    styles.bar, 
-                    { 
-                      height: bar2Height, 
-                      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.4)' : '#bfdbfe' 
+                    styles.bar,
+                    {
+                      height: bar2Height,
+                      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.4)' : '#bfdbfe'
                     }
-                  ]} 
+                  ]}
                 />
               </View>
               {/* Bar 3 */}
               <View style={styles.barWrapper}>
-                <Animated.View 
+                <Animated.View
                   style={[
-                    styles.bar, 
-                    { 
-                      height: bar3Height, 
-                      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.6)' : '#6ee7b7' 
+                    styles.bar,
+                    {
+                      height: bar3Height,
+                      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.6)' : '#6ee7b7'
                     }
-                  ]} 
+                  ]}
                 />
               </View>
               {/* Bar 4 (Highlighted Brand Bar) */}
               <View style={styles.barWrapper}>
-                <Animated.View 
+                <Animated.View
                   style={[
-                    styles.bar, 
-                    { 
-                      height: bar4Height, 
-                      backgroundColor: '#10b981' 
+                    styles.bar,
+                    {
+                      height: bar4Height,
+                      backgroundColor: '#10b981'
                     }
-                  ]} 
+                  ]}
                 />
               </View>
             </View>
@@ -485,24 +485,24 @@ export const AnalyticsIllustration = ({ isDark }: IllustrationProps) => {
                 <Stop offset="100%" stopColor="#3b82f6" />
               </LinearGradient>
             </Defs>
-            <Circle 
-              cx="33" 
-              cy="33" 
-              r="28" 
-              stroke={isDark ? '#27272a' : '#f1f5f9'} 
-              strokeWidth="5" 
-              fill="transparent" 
+            <Circle
+              cx="33"
+              cy="33"
+              r="28"
+              stroke={isDark ? '#27272a' : '#f1f5f9'}
+              strokeWidth="5"
+              fill="transparent"
             />
-            <Circle 
-              cx="33" 
-              cy="33" 
-              r="28" 
-              stroke="url(#circleGrad)" 
-              strokeWidth="5" 
-              strokeDasharray="176" 
+            <Circle
+              cx="33"
+              cy="33"
+              r="28"
+              stroke="url(#circleGrad)"
+              strokeWidth="5"
+              strokeDasharray="176"
               strokeDashoffset="32" // (1 - 0.82) * 176
               strokeLinecap="round"
-              fill="transparent" 
+              fill="transparent"
             />
           </Svg>
           <View style={styles.progressCenterText}>
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 12,
   },
-  
+
   // Pipeline Styling
   pipelineLineContainer: {
     position: 'absolute',

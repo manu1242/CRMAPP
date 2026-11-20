@@ -9,15 +9,20 @@ import {
   RefreshControl,
   Platform,
   Modal,
+  Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
 import { useChannelPartners } from '../../../../admin/hooks/useChannelPartners';
 import { ChannelPartner } from '../../../../admin/models/ChannelPartnerTypes';
+import { ChannelPartnerService } from '../../../../admin/services/ChannelPartnerService';
 import Toast from 'react-native-toast-message';
+import { useQueryClient } from '@tanstack/react-query';
 import { exportToExcel, exportToCSV } from '../../../../Services/exportService';
 import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
+import { usePartnerPlanEligibility } from '../../../../admin/hooks/usePartnerPlanEligibility';
+import PartnerPlanUpgradeCard from '../../../../admin/components/PartnerPlanUpgradeCard';
 import {
   Search,
   Plus,
@@ -55,6 +60,8 @@ export default function ChannelPartnerListScreen() {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
 
+  const { isEligible: hasPartnerPlanEligibility, isLoading: eligibilityLoading } = usePartnerPlanEligibility();
+
   // Theme values
   const bgColor = adminTheme.primaryBg;
   const cardBg = adminTheme.cardBg;
@@ -82,17 +89,61 @@ export default function ChannelPartnerListScreen() {
     status: status !== 'All' ? status : undefined,
   };
 
-  const { data, isLoading, isRefetching, refetch } = useChannelPartners(queryParams);
+  const { data, isLoading, isRefetching, refetch, isStale } = useChannelPartners(queryParams);
+  const teamQc = useQueryClient();
+  const syncTeamCaches = () => {
+    teamQc.invalidateQueries({ queryKey: ['channelPartners'] });
+    teamQc.invalidateQueries({ queryKey: ['channelPartner'] });
+    teamQc.invalidateQueries({ queryKey: ['agents'] });
+    teamQc.invalidateQueries({ queryKey: ['agent'] });
+  };
 
   const partners = data?.data?.items || [];
   const totalCount = data?.data?.totalCount || 0;
+  const stats = data?.data?.stats;
+  const [actionBusyId, setActionBusyId] = useState<number | null>(null);
+
+  // Web parity: ManageUsersController.ApprovePartner (provisions the Partner login) / RejectPartner
+  const handlePartnerAction = (partner: ChannelPartner, action: 'approve' | 'reject') => {
+    const approve = action === 'approve';
+    Alert.alert(
+      approve ? 'Approve Partner?' : 'Reject Partner?',
+      approve
+        ? `Approve ${partner.companyName}? A Partner login account will be activated.`
+        : `Are you sure you want to reject ${partner.companyName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: approve ? 'Yes, Approve' : 'Yes, Reject',
+          style: approve ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              setActionBusyId(partner.partnerId);
+              const res: any = approve
+                ? await ChannelPartnerService.approvePartner(partner.partnerId)
+                : await ChannelPartnerService.rejectPartner(partner.partnerId);
+              if (approve && res?.data?.password) Alert.alert('Partner Approved', res.message);
+              else Toast.show({ type: 'success', text1: approve ? 'Approved' : 'Rejected', text2: res?.message });
+              syncTeamCaches();
+            } catch (err: any) {
+              Toast.show({ type: 'error', text1: 'Failed', text2: err.response?.data?.message || err.message || 'Action failed' });
+            } finally {
+              setActionBusyId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
   const totalPages = data?.data?.totalPages || 1;
 
   // Re-fetch when screen comes back into focus
+  // Refetch on return only when the cached data is stale — create/edit/delete mutations
+  // already invalidate this query, so a forced refetch on every focus was redundant.
   useFocusEffect(
     useCallback(() => {
-      refetch();
-    }, [refetch])
+      if (isStale) refetch();
+    }, [isStale, refetch])
   );
 
   const handleExportCSV = async () => {
@@ -152,6 +203,15 @@ export default function ChannelPartnerListScreen() {
         return { bg: '#eab30815', color: '#eab308', icon: AlertCircle };
     }
   };
+
+  if (!eligibilityLoading && !hasPartnerPlanEligibility) {
+    return (
+      <PartnerPlanUpgradeCard
+        title="Channel Partners Not Included In Your Plan"
+        message="Channel Partner management is only available on plans with Partner capabilities (Enterprise and Unlimited). Upgrade your plan to manage channel partners."
+      />
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
@@ -333,10 +393,26 @@ export default function ChannelPartnerListScreen() {
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[brandColor]} />}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header summary info */}
+          {/* Header (web: "Channel Partner" banner + Total / Pending / Approved / Rejected) */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4 }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>Channel Partners</Text>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>Channel Partner</Text>
             <Text style={{ fontSize: 11, color: subTextColor, fontWeight: '500' }}>{totalCount} total</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {[
+              { label: 'TOTAL', value: stats?.total ?? totalCount, color: brandColor },
+              { label: 'PENDING', value: stats?.pending ?? 0, color: '#f59e0b' },
+              { label: 'APPROVED', value: stats?.approved ?? 0, color: '#10b981' },
+              { label: 'REJECTED', value: stats?.rejected ?? 0, color: '#ef4444' },
+            ].map((st) => (
+              <View
+                key={st.label}
+                style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: borderCol, backgroundColor: cardBg }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '800', color: st.color }}>{st.value}</Text>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: subTextColor, marginTop: 2 }}>{st.label}</Text>
+              </View>
+            ))}
           </View>
 
           {partners.length === 0 ? (
@@ -451,6 +527,32 @@ export default function ChannelPartnerListScreen() {
                       </Text>
                     </View>
                   </View>
+
+                  {/* Approve / Reject (web Channel Partner actions) */}
+                  {(partner.status === 'Pending' || !partner.status || partner.status === 'Rejected') && (
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                      <TouchableOpacity
+                        onPress={() => handlePartnerAction(partner, 'approve')}
+                        disabled={actionBusyId === partner.partnerId}
+                        style={{ flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center', backgroundColor: '#10b98115', borderWidth: 1, borderColor: '#10b98140' }}
+                      >
+                        {actionBusyId === partner.partnerId ? (
+                          <ActivityIndicator size="small" color="#10b981" />
+                        ) : (
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#10b981' }}>Approve</Text>
+                        )}
+                      </TouchableOpacity>
+                      {partner.status !== 'Rejected' && (
+                        <TouchableOpacity
+                          onPress={() => handlePartnerAction(partner, 'reject')}
+                          disabled={actionBusyId === partner.partnerId}
+                          style={{ flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center', backgroundColor: '#ef444415', borderWidth: 1, borderColor: '#ef444440' }}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#ef4444' }}>Reject</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
 
                   {/* Documents Badge */}
                   {partner.documents && partner.documents.length > 0 && (

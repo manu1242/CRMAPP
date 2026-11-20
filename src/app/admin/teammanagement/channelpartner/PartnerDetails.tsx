@@ -25,7 +25,10 @@ import {
 import { ChannelPartnerService } from '../../../../admin/services/ChannelPartnerService';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
+import { useQueryClient } from '@tanstack/react-query';
 import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
+import { usePartnerPlanEligibility } from '../../../../admin/hooks/usePartnerPlanEligibility';
+import PartnerPlanUpgradeCard from '../../../../admin/components/PartnerPlanUpgradeCard';
 import {
   ArrowLeft,
   Edit2,
@@ -56,7 +59,14 @@ export default function PartnerDetailsScreen() {
   const adminTheme = getAdminTheme(isDark);
   const { bottomSpacing } = useBottomNavSpacing();
 
-  const { data, isLoading, refetch, isRefetching, error } = useChannelPartner(id);
+  const { data, isLoading, refetch, isStale, isRefetching, error } = useChannelPartner(id);
+  const teamQc = useQueryClient();
+  const syncTeamCaches = () => {
+    teamQc.invalidateQueries({ queryKey: ['channelPartners'] });
+    teamQc.invalidateQueries({ queryKey: ['channelPartner'] });
+    teamQc.invalidateQueries({ queryKey: ['agents'] });
+    teamQc.invalidateQueries({ queryKey: ['agent'] });
+  };
   const deletePartnerMutation = useDeleteChannelPartner();
   const updatePartnerMutation = useUpdateChannelPartner();
   const uploadDocMutation = useUploadPartnerDocument();
@@ -65,10 +75,12 @@ export default function PartnerDetailsScreen() {
   const partner = data?.data;
 
   // Re-fetch when screen comes back into focus
+  // Refetch on return only when the cached data is stale — create/edit/delete mutations
+  // already invalidate this query, so a forced refetch on every focus was redundant.
   useFocusEffect(
     useCallback(() => {
-      refetch();
-    }, [refetch])
+      if (isStale) refetch();
+    }, [isStale, refetch])
   );
 
   // Modal open states
@@ -314,6 +326,73 @@ export default function PartnerDetailsScreen() {
     }
   };
 
+  // ── Web parity: ManageUsersController partner + document approval ──
+  const [docRejectTarget, setDocRejectTarget] = useState<{ id: number; name: string } | null>(null);
+  const [docRejectReason, setDocRejectReason] = useState('');
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  const handlePartnerAction = (action: 'approve' | 'reject') => {
+    if (!partner) return;
+    const approve = action === 'approve';
+    Alert.alert(approve ? 'Approve Partner?' : 'Reject Partner?',
+      approve ? `Approve ${partner.companyName}? A Partner login account will be activated.` : `Are you sure you want to reject ${partner.companyName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: approve ? 'Yes, Approve' : 'Yes, Reject',
+          style: approve ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              setBusyKey(action);
+              const res: any = approve
+                ? await ChannelPartnerService.approvePartner(partner.partnerId)
+                : await ChannelPartnerService.rejectPartner(partner.partnerId);
+              if (approve && res?.data?.password) Alert.alert('Partner Approved', res.message);
+              else Toast.show({ type: 'success', text1: approve ? 'Approved' : 'Rejected', text2: res?.message });
+              syncTeamCaches();
+            } catch (err: any) {
+              Toast.show({ type: 'error', text1: 'Failed', text2: err.response?.data?.message || 'Action failed' });
+            } finally {
+              setBusyKey(null);
+            }
+          },
+        },
+      ]);
+  };
+
+  const handleApproveDocument = async (documentId: number) => {
+    try {
+      setBusyKey(`doc:${documentId}`);
+      const res = await ChannelPartnerService.approveDocument(documentId);
+      Toast.show({ type: 'success', text1: 'Approved', text2: res?.message || 'Document approved successfully' });
+      syncTeamCaches();
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Failed', text2: err.response?.data?.message || 'Could not approve document' });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const submitRejectDocument = async () => {
+    if (!docRejectTarget) return;
+    if (!docRejectReason.trim()) {
+      Toast.show({ type: 'error', text1: 'Rejection reason is required' });
+      return;
+    }
+    try {
+      setBusyKey(`doc:${docRejectTarget.id}`);
+      const res = await ChannelPartnerService.rejectDocument(docRejectTarget.id, docRejectReason.trim());
+      Toast.show({ type: 'success', text1: 'Rejected', text2: res?.message || 'Document rejected successfully' });
+      setDocRejectTarget(null);
+      setDocRejectReason('');
+      syncTeamCaches();
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Failed', text2: err.response?.data?.message || 'Could not reject document' });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   const handleDeleteDocument = (documentId: number, docName: string) => {
     if (!partner) return;
     Alert.alert(
@@ -382,6 +461,17 @@ export default function PartnerDetailsScreen() {
         return { bg: '#eab30810', color: '#eab308', label: 'Pending Verification' };
     }
   };
+
+  const { isEligible: hasPartnerPlanEligibility, isLoading: eligibilityLoading } = usePartnerPlanEligibility();
+
+  if (!eligibilityLoading && !hasPartnerPlanEligibility) {
+    return (
+      <PartnerPlanUpgradeCard
+        title="Channel Partners Not Included In Your Plan"
+        message="Channel Partner details are only accessible on plans with Partner capabilities. Upgrade your plan to access partner profiles."
+      />
+    );
+  }
 
   if (isLoading && !isRefetching) {
     return (
@@ -506,13 +596,14 @@ export default function PartnerDetailsScreen() {
 
           <View style={{ alignItems: 'flex-end', gap: 6 }}>
             <View style={{
-              backgroundColor: '#10b981', // Green badge matching screenshot
+              backgroundColor:
+                partner.status === 'Rejected' ? '#ef4444' : partner.status === 'Pending' || !partner.status ? '#f59e0b' : '#10b981',
               paddingHorizontal: 12,
               paddingVertical: 4,
               borderRadius: 12,
             }}>
               <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '700' }}>
-                {partner.status || 'Approved'}
+                {partner.status || 'Pending'}
               </Text>
             </View>
             <View style={{
@@ -808,6 +899,27 @@ export default function PartnerDetailsScreen() {
                     </View>
                   </View>
 
+                  {doc.verificationStatus.toLowerCase() !== 'approved' && (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => handleApproveDocument(doc.documentId)}
+                        disabled={busyKey === `doc:${doc.documentId}`}
+                        style={{ flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center', backgroundColor: '#10b98115' }}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#10b981' }}>Approve</Text>
+                      </TouchableOpacity>
+                      {doc.verificationStatus.toLowerCase() !== 'rejected' && (
+                        <TouchableOpacity
+                          onPress={() => { setDocRejectReason(''); setDocRejectTarget({ id: doc.documentId, name: doc.documentName }); }}
+                          disabled={busyKey === `doc:${doc.documentId}`}
+                          style={{ flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center', backgroundColor: '#ef444415' }}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#ef4444' }}>Reject</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+
                   {doc.verificationStatus.toLowerCase() === 'rejected' && doc.rejectionReason && (
                     <View style={{
                       backgroundColor: '#ef444408',
@@ -827,6 +939,28 @@ export default function PartnerDetailsScreen() {
             })
           )}
         </View>
+
+        {/* Partner Approve / Reject (web Channel Partner actions) */}
+        {(partner.status === 'Pending' || !partner.status || partner.status === 'Rejected') && (
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => handlePartnerAction('approve')}
+              disabled={busyKey != null}
+              style={{ flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#10b981' }}
+            >
+              {busyKey === 'approve' ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Approve Partner</Text>}
+            </TouchableOpacity>
+            {partner.status !== 'Rejected' && (
+              <TouchableOpacity
+                onPress={() => handlePartnerAction('reject')}
+                disabled={busyKey != null}
+                style={{ flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ef444415', borderWidth: 1, borderColor: '#ef444440' }}
+              >
+                {busyKey === 'reject' ? <ActivityIndicator color="#ef4444" /> : <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '700' }}>Reject Partner</Text>}
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Approvals/Audits Card (If approved) */}
         {partner.approvedBy && (
@@ -1211,6 +1345,31 @@ export default function PartnerDetailsScreen() {
                 </>
               )}
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {/* Reject Document — reason required (web parity) */}
+      <Modal visible={!!docRejectTarget} transparent animationType="fade" onRequestClose={() => setDocRejectTarget(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: cardBg, borderRadius: 16, padding: 20, gap: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Reject Document</Text>
+            <Text style={{ fontSize: 12, color: subTextColor }}>{docRejectTarget?.name}</Text>
+            <TextInput
+              value={docRejectReason}
+              onChangeText={setDocRejectReason}
+              placeholder="Rejection reason"
+              placeholderTextColor={subTextColor}
+              multiline
+              style={{ minHeight: 70, borderWidth: 1, borderColor: borderCol, borderRadius: 10, padding: 10, color: textColor, textAlignVertical: 'top' }}
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity onPress={() => setDocRejectTarget(null)} style={{ flex: 1, height: 42, borderRadius: 10, borderWidth: 1, borderColor: borderCol, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: textColor, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={submitRejectDocument} disabled={busyKey != null} style={{ flex: 1, height: 42, borderRadius: 10, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center' }}>
+                {busyKey?.startsWith('doc:') ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Reject</Text>}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

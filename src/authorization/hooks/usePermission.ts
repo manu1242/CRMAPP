@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useEffect } from 'react';
 import { useAuthStore } from '../../auth/store/authStore';
 import { usePermissionStore, ActionType } from '../store/permissionStore';
@@ -18,7 +19,24 @@ export const usePermission = () => {
     canDelete,
     canExport,
     resetPermissions,
-  } = usePermissionStore();
+  } = usePermissionStore(
+    // Re-render only when these change (used by many screens + the menu)
+    useShallow((s) => ({
+      myPermissions: s.myPermissions,
+      isLoading: s.isLoading,
+      isLoaded: s.isLoaded,
+      fetchMyPermissions: s.fetchMyPermissions,
+      hasModuleAccess: s.hasModuleAccess,
+      hasScreenAccess: s.hasScreenAccess,
+      can: s.can,
+      canView: s.canView,
+      canCreate: s.canCreate,
+      canEdit: s.canEdit,
+      canDelete: s.canDelete,
+      canExport: s.canExport,
+      resetPermissions: s.resetPermissions,
+    }))
+  );
 
   useEffect(() => {
     if (user && !isLoaded && !isLoading) {
@@ -35,6 +53,11 @@ export const usePermission = () => {
     isAgent: myPermissions?.isAgent || ['agent', 'sales'].includes(user?.role?.toLowerCase() || ''),
     isPartner: myPermissions?.isPartner || user?.role?.toLowerCase() === 'partner',
     isCustomRole: myPermissions?.isCustomRole || false,
+    hasPartnerFeature:
+      myPermissions?.hasPartnerFeature ??
+      user?.hasPartnerFeature ??
+      (myPermissions?.isSuperAdmin || user?.role?.toLowerCase() === 'superadmin' ? true : false),
+    maxPartners: myPermissions?.maxPartners ?? user?.maxPartners ?? 0,
     allowedModules: myPermissions?.allowedModules || [],
     isLoading,
     isLoaded,

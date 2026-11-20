@@ -14,6 +14,7 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Image as ExpoImage } from 'expo-image';
 import {
   Search,
   Filter,
@@ -34,6 +35,7 @@ import {
   Layers,
   Home,
   X,
+  RotateCcw,
 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { exportToExcel, exportToCSV } from '../../../Services/exportService';
@@ -116,11 +118,14 @@ export default function PropertiesScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  // Filter State
+  // Filter State (Web Parity)
   const [search, setSearch] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('All');
   const [selectedBuilder, setSelectedBuilder] = useState('All');
   const [selectedExecutive, setSelectedExecutive] = useState('All');
   const [selectedPurchaseType, setSelectedPurchaseType] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedPriceBand, setSelectedPriceBand] = useState('all');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [sortOrder, setSortOrder] = useState('newest');
@@ -129,9 +134,12 @@ export default function PropertiesScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [isExportOpen, setExportOpen] = useState(false);
   const [isOperationsOpen, setOperationsOpen] = useState(false);
+  const [isLocationOpen, setLocationOpen] = useState(false);
   const [isBuilderOpen, setBuilderOpen] = useState(false);
   const [isExecOpen, setExecOpen] = useState(false);
   const [isPurchaseTypeOpen, setPurchaseTypeOpen] = useState(false);
+  const [isStatusOpen, setStatusOpen] = useState(false);
+  const [isPriceBandOpen, setPriceBandOpen] = useState(false);
   const [isSortOpen, setSortOpen] = useState(false);
 
   const fetchData = async () => {
@@ -156,9 +164,12 @@ export default function PropertiesScreen() {
 
   const resetFilters = () => {
     setSearch('');
+    setSelectedLocation('All');
     setSelectedBuilder('All');
     setSelectedExecutive('All');
     setSelectedPurchaseType('All');
+    setSelectedStatus('All');
+    setSelectedPriceBand('all');
     setMinPrice('');
     setMaxPrice('');
     setSortOrder('newest');
@@ -167,25 +178,67 @@ export default function PropertiesScreen() {
   const closeAllDropdowns = () => {
     setExportOpen(false);
     setOperationsOpen(false);
+    setLocationOpen(false);
     setBuilderOpen(false);
     setExecOpen(false);
     setPurchaseTypeOpen(false);
+    setStatusOpen(false);
+    setPriceBandOpen(false);
     setSortOpen(false);
   };
 
-  // Client-side filtering
-  const filteredProperties = properties.filter((p) => {
+  // Distinct locations from live properties
+  const availableLocations = React.useMemo(() => {
+    const locSet = new Set<string>();
+    properties.forEach((p) => {
+      if (p.location && p.location.trim()) {
+        locSet.add(p.location.trim());
+      }
+    });
+    return Array.from(locSet).sort();
+  }, [properties]);
+
+  // Client-side filtering (Web Parity) — memoized: previously re-ran (with lowercase/date parsing
+  // for every property) on every render, including each keystroke and dropdown toggle.
+  const filteredProperties = React.useMemo(() => properties.filter((p) => {
     const matchesSearch =
       p.propertyName.toLowerCase().includes(search.toLowerCase()) ||
       p.location.toLowerCase().includes(search.toLowerCase()) ||
       p.builderName.toLowerCase().includes(search.toLowerCase());
+
+    const matchesLocation = selectedLocation === 'All' || p.location.toLowerCase() === selectedLocation.toLowerCase();
     const matchesBuilder = selectedBuilder === 'All' || p.builderName === selectedBuilder;
     const matchesExecutive = selectedExecutive === 'All' || p.assignedTo?.toString() === selectedExecutive;
     const matchesPurchaseType = selectedPurchaseType === 'All' || p.purchaseType === selectedPurchaseType;
+
+    // Status: Available vs Sold
+    const isSold = (p as any).status?.toLowerCase() === 'sold' || p.inventory === 'Sold';
+    const matchesStatus =
+      selectedStatus === 'All' ||
+      (selectedStatus === 'Available' ? !isSold : isSold);
+
     const price = p.price || 0;
+    let matchesPriceBand = true;
+    if (selectedPriceBand === 'under25l') matchesPriceBand = price < 2500000;
+    else if (selectedPriceBand === '25l-50l') matchesPriceBand = price >= 2500000 && price <= 5000000;
+    else if (selectedPriceBand === '50l-1cr') matchesPriceBand = price >= 5000000 && price <= 10000000;
+    else if (selectedPriceBand === '1cr-2cr') matchesPriceBand = price >= 10000000 && price <= 20000000;
+    else if (selectedPriceBand === 'above2cr') matchesPriceBand = price > 20000000;
+
     const matchesMinPrice = minPrice === '' || price >= parseFloat(minPrice);
     const matchesMaxPrice = maxPrice === '' || price <= parseFloat(maxPrice);
-    return matchesSearch && matchesBuilder && matchesExecutive && matchesPurchaseType && matchesMinPrice && matchesMaxPrice;
+
+    return (
+      matchesSearch &&
+      matchesLocation &&
+      matchesBuilder &&
+      matchesExecutive &&
+      matchesPurchaseType &&
+      matchesStatus &&
+      matchesPriceBand &&
+      matchesMinPrice &&
+      matchesMaxPrice
+    );
   }).sort((a, b) => {
     if (sortOrder === 'price-asc') return (a.price || 0) - (b.price || 0);
     if (sortOrder === 'price-desc') return (b.price || 0) - (a.price || 0);
@@ -194,7 +247,28 @@ export default function PropertiesScreen() {
     const dateA = a.createdOn ? new Date(a.createdOn).getTime() : 0;
     const dateB = b.createdOn ? new Date(b.createdOn).getTime() : 0;
     return dateB - dateA;
-  });
+  }), [properties, search, selectedLocation, selectedBuilder, selectedExecutive, selectedPurchaseType, selectedStatus, selectedPriceBand, minPrice, maxPrice, sortOrder]);
+
+  // Incremental rendering: draw cards in batches as the user scrolls. Rendering every card at once
+  // also fired every cover-image download at once (AuthImage base64 per property).
+  const BATCH = 12;
+  const [visibleCount, setVisibleCount] = useState(BATCH);
+  useEffect(() => {
+    setVisibleCount(BATCH);
+  }, [filteredProperties]);
+  const visibleProperties = React.useMemo(
+    () => filteredProperties.slice(0, visibleCount),
+    [filteredProperties, visibleCount]
+  );
+  const handleListScroll = (e: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    if (
+      visibleCount < filteredProperties.length &&
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - 600
+    ) {
+      setVisibleCount((c) => Math.min(c + BATCH, filteredProperties.length));
+    }
+  };
 
   // CSV Export
   const handleExportCSV = async () => {
@@ -295,7 +369,20 @@ export default function PropertiesScreen() {
     }
   };
 
-  const hasActiveFilters = selectedBuilder !== 'All' || selectedExecutive !== 'All' || selectedPurchaseType !== 'All' || minPrice || maxPrice;
+  const activeFilterCount = React.useMemo(() => {
+    let count = 0;
+    if (selectedLocation !== 'All') count++;
+    if (selectedBuilder !== 'All') count++;
+    if (selectedExecutive !== 'All') count++;
+    if (selectedPurchaseType !== 'All') count++;
+    if (selectedStatus !== 'All') count++;
+    if (selectedPriceBand !== 'all') count++;
+    if (minPrice || maxPrice) count++;
+    if (sortOrder !== 'newest') count++;
+    return count;
+  }, [selectedLocation, selectedBuilder, selectedExecutive, selectedPurchaseType, selectedStatus, selectedPriceBand, minPrice, maxPrice, sortOrder]);
+
+  const hasActiveFilters = activeFilterCount > 0;
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
@@ -305,6 +392,8 @@ export default function PropertiesScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         // Pressing scroll area should close any open inline dropdown
         onScrollBeginDrag={closeAllDropdowns}
+        onScroll={handleListScroll}
+        scrollEventThrottle={200}
       >
         {/* ── Top Bar: Search + Action Buttons ── */}
         <View style={styles.topBar}>
@@ -325,7 +414,7 @@ export default function PropertiesScreen() {
             )}
           </View>
 
-          {/* Filter Toggle */}
+          {/* Filter Toggle with Badge Count */}
           <TouchableOpacity
             style={[
               styles.iconBtn,
@@ -335,7 +424,7 @@ export default function PropertiesScreen() {
           >
             <Filter size={16} color={hasActiveFilters ? brandCol : subTextColor} />
             <Text style={{ color: hasActiveFilters ? brandCol : textColor, fontSize: 13, fontWeight: '600' }}>
-              Filters
+              {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : 'Filters'}
             </Text>
             {hasActiveFilters && (
               <View style={[styles.dot, { backgroundColor: brandCol }]} />
@@ -412,11 +501,103 @@ export default function PropertiesScreen() {
           )}
         </View>
 
-        {/* ── Inline Filters Panel ── */}
+        {/* ── Quick Chips / Removable Active Filter Chips (Web Parity) ── */}
+        <View style={{ paddingHorizontal: 16, marginTop: 10 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}
+          >
+            {hasActiveFilters && (
+              <TouchableOpacity
+                onPress={resetFilters}
+                style={[styles.chipPill, { backgroundColor: isDark ? '#7f1d1d33' : '#fef2f2', borderColor: '#ef4444' }]}
+              >
+                <RotateCcw size={12} color="#ef4444" />
+                <Text style={[styles.chipText, { color: '#ef4444', fontWeight: '700' }]}>Clear All</Text>
+              </TouchableOpacity>
+            )}
+
+            {selectedLocation !== 'All' && (
+              <TouchableOpacity
+                onPress={() => setSelectedLocation('All')}
+                style={[styles.chipPill, { backgroundColor: isDark ? '#064e3b' : '#ecfdf5', borderColor: brandCol }]}
+              >
+                <MapPin size={12} color={brandCol} />
+                <Text style={[styles.chipText, { color: brandCol }]}>{selectedLocation}</Text>
+                <X size={12} color={brandCol} />
+              </TouchableOpacity>
+            )}
+
+            {selectedStatus !== 'All' && (
+              <TouchableOpacity
+                onPress={() => setSelectedStatus('All')}
+                style={[styles.chipPill, { backgroundColor: isDark ? '#064e3b' : '#ecfdf5', borderColor: brandCol }]}
+              >
+                <Text style={[styles.chipText, { color: brandCol }]}>{selectedStatus}</Text>
+                <X size={12} color={brandCol} />
+              </TouchableOpacity>
+            )}
+
+            {selectedPriceBand !== 'all' && (
+              <TouchableOpacity
+                onPress={() => setSelectedPriceBand('all')}
+                style={[styles.chipPill, { backgroundColor: isDark ? '#064e3b' : '#ecfdf5', borderColor: brandCol }]}
+              >
+                <IndianRupee size={12} color={brandCol} />
+                <Text style={[styles.chipText, { color: brandCol }]}>{selectedPriceBand}</Text>
+                <X size={12} color={brandCol} />
+              </TouchableOpacity>
+            )}
+
+            {selectedPurchaseType !== 'All' && (
+              <TouchableOpacity
+                onPress={() => setSelectedPurchaseType('All')}
+                style={[styles.chipPill, { backgroundColor: isDark ? '#064e3b' : '#ecfdf5', borderColor: brandCol }]}
+              >
+                <Home size={12} color={brandCol} />
+                <Text style={[styles.chipText, { color: brandCol }]}>{selectedPurchaseType}</Text>
+                <X size={12} color={brandCol} />
+              </TouchableOpacity>
+            )}
+
+            {selectedBuilder !== 'All' && (
+              <TouchableOpacity
+                onPress={() => setSelectedBuilder('All')}
+                style={[styles.chipPill, { backgroundColor: isDark ? '#064e3b' : '#ecfdf5', borderColor: brandCol }]}
+              >
+                <Building size={12} color={brandCol} />
+                <Text style={[styles.chipText, { color: brandCol }]}>{selectedBuilder}</Text>
+                <X size={12} color={brandCol} />
+              </TouchableOpacity>
+            )}
+
+            {/* Quick shortcuts */}
+            {selectedStatus !== 'Available' && (
+              <TouchableOpacity
+                onPress={() => setSelectedStatus('Available')}
+                style={[styles.chipPill, { backgroundColor: cardBg, borderColor: borderCol }]}
+              >
+                <Text style={[styles.chipText, { color: subTextColor }]}>Available Only</Text>
+              </TouchableOpacity>
+            )}
+
+            {selectedPriceBand !== 'under25l' && (
+              <TouchableOpacity
+                onPress={() => setSelectedPriceBand('under25l')}
+                style={[styles.chipPill, { backgroundColor: cardBg, borderColor: borderCol }]}
+              >
+                <Text style={[styles.chipText, { color: subTextColor }]}>Under ₹25L</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+
+        {/* ── Inline Filters Panel (Web Parity) ── */}
         {showFilters && (
           <View style={[styles.filtersPanel, { backgroundColor: cardBg, borderColor: borderCol }]}>
             <View style={styles.filtersPanelHeader}>
-              <Text style={{ color: textColor, fontWeight: '700', fontSize: 14 }}>Filters</Text>
+              <Text style={{ color: textColor, fontWeight: '700', fontSize: 14 }}>Filter Properties</Text>
               {hasActiveFilters && (
                 <TouchableOpacity onPress={resetFilters}>
                   <Text style={{ color: brandCol, fontSize: 13, fontWeight: '600' }}>Reset All</Text>
@@ -425,12 +606,76 @@ export default function PropertiesScreen() {
             </View>
 
             <View style={styles.filtersRow}>
+              {/* City / Location (Web Parity: filterCity) */}
+              <View style={styles.filterGroup}>
+                <Text style={[styles.filterLabel, { color: subTextColor }]}>City / Location</Text>
+                <TouchableOpacity
+                  style={[styles.filterSelect, { backgroundColor: inputBg, borderColor: selectedLocation !== 'All' ? brandCol : borderCol }]}
+                  onPress={() => { setLocationOpen(!isLocationOpen); setBuilderOpen(false); setExecOpen(false); setPurchaseTypeOpen(false); setStatusOpen(false); setPriceBandOpen(false); setSortOpen(false); }}
+                >
+                  <MapPin size={13} color={selectedLocation !== 'All' ? brandCol : subTextColor} />
+                  <Text style={{ color: selectedLocation !== 'All' ? brandCol : textColor, fontSize: 12, flex: 1 }} numberOfLines={1}>
+                    {selectedLocation}
+                  </Text>
+                  <ChevronDown size={12} color={subTextColor} />
+                </TouchableOpacity>
+                {isLocationOpen && (
+                  <View style={[styles.filterDropdown, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                    <TouchableOpacity
+                      style={[styles.filterDropdownItem, { backgroundColor: selectedLocation === 'All' ? borderCol : 'transparent' }]}
+                      onPress={() => { setSelectedLocation('All'); setLocationOpen(false); }}
+                    >
+                      <Text style={{ color: textColor, fontSize: 12 }}>All Cities / Locations</Text>
+                      {selectedLocation === 'All' && <Check size={12} color={brandCol} />}
+                    </TouchableOpacity>
+                    {availableLocations.map((loc) => (
+                      <TouchableOpacity
+                        key={loc}
+                        style={[styles.filterDropdownItem, { backgroundColor: selectedLocation === loc ? borderCol : 'transparent' }]}
+                        onPress={() => { setSelectedLocation(loc); setLocationOpen(false); }}
+                      >
+                        <Text style={{ color: textColor, fontSize: 12 }}>{loc}</Text>
+                        {selectedLocation === loc && <Check size={12} color={brandCol} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Status (Web Parity: filterStatus - Available / Sold) */}
+              <View style={styles.filterGroup}>
+                <Text style={[styles.filterLabel, { color: subTextColor }]}>Status</Text>
+                <TouchableOpacity
+                  style={[styles.filterSelect, { backgroundColor: inputBg, borderColor: selectedStatus !== 'All' ? brandCol : borderCol }]}
+                  onPress={() => { setStatusOpen(!isStatusOpen); setLocationOpen(false); setBuilderOpen(false); setExecOpen(false); setPurchaseTypeOpen(false); setPriceBandOpen(false); setSortOpen(false); }}
+                >
+                  <Text style={{ color: selectedStatus !== 'All' ? brandCol : textColor, fontSize: 12, flex: 1 }} numberOfLines={1}>
+                    {selectedStatus === 'All' ? 'All Status' : selectedStatus}
+                  </Text>
+                  <ChevronDown size={12} color={subTextColor} />
+                </TouchableOpacity>
+                {isStatusOpen && (
+                  <View style={[styles.filterDropdown, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                    {['All', 'Available', 'Sold'].map((st) => (
+                      <TouchableOpacity
+                        key={st}
+                        style={[styles.filterDropdownItem, { backgroundColor: selectedStatus === st ? borderCol : 'transparent' }]}
+                        onPress={() => { setSelectedStatus(st); setStatusOpen(false); }}
+                      >
+                        <Text style={{ color: textColor, fontSize: 12 }}>{st === 'All' ? 'All Status' : st}</Text>
+                        {selectedStatus === st && <Check size={12} color={brandCol} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
               {/* Builder */}
               <View style={styles.filterGroup}>
                 <Text style={[styles.filterLabel, { color: subTextColor }]}>Builder</Text>
                 <TouchableOpacity
                   style={[styles.filterSelect, { backgroundColor: inputBg, borderColor: selectedBuilder !== 'All' ? brandCol : borderCol }]}
-                  onPress={() => { setBuilderOpen(!isBuilderOpen); setExecOpen(false); setPurchaseTypeOpen(false); setSortOpen(false); }}
+                  onPress={() => { setBuilderOpen(!isBuilderOpen); setLocationOpen(false); setExecOpen(false); setPurchaseTypeOpen(false); setStatusOpen(false); setPriceBandOpen(false); setSortOpen(false); }}
                 >
                   <Building size={13} color={selectedBuilder !== 'All' ? brandCol : subTextColor} />
                   <Text style={{ color: selectedBuilder !== 'All' ? brandCol : textColor, fontSize: 12, flex: 1 }} numberOfLines={1}>
@@ -461,48 +706,12 @@ export default function PropertiesScreen() {
                 )}
               </View>
 
-              {/* Executive */}
-              <View style={styles.filterGroup}>
-                <Text style={[styles.filterLabel, { color: subTextColor }]}>Assignee</Text>
-                <TouchableOpacity
-                  style={[styles.filterSelect, { backgroundColor: inputBg, borderColor: selectedExecutive !== 'All' ? brandCol : borderCol }]}
-                  onPress={() => { setExecOpen(!isExecOpen); setBuilderOpen(false); setPurchaseTypeOpen(false); setSortOpen(false); }}
-                >
-                  <User size={13} color={selectedExecutive !== 'All' ? brandCol : subTextColor} />
-                  <Text style={{ color: selectedExecutive !== 'All' ? brandCol : textColor, fontSize: 12, flex: 1 }} numberOfLines={1}>
-                    {selectedExecutive === 'All' ? 'All' : executives.find((e: ExecutiveItem) => e.userId.toString() === selectedExecutive)?.fullName || 'Selected'}
-                  </Text>
-                  <ChevronDown size={12} color={subTextColor} />
-                </TouchableOpacity>
-                {isExecOpen && (
-                  <View style={[styles.filterDropdown, { backgroundColor: cardBg, borderColor: borderCol }]}>
-                    <TouchableOpacity
-                      style={[styles.filterDropdownItem, { backgroundColor: selectedExecutive === 'All' ? borderCol : 'transparent' }]}
-                      onPress={() => { setSelectedExecutive('All'); setExecOpen(false); }}
-                    >
-                      <Text style={{ color: textColor, fontSize: 12 }}>All Executives</Text>
-                      {selectedExecutive === 'All' && <Check size={12} color={brandCol} />}
-                    </TouchableOpacity>
-                    {executives.map((e: ExecutiveItem) => (
-                      <TouchableOpacity
-                        key={e.userId}
-                        style={[styles.filterDropdownItem, { backgroundColor: selectedExecutive === e.userId.toString() ? borderCol : 'transparent' }]}
-                        onPress={() => { setSelectedExecutive(e.userId.toString()); setExecOpen(false); }}
-                      >
-                        <Text style={{ color: textColor, fontSize: 12 }}>{e.fullName}</Text>
-                        {selectedExecutive === e.userId.toString() && <Check size={12} color={brandCol} />}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-
               {/* Purchase Type */}
               <View style={styles.filterGroup}>
                 <Text style={[styles.filterLabel, { color: subTextColor }]}>Type</Text>
                 <TouchableOpacity
                   style={[styles.filterSelect, { backgroundColor: inputBg, borderColor: selectedPurchaseType !== 'All' ? brandCol : borderCol }]}
-                  onPress={() => { setPurchaseTypeOpen(!isPurchaseTypeOpen); setBuilderOpen(false); setExecOpen(false); setSortOpen(false); }}
+                  onPress={() => { setPurchaseTypeOpen(!isPurchaseTypeOpen); setLocationOpen(false); setBuilderOpen(false); setExecOpen(false); setStatusOpen(false); setPriceBandOpen(false); setSortOpen(false); }}
                 >
                   <Home size={13} color={selectedPurchaseType !== 'All' ? brandCol : subTextColor} />
                   <Text style={{ color: selectedPurchaseType !== 'All' ? brandCol : textColor, fontSize: 12, flex: 1 }}>
@@ -526,12 +735,48 @@ export default function PropertiesScreen() {
                 )}
               </View>
 
-              {/* Sort */}
+              {/* Price Band (Web Parity: filterPrice) */}
+              <View style={styles.filterGroup}>
+                <Text style={[styles.filterLabel, { color: subTextColor }]}>Price Band</Text>
+                <TouchableOpacity
+                  style={[styles.filterSelect, { backgroundColor: inputBg, borderColor: selectedPriceBand !== 'all' ? brandCol : borderCol }]}
+                  onPress={() => { setPriceBandOpen(!isPriceBandOpen); setLocationOpen(false); setBuilderOpen(false); setExecOpen(false); setPurchaseTypeOpen(false); setStatusOpen(false); setSortOpen(false); }}
+                >
+                  <IndianRupee size={13} color={selectedPriceBand !== 'all' ? brandCol : subTextColor} />
+                  <Text style={{ color: selectedPriceBand !== 'all' ? brandCol : textColor, fontSize: 12, flex: 1 }} numberOfLines={1}>
+                    {selectedPriceBand === 'all' ? 'All Prices' : selectedPriceBand}
+                  </Text>
+                  <ChevronDown size={12} color={subTextColor} />
+                </TouchableOpacity>
+                {isPriceBandOpen && (
+                  <View style={[styles.filterDropdown, { backgroundColor: cardBg, borderColor: borderCol }]}>
+                    {[
+                      { id: 'all', label: 'All Prices' },
+                      { id: 'under25l', label: 'Under ₹25 Lakhs' },
+                      { id: '25l-50l', label: '₹25L – ₹50 Lakhs' },
+                      { id: '50l-1cr', label: '₹50L – ₹1 Crore' },
+                      { id: '1cr-2cr', label: '₹1Cr – ₹2 Crore' },
+                      { id: 'above2cr', label: 'Above ₹2 Crore' },
+                    ].map((pb) => (
+                      <TouchableOpacity
+                        key={pb.id}
+                        style={[styles.filterDropdownItem, { backgroundColor: selectedPriceBand === pb.id ? borderCol : 'transparent' }]}
+                        onPress={() => { setSelectedPriceBand(pb.id); setPriceBandOpen(false); }}
+                      >
+                        <Text style={{ color: textColor, fontSize: 12 }}>{pb.label}</Text>
+                        {selectedPriceBand === pb.id && <Check size={12} color={brandCol} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Sort By */}
               <View style={styles.filterGroup}>
                 <Text style={[styles.filterLabel, { color: subTextColor }]}>Sort By</Text>
                 <TouchableOpacity
                   style={[styles.filterSelect, { backgroundColor: inputBg, borderColor: borderCol }]}
-                  onPress={() => { setSortOpen(!isSortOpen); setBuilderOpen(false); setExecOpen(false); setPurchaseTypeOpen(false); }}
+                  onPress={() => { setSortOpen(!isSortOpen); setLocationOpen(false); setBuilderOpen(false); setExecOpen(false); setPurchaseTypeOpen(false); setStatusOpen(false); setPriceBandOpen(false); }}
                 >
                   <Layers size={13} color={subTextColor} />
                   <Text style={{ color: textColor, fontSize: 12, flex: 1 }}>
@@ -556,10 +801,10 @@ export default function PropertiesScreen() {
               </View>
             </View>
 
-            {/* Price Range */}
+            {/* Custom Price Range */}
             <View style={styles.priceRangeRow}>
               <IndianRupee size={14} color={subTextColor} />
-              <Text style={{ color: subTextColor, fontSize: 12 }}>Price:</Text>
+              <Text style={{ color: subTextColor, fontSize: 12 }}>Custom Price:</Text>
               <TextInput
                 style={[styles.priceInput, { backgroundColor: inputBg, color: textColor, borderColor: borderCol }]}
                 placeholder="Min"
@@ -609,7 +854,7 @@ export default function PropertiesScreen() {
         ) : (
           <View style={styles.gridContainer}>
             {filteredProperties.length > 0 ? (
-              filteredProperties.map((item) => (
+              visibleProperties.map((item) => (
                 <View key={item.propertyId} style={[styles.propertyCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
                   {/* Tappable card body → property details */}
                   <TouchableOpacity
@@ -628,10 +873,13 @@ export default function PropertiesScreen() {
                         const imageUri = PropertyService.getPropertyImageUri(item);
                         if (imageUri) {
                           return (
-                            <Image
+                            <ExpoImage
                               source={{ uri: imageUri }}
                               style={styles.cardImage}
-                              resizeMode="cover"
+                              contentFit="cover"
+                              cachePolicy="memory-disk"
+                              recyclingKey={`prop_${item.propertyId}`}
+                              transition={150}
                             />
                           );
                         }
@@ -1039,4 +1287,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   noDataTitle: { fontSize: 16, fontWeight: '700', marginTop: 12 },
+  chipPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });

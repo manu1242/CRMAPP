@@ -20,7 +20,7 @@ import { getAdminTheme } from '../../theme/adminTheme';
 import {
   ArrowLeft,
   RefreshCw,
-  MessageSquare,
+  MessageCircle,
   UserX,
   LogIn,
   Users,
@@ -284,7 +284,7 @@ export default function ChatbotContent() {
                 <StatsCard
                   title="Active Conversations"
                   value={dashboardData.stats.totalActiveConversations}
-                  icon={MessageSquare}
+                  icon={MessageCircle}
                   color="#3b82f6"
                 />
                 <StatsCard
@@ -406,8 +406,8 @@ export default function ChatbotContent() {
                             backgroundColor: isUser
                               ? brandColor
                               : isDark
-                              ? '#1e293b'
-                              : '#f1f5f9',
+                                ? '#1e293b'
+                                : '#f1f5f9',
                             borderTopRightRadius: isUser ? 2 : 12,
                             borderTopLeftRadius: isUser ? 12 : 2,
                             maxWidth: '75%',

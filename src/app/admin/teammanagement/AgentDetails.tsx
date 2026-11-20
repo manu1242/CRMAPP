@@ -15,11 +15,12 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
-import { useAgent, useDeleteAgent, useUploadAgentDocument, useDeleteAgentDocument } from '../../../admin/hooks/useAgents';
+import { useAgent, useDeleteAgent, useUploadAgentDocument, useDeleteAgentDocument, useApproveAgent, useRejectAgent } from '../../../admin/hooks/useAgents';
 import { AgentsService } from '../../../admin/services/Agentservice';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import Toast from 'react-native-toast-message';
+import { useQueryClient } from '@tanstack/react-query';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 import {
   ArrowLeft,
@@ -52,8 +53,17 @@ export default function AgentDetailsScreen() {
   const adminTheme = getAdminTheme(isDark);
   const { bottomSpacing } = useBottomNavSpacing();
 
-  const { data, isLoading, refetch, isRefetching, error } = useAgent(id);
+  const { data, isLoading, refetch, isStale, isRefetching, error } = useAgent(id);
+  const teamQc = useQueryClient();
+  const syncTeamCaches = () => {
+    teamQc.invalidateQueries({ queryKey: ['channelPartners'] });
+    teamQc.invalidateQueries({ queryKey: ['channelPartner'] });
+    teamQc.invalidateQueries({ queryKey: ['agents'] });
+    teamQc.invalidateQueries({ queryKey: ['agent'] });
+  };
   const deleteAgentMutation = useDeleteAgent();
+  const approveAgentMutation = useApproveAgent();
+  const rejectAgentMutation = useRejectAgent();
   const uploadDocMutation = useUploadAgentDocument();
   const deleteDocMutation = useDeleteAgentDocument();
 
@@ -297,10 +307,12 @@ export default function AgentDetailsScreen() {
   const agent = data?.data || (data as any)?.agent || (data as any)?.Agent || (data as any);
 
   // Re-fetch when screen comes back into focus
+  // Refetch on return only when the cached data is stale — create/edit/delete mutations
+  // already invalidate this query, so a forced refetch on every focus was redundant.
   useFocusEffect(
     useCallback(() => {
-      refetch();
-    }, [refetch])
+      if (isStale) refetch();
+    }, [isStale, refetch])
   );
 
   const bgColor = adminTheme.primaryBg;
@@ -336,6 +348,107 @@ export default function AgentDetailsScreen() {
                 type: 'error',
                 text1: 'Error',
                 text2: err.response?.data?.message || 'Failed to delete agent',
+              });
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ── Web parity: AgentController.ApproveDocument / RejectDocument ──
+  const [docRejectTarget, setDocRejectTarget] = useState<{ id: number; name: string } | null>(null);
+  const [docRejectReason, setDocRejectReason] = useState('');
+  const [docBusyId, setDocBusyId] = useState<number | null>(null);
+
+  const handleApproveDocument = async (documentId: number) => {
+    try {
+      setDocBusyId(documentId);
+      const res = await AgentsService.approveDocument(documentId);
+      Toast.show({ type: 'success', text1: 'Approved', text2: res?.message || 'Document approved successfully' });
+      syncTeamCaches();
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Failed', text2: err.response?.data?.message || 'Could not approve document' });
+    } finally {
+      setDocBusyId(null);
+    }
+  };
+
+  const submitRejectDocument = async () => {
+    if (!docRejectTarget) return;
+    if (!docRejectReason.trim()) {
+      Toast.show({ type: 'error', text1: 'Rejection reason is required' });
+      return;
+    }
+    try {
+      setDocBusyId(docRejectTarget.id);
+      const res = await AgentsService.rejectDocument(docRejectTarget.id, docRejectReason.trim());
+      Toast.show({ type: 'success', text1: 'Rejected', text2: res?.message || 'Document rejected successfully' });
+      setDocRejectTarget(null);
+      setDocRejectReason('');
+      syncTeamCaches();
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Failed', text2: err.response?.data?.message || 'Could not reject document' });
+    } finally {
+      setDocBusyId(null);
+    }
+  };
+
+  const handleApprove = () => {
+    if (!agent) return;
+    Alert.alert(
+      'Approve Agent?',
+      `Are you sure you want to approve ${agent.fullName}? An active login account will be provisioned.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Approve',
+          onPress: async () => {
+            try {
+              const res: any = await approveAgentMutation.mutateAsync(agent.agentId);
+              const msg = res?.message || `${agent.fullName} approved successfully`;
+              if (res?.data?.password) Alert.alert('Agent Approved', msg);
+              else Toast.show({ type: 'success', text1: 'Approved', text2: msg });
+              refetch();
+            } catch (err: any) {
+              console.error('Failed to approve agent:', err);
+              Toast.show({
+                type: 'error',
+                text1: 'Approval Failed',
+                text2: err.response?.data?.message || err.message || 'Failed to approve agent',
+              });
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleReject = () => {
+    if (!agent) return;
+    Alert.alert(
+      'Reject Agent?',
+      `Are you sure you want to reject ${agent.fullName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await rejectAgentMutation.mutateAsync(agent.agentId);
+              Toast.show({
+                type: 'success',
+                text1: 'Rejected',
+                text2: `${agent.fullName} marked as rejected`,
+              });
+              refetch();
+            } catch (err: any) {
+              console.error('Failed to reject agent:', err);
+              Toast.show({
+                type: 'error',
+                text1: 'Rejection Failed',
+                text2: err.response?.data?.message || err.message || 'Failed to reject agent',
               });
             }
           },
@@ -440,7 +553,37 @@ export default function AgentDetailsScreen() {
           <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Agent Profile</Text>
           <Text style={{ fontSize: 11, color: subTextColor, marginTop: 1 }}>ID: #{agent.agentId}</Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          {(agent.status.toLowerCase() === 'pending' || agent.status.toLowerCase() === 'rejected') && (
+            <TouchableOpacity
+              onPress={handleApprove}
+              style={{
+                padding: 8,
+                borderRadius: 12,
+                backgroundColor: '#10b98115',
+                borderWidth: 1,
+                borderColor: '#10b98140',
+              }}
+              accessibilityLabel="Approve Agent"
+            >
+              <Check size={16} color="#10b981" strokeWidth={2.5} />
+            </TouchableOpacity>
+          )}
+          {agent.status.toLowerCase() === 'pending' && (
+            <TouchableOpacity
+              onPress={handleReject}
+              style={{
+                padding: 8,
+                borderRadius: 12,
+                backgroundColor: '#ef444415',
+                borderWidth: 1,
+                borderColor: '#ef444440',
+              }}
+              accessibilityLabel="Reject Agent"
+            >
+              <X size={16} color="#ef4444" strokeWidth={2.5} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             onPress={() => router.push(`/admin/teammanagement/CreateAgent?id=${agent.agentId}`)}
             style={{
@@ -532,6 +675,83 @@ export default function AgentDetailsScreen() {
             </View>
           </View>
         </View>
+
+        {/* Quick Status Moderation Card (Web Parity: Approve / Reject Actions) */}
+        {(agent.status.toLowerCase() === 'pending' || agent.status.toLowerCase() === 'rejected') && (
+          <View style={{
+            backgroundColor: cardBg,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: agent.status.toLowerCase() === 'pending' ? '#f59e0b40' : '#ef444440',
+            padding: 16,
+            gap: 12,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: agent.status.toLowerCase() === 'pending' ? '#f59e0b15' : '#ef444415',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <AlertCircle size={20} color={agent.status.toLowerCase() === 'pending' ? '#f59e0b' : '#ef4444'} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>
+                  Status: {agent.status}
+                </Text>
+                <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>
+                  {agent.status.toLowerCase() === 'pending'
+                    ? 'Review the agent details and documents below before approving access.'
+                    : 'This agent has been rejected. You can approve them to re-activate their account.'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+              <TouchableOpacity
+                onPress={handleApprove}
+                activeOpacity={0.8}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#10b981',
+                  paddingVertical: 11,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <Check size={16} color="#ffffff" strokeWidth={2.5} />
+                <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>Approve Agent</Text>
+              </TouchableOpacity>
+
+              {agent.status.toLowerCase() === 'pending' && (
+                <TouchableOpacity
+                  onPress={handleReject}
+                  activeOpacity={0.8}
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#ef444415',
+                    borderWidth: 1,
+                    borderColor: '#ef444450',
+                    paddingVertical: 11,
+                    borderRadius: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <X size={16} color="#ef4444" strokeWidth={2.5} />
+                  <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '700' }}>Reject Agent</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Contact Info Card */}
         <View style={{ backgroundColor: cardBg, borderRadius: 16, borderWidth: 1, borderColor: borderCol, padding: 16, gap: 14 }}>
@@ -730,6 +950,27 @@ export default function AgentDetailsScreen() {
                       </TouchableOpacity>
                     </View>
                   </View>
+
+                  {doc.verificationStatus.toLowerCase() !== 'approved' && (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => handleApproveDocument(doc.documentId)}
+                        disabled={docBusyId === doc.documentId}
+                        style={{ flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center', backgroundColor: '#10b98115' }}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#10b981' }}>Approve</Text>
+                      </TouchableOpacity>
+                      {doc.verificationStatus.toLowerCase() !== 'rejected' && (
+                        <TouchableOpacity
+                          onPress={() => { setDocRejectReason(''); setDocRejectTarget({ id: doc.documentId, name: doc.documentName }); }}
+                          disabled={docBusyId === doc.documentId}
+                          style={{ flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center', backgroundColor: '#ef444415' }}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: '#ef4444' }}>Reject</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
 
                   {doc.verificationStatus.toLowerCase() === 'rejected' && doc.rejectionReason && (
                     <View style={{
@@ -1022,6 +1263,31 @@ export default function AgentDetailsScreen() {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
+      </Modal>
+      {/* Reject Document — reason required (web parity) */}
+      <Modal visible={!!docRejectTarget} transparent animationType="fade" onRequestClose={() => setDocRejectTarget(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: cardBg, borderRadius: 16, padding: 20, gap: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>Reject Document</Text>
+            <Text style={{ fontSize: 12, color: subTextColor }}>{docRejectTarget?.name}</Text>
+            <TextInput
+              value={docRejectReason}
+              onChangeText={setDocRejectReason}
+              placeholder="Rejection reason"
+              placeholderTextColor={subTextColor}
+              multiline
+              style={{ minHeight: 70, borderWidth: 1, borderColor: borderCol, borderRadius: 10, padding: 10, color: textColor, textAlignVertical: 'top' }}
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity onPress={() => setDocRejectTarget(null)} style={{ flex: 1, height: 42, borderRadius: 10, borderWidth: 1, borderColor: borderCol, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: textColor, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={submitRejectDocument} disabled={docBusyId != null} style={{ flex: 1, height: 42, borderRadius: 10, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center' }}>
+                {docBusyId != null ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Reject</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );

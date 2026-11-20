@@ -231,6 +231,8 @@ export interface MyCrmPlanUsage {
   agentsUsed: number;
   maxAgents: number;
   agentsRemaining: number;
+  partnersUsed?: number;
+  maxPartners?: number;
   leadsUsedThisMonth: number;
   maxLeadsPerMonth: number;
   leadsRemaining: number;
@@ -249,16 +251,22 @@ export interface MyCrmPlanFeatures {
 }
 
 export interface CurrentSubscription {
+  planId?: number;
   planName: string;
   billingCycle: string;
   amount: number;
+  amountPaid?: number;
+  remainingPlanValue?: number;
   status: string;
   startDate: string;
   endDate: string;
+  formattedEndDate?: string;
   daysRemaining: number;
   isTrial: boolean;
   trialExpiresOn?: string;
   autoRenew?: boolean;
+  autoRenewProvider?: string;
+  autoRenewStatus?: string;
 }
 
 export interface UpgradeOptionType {
@@ -274,13 +282,54 @@ export interface UpgradeOptions {
 export interface AvailablePlanItem {
   planId: number;
   planName: string;
+  description?: string;
   monthlyPrice: number;
   yearlyPrice: number;
   isCurrentPlan: boolean;
+  isScheduledPlan?: boolean;
+  maxAgents?: number;
+  maxPartners?: number;
+  maxLeadsPerMonth?: number;
+  maxStorageGB?: number;
+  hasWhatsAppIntegration?: boolean;
+  hasFacebookIntegration?: boolean;
+  hasEmailIntegration?: boolean;
+  hasCustomAPIAccess?: boolean;
+  hasAdvancedReports?: boolean;
+  hasCustomReports?: boolean;
+  hasDataExport?: boolean;
+  supportLevel?: string;
   features: string[];
 }
 
 export type MyCrmAvailablePlan = AvailablePlanItem;
+
+export interface UpgradeCalculationDetails {
+  currentPlan?: string;
+  newPlan?: string;
+  remainingDays?: number;
+  remainingAmount?: number;
+  requiredAmount?: number;
+  shortfall?: number;
+  upgradePerDayRate?: number;
+  newAmount?: number;
+  creditAmount?: number;
+  rewardPoints?: number;
+  adjustedAmount?: number;
+  paymentRequired?: number;
+  startDate?: string;
+  endDate?: string;
+  upgradeEndDate?: string;
+}
+
+export interface CalculateUpgradeResponse {
+  success: boolean;
+  insufficientAmount?: boolean;
+  upgradeType?: string;
+  message?: string;
+  calculation?: UpgradeCalculationDetails;
+  activated?: boolean;
+}
 
 export interface MyCrmPlanData {
   currentSubscription: CurrentSubscription;
@@ -300,25 +349,42 @@ export interface GetMyCrmPlanResponse {
 export interface CrmTransactionItem {
   transactionId: number;
   transactionReference: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
   invoiceNumber: string;
   invoiceDate: string;
+  companyName?: string;
   planName: string;
   billingCycle: string;
   amount: number;
-  taxAmount: number;
-  netAmount: number;
+  taxAmount?: number;
+  netAmount?: number;
   currency: string;
   transactionType: string;
   status: string;
+  rawStatus?: string;
   paymentMethod: string;
+  cardNetwork?: string;
+  cardLast4?: string;
+  cardType?: string;
+  bankName?: string;
   transactionDate: string;
   completedDate?: string;
   description?: string;
+  failureReason?: string;
+  canRetry?: boolean;
+  canCancel?: boolean;
+  canDownloadInvoice?: boolean;
 }
 
 export interface CrmTxStats {
   totalTransactions: number;
-  totalPaidAmount: number;
+  successfulTransactions?: number;
+  netRevenue?: number;
+  pendingTransactions?: number;
+  totalPayments?: number;
+  totalRefunds?: number;
+  totalPaidAmount?: number;
 }
 
 export interface GetCrmTransactionsResponse {
@@ -338,7 +404,7 @@ export interface GetCrmTransactionsResponse {
 export const subscriptionService = {
   // 1. Subscription Plans
   getPlans: async (params?: { search?: string; isActive?: boolean; planType?: string }): Promise<GetPlansResponse> => {
-    return await apiClient.get<GetPlansResponse>(API_ENDPOINTS.SUBSCRIPTION_API.PLANS.LIST, { params });
+    return await apiClient.get<GetPlansResponse>(API_ENDPOINTS.SUBSCRIPTION_API.PLANS.LIST, params);
   },
 
   getPlanDetails: async (id: number | string): Promise<GetPlanDetailsResponse> => {
@@ -375,7 +441,7 @@ export const subscriptionService = {
   }): Promise<GetPartnerSubscriptionsResponse> => {
     return await apiClient.get<GetPartnerSubscriptionsResponse>(
       API_ENDPOINTS.SUBSCRIPTION_API.PARTNER_SUBSCRIPTIONS.LIST,
-      { params }
+      params
     );
   },
 
@@ -399,7 +465,7 @@ export const subscriptionService = {
   }): Promise<GetRazorpayTransactionsResponse> => {
     return await apiClient.get<GetRazorpayTransactionsResponse>(
       API_ENDPOINTS.SUBSCRIPTION_API.RAZORPAY_TRANSACTIONS.LIST,
-      { params }
+      params
     );
   },
 
@@ -411,7 +477,7 @@ export const subscriptionService = {
   getPendingRefunds: async (params?: { page?: number; pageSize?: number }): Promise<GetPendingRefundsResponse> => {
     return await apiClient.get<GetPendingRefundsResponse>(
       API_ENDPOINTS.SUBSCRIPTION_API.PENDING_REFUNDS.LIST,
-      { params }
+      params
     );
   },
 
@@ -424,16 +490,52 @@ export const subscriptionService = {
     return await apiClient.get<GetMyCrmPlanResponse>(API_ENDPOINTS.SUBSCRIPTION_API.MY_CRM_PLAN.GET);
   },
 
+  calculateUpgrade: async (payload: {
+    newPlanId: number;
+    billingCycle: string;
+    upgradeType: string;
+    activateNow?: boolean;
+  }): Promise<CalculateUpgradeResponse> => {
+    const res = await apiClient.post<any>('/api/v1/subscriptions/calculate-upgrade', payload);
+    return res.data;
+  },
+
+  toggleAutoRenew: async (payload: {
+    enable: boolean;
+    provider?: string;
+  }): Promise<GenericApiResponse> => {
+    const res = await apiClient.post<GenericApiResponse>('/api/v1/subscriptions/toggle-auto-renew', payload);
+    return res.data;
+  },
+
   // 6. CRM Transactions
-  getCrmTransactions: async (params?: { page?: number; pageSize?: number }): Promise<GetCrmTransactionsResponse> => {
+  getCrmTransactions: async (params?: {
+    status?: string;
+    type?: string;
+    transactionType?: string;
+    fromDate?: string;
+    toDate?: string;
+    search?: string;
+    sortBy?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<GetCrmTransactionsResponse> => {
     return await apiClient.get<GetCrmTransactionsResponse>(
       API_ENDPOINTS.SUBSCRIPTION_API.CRM_TRANSACTIONS.LIST,
-      { params }
+      params
     );
   },
 
   getCrmTransactionDetails: async (id: number | string): Promise<GenericApiResponse> => {
     return await apiClient.get<GenericApiResponse>(API_ENDPOINTS.SUBSCRIPTION_API.CRM_TRANSACTIONS.DETAILS(id));
+  },
+
+  cancelCrmTransaction: async (id: number | string): Promise<GenericApiResponse> => {
+    return await apiClient.post<GenericApiResponse>(`/api/v1/subscriptions/crm-transactions/${id}/cancel`);
+  },
+
+  retryCrmTransaction: async (id: number | string): Promise<GenericApiResponse> => {
+    return await apiClient.post<GenericApiResponse>(`/api/v1/subscriptions/crm-transactions/${id}/retry`);
   },
 
   // 7. Order & Payment

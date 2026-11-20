@@ -63,15 +63,6 @@
     }
   },
 
-  "update": {
-    "preview": {
-      "channel": "preview"
-    },
-    "production": {
-      "channel": "production"
-    }
-  },
-
   "submit": {
     "production": {
       "android": {
@@ -79,8 +70,9 @@
         "releaseStatus": "completed"
       },
       "ios": {
-        "appleId": "manohar.ios@example.com"
-      }
+  "appleId": "ultrakeyit@gmail.com",
+  "ascAppId": "6816377854"
+}
     }
   }
 }

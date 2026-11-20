@@ -30,22 +30,53 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
 
 export const PropertyService = {
   getPropertiesList: async (): Promise<PropertyListResponse> => {
+    // The API pages results (default pageSize 50) while the Web list shows every active
+    // property, so read all pages. Extra requests happen only when there are more than 50.
+    const PAGE_SIZE = 50;
+    const MAX_PAGES = 100; // safety stop
+    const extractList = (res: any): any[] | null =>
+      Array.isArray(res?.data) ? res.data : Array.isArray(res?.properties) ? res.properties : null;
+
     try {
-      const response = await apiClient.get<any>(API_ENDPOINTS.PROPERTIES.GET_LIST, undefined, { timeout: 30000 });
+      const response = await apiClient.get<any>(
+        API_ENDPOINTS.PROPERTIES.GET_LIST,
+        { page: 1, pageSize: PAGE_SIZE },
+        { timeout: 30000 }
+      );
       // Handle both { success: true, properties: [...] } and { success: true, data: [...] } formats
-      if (response) {
-        if (Array.isArray(response.data)) {
-          return {
-            success: response.success ?? true,
-            properties: response.data,
-            message: response.message,
-          };
-        }
-        if (Array.isArray(response.properties)) {
-          return response;
+      const firstPage = extractList(response);
+      if (!firstPage) return { success: false, properties: [] };
+
+      const all = [...firstPage];
+      const totalCount = Number(response?.totalCount);
+      if (Number.isFinite(totalCount) && totalCount > all.length) {
+        for (let page = 2; all.length < totalCount && page <= MAX_PAGES; page++) {
+          const next = await apiClient.get<any>(
+            API_ENDPOINTS.PROPERTIES.GET_LIST,
+            { page, pageSize: PAGE_SIZE },
+            { timeout: 30000 }
+          );
+          const items = extractList(next);
+          if (!items || items.length === 0) break;
+          all.push(...items);
         }
       }
-      return { success: false, properties: [] };
+
+      // A property created while paging shifts the newest-first order and can repeat a row.
+      const seen = new Set<unknown>();
+      const unique = all.filter((p) => {
+        const id = p?.propertyId ?? p?.PropertyId;
+        if (id == null) return true;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+
+      return {
+        success: response.success ?? true,
+        properties: unique,
+        message: response.message,
+      };
     } catch (err: any) {
       console.warn('[PropertyService] Primary /api/v1/properties failed, trying fallback...', err?.message);
       try {

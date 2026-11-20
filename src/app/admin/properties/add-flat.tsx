@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -240,12 +241,17 @@ export default function AddFlatScreen() {
           {isEditMode ? 'Edit Flat Details' : 'Add New Flat'}
         </Text>
       </View>
-      <ScrollView
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: Math.max(bottomSpacing, 120), flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: Math.max(bottomSpacing, 120), flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={[styles.section, { backgroundColor: cardBg, borderColor: borderCol }]}>
          
 
@@ -497,6 +503,7 @@ export default function AddFlatScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+    </KeyboardAvoidingView>
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   getAgentLeadTracking,
   assignAgentLead,
@@ -17,7 +17,8 @@ export function useAgentLeadTracking(
   return useQuery({
     queryKey: [AGENT_TRACKING_QUERY_KEY, executiveId, search, stage, page, pageSize],
     queryFn: () => getAgentLeadTracking(executiveId, search, stage, page, pageSize),
-    staleTime: 1000 * 30, // 30 seconds
+    placeholderData: keepPreviousData, // keep the list while switching agent / stage / page
+    staleTime: 1000 * 60,
   });
 }
 

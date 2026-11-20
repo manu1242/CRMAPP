@@ -7,7 +7,7 @@ import {
   Modal,
   StyleSheet,
   ScrollView,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { X, ChevronLeft, ChevronRight, Trash2, ZoomIn, Download } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -25,8 +25,6 @@ interface PropertyImageGalleryProps {
   canDelete?: boolean;
 }
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
 export default function PropertyImageGallery({
   images,
   visible,
@@ -35,6 +33,7 @@ export default function PropertyImageGallery({
   onDelete,
   canDelete = false,
 }: PropertyImageGalleryProps) {
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
 
@@ -103,7 +102,7 @@ export default function PropertyImageGallery({
           {photoUri ? (
             <Image
               source={{ uri: photoUri }}
-              style={styles.fullImage}
+              style={[styles.fullImage, { width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.65 }]}
               resizeMode="contain"
             />
           ) : (
@@ -199,8 +198,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   fullImage: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.65,
+    maxWidth: '100%',
   },
   arrowBtn: {
     position: 'absolute',

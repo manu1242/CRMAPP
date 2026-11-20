@@ -49,3 +49,14 @@ export function useUpdateLeadMutation() {
     },
   });
 }
+
+export function useDeleteLeadMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number | string) => LeadService.deleteLead(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.removeQueries({ queryKey: ['leadDetails', id] });
+    },
+  });
+}

@@ -51,7 +51,7 @@ import {
   Plus,
   Check,
   CheckSquare,
-  MessageSquare,
+  MessageCircle,
   Calendar,
   Sparkles,
   Layers,
@@ -69,8 +69,7 @@ import { NotificationService } from '../../Services/NotificationService';
 import { NotificationItem } from '../../authorization/models/Notification';
 import { useDashboardScrollHandler } from '../store/useHeaderScrollStore';
 import { resolveNotificationRoute, navigateToNotification } from '../../utils/notificationNavigator';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
+import { useResponsive } from '../../hooks/useResponsive';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -806,6 +805,7 @@ function FinancialBanner({
 }
 
 export default function AdminDashboardContent() {
+  const { width: SCREEN_WIDTH, isSmallPhone } = useResponsive();
   const { isDark } = useTheme();
   const user = useAuthStore((state) => state.user);
   const role = user?.role?.trim()?.toLowerCase() || '';
@@ -891,47 +891,47 @@ export default function AdminDashboardContent() {
 
   const statCards = data
     ? [
-        {
-          title: isAgent ? 'My Assigned Leads' : 'Total Leads',
-          value: `${data.totalLeads}`,
-          sub: data.facebookLeads > 0 ? `${data.facebookLeads} Facebook Leads` : 'Active in Workspace',
-          icon: Users,
-          color: '#10b981',
-        },
-        ...(canAccessFinance
-          ? [
-              {
-                title: 'Total Revenue',
-                value: formatCurrency(data.totalRevenue),
-                sub: formatFullCurrency(data.totalRevenue),
-                icon: IndianRupee,
-                color: '#3b82f6',
-              },
-              {
-                title: 'Net Profit',
-                value: formatCurrency(data.totalProfit),
-                sub: data.totalProfit >= 0 ? 'Net Income' : 'Net Loss',
-                icon: TrendingUp,
-                color: data.totalProfit >= 0 ? '#f59e0b' : '#ef4444',
-              },
-            ]
-          : [
-              {
-                title: 'New Leads Today',
-                value: `${data.overview?.newLeadsToday ?? 0}`,
-                sub: 'Fresh enquiries',
-                icon: TrendingUp,
-                color: '#3b82f6',
-              },
-              {
-                title: 'Conversion Rate',
-                value: `${data.overview?.conversionRate ?? 0}%`,
-                sub: 'Lead win rate',
-                icon: CheckCircle,
-                color: '#f59e0b',
-              },
-            ]),
-      ]
+      {
+        title: isAgent ? 'My Assigned Leads' : 'Total Leads',
+        value: `${data.totalLeads}`,
+        sub: data.facebookLeads > 0 ? `${data.facebookLeads} Facebook Leads` : 'Active in Workspace',
+        icon: Users,
+        color: '#10b981',
+      },
+      ...(canAccessFinance
+        ? [
+          {
+            title: 'Total Revenue',
+            value: formatCurrency(data.totalRevenue),
+            sub: formatFullCurrency(data.totalRevenue),
+            icon: IndianRupee,
+            color: '#3b82f6',
+          },
+          {
+            title: 'Net Profit',
+            value: formatCurrency(data.totalProfit),
+            sub: data.totalProfit >= 0 ? 'Net Income' : 'Net Loss',
+            icon: TrendingUp,
+            color: data.totalProfit >= 0 ? '#f59e0b' : '#ef4444',
+          },
+        ]
+        : [
+          {
+            title: 'New Leads Today',
+            value: `${data.overview?.newLeadsToday ?? 0}`,
+            sub: 'Fresh enquiries',
+            icon: TrendingUp,
+            color: '#3b82f6',
+          },
+          {
+            title: 'Conversion Rate',
+            value: `${data.overview?.conversionRate ?? 0}%`,
+            sub: 'Lead win rate',
+            icon: CheckCircle,
+            color: '#f59e0b',
+          },
+        ]),
+    ]
     : [];
 
   const quickActions = React.useMemo(() => {
@@ -1348,15 +1348,15 @@ export default function AdminDashboardContent() {
                   }
                 }}
                 style={{
-                  width: (SCREEN_WIDTH - 42) / 2,
+                  width: isSmallPhone ? '100%' : (SCREEN_WIDTH - 42) / 2,
                   backgroundColor: cardBg,
                   borderRadius: 16,
                   borderWidth: 1,
                   borderColor: cardBorder,
-                  padding: 16,
+                  padding: isSmallPhone ? 12 : 16,
                   flexDirection: 'row',
                   alignItems: 'center',
-                  gap: 12,
+                  gap: isSmallPhone ? 8 : 12,
                   position: 'relative',
                   overflow: 'hidden',
                 }}
@@ -1721,7 +1721,7 @@ export default function AdminDashboardContent() {
                     setIsNotificationSheetOpen(false);
                     const notifId = n.notificationId ?? n.id;
                     if (notifId) {
-                      NotificationService.markAsRead(notifId).catch(() => {});
+                      NotificationService.markAsRead(notifId).catch(() => { });
                     }
                     await navigateToNotification(n, router);
                   }}
@@ -1772,17 +1772,17 @@ export default function AdminDashboardContent() {
         <View style={{ gap: 10 }}>
           {(isAgent
             ? [
-                { label: 'My Assigned Leads', action: () => router.push('/admin/leads' as any) },
-                { label: 'My Tasks', action: () => router.push('/admin/Tasks' as any) },
-                { label: 'Properties Portfolio', action: () => router.push('/admin/properties' as any) },
-                { label: 'My Attendance', action: () => router.push('/admin/attendance/AgentAttendance' as any) },
-              ]
+              { label: 'My Assigned Leads', action: () => router.push('/admin/leads' as any) },
+              { label: 'My Tasks', action: () => router.push('/admin/Tasks' as any) },
+              { label: 'Properties Portfolio', action: () => router.push('/admin/properties' as any) },
+              { label: 'My Attendance', action: () => router.push('/admin/attendance/AgentAttendance' as any) },
+            ]
             : [
-                ...(hasModuleAccess('Leads & Properties') ? [{ label: 'Create New Lead', action: () => router.push('/admin/leads' as any) }] : []),
-                ...(hasModuleAccess('User Management') ? [{ label: 'Manage All System Users', action: () => router.push('/admin/usemanagement/ManageUsers' as any) }] : []),
-                ...(isAdmin && hasModuleAccess('User Management') ? [{ label: 'Manage Roles & Access Control', action: () => router.push('/admin/usemanagement/RolesManagement' as any) }] : []),
-                ...(hasModuleAccess('Settings') ? [{ label: 'System Preferences', action: () => router.push('/admin/settings' as any) }] : []),
-              ]
+              ...(hasModuleAccess('Leads & Properties') ? [{ label: 'Create New Lead', action: () => router.push('/admin/leads' as any) }] : []),
+              ...(hasModuleAccess('User Management') ? [{ label: 'Manage All System Users', action: () => router.push('/admin/usemanagement/ManageUsers' as any) }] : []),
+              ...(isAdmin && hasModuleAccess('User Management') ? [{ label: 'Manage Roles & Access Control', action: () => router.push('/admin/usemanagement/RolesManagement' as any) }] : []),
+              ...(hasModuleAccess('Settings') ? [{ label: 'System Preferences', action: () => router.push('/admin/settings' as any) }] : []),
+            ]
           ).map((act, i) => (
             <TouchableOpacity
               key={i}

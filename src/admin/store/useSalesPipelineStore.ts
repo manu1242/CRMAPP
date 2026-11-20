@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import { SalesPipelineStageGroup, UpdateLeadStagePayload } from '../models/SalesPipelineTypes';
 import { SalesPipelineService } from '../services/SalesPipelineService';
 
+export interface SalesPipelineFilters {
+  search?: string;
+  executiveId?: number;
+  source?: string;
+  from?: string;
+  to?: string;
+}
+
 interface SalesPipelineState {
   stages: string[];
   pipelineGroups: SalesPipelineStageGroup[];
@@ -9,9 +17,10 @@ interface SalesPipelineState {
   isLoading: boolean;
   isUpdatingStage: boolean;
   error: string | null;
+  lastFilters?: SalesPipelineFilters;
 
   // Actions
-  fetchPipelineData: () => Promise<void>;
+  fetchPipelineData: (params?: SalesPipelineFilters) => Promise<void>;
   setSelectedStage: (stage: string) => void;
   updateLeadStage: (leadId: number, newStage: string) => Promise<boolean>;
 }
@@ -23,14 +32,15 @@ export const useSalesPipelineStore = create<SalesPipelineState>((set, get) => ({
   isLoading: false,
   isUpdatingStage: false,
   error: null,
+  lastFilters: undefined,
 
-  fetchPipelineData: async () => {
-    set({ isLoading: true, error: null });
+  fetchPipelineData: async (params?: SalesPipelineFilters) => {
+    set({ isLoading: true, error: null, lastFilters: params });
     try {
       // Parallel fetch for stages and pipeline lead groups
       const [stagesRes, leadsByStageRes] = await Promise.all([
         SalesPipelineService.getStages().catch(() => null),
-        SalesPipelineService.getLeadsByStage(),
+        SalesPipelineService.getLeadsByStage(params),
       ]);
 
       const groups = leadsByStageRes.success && leadsByStageRes.data ? leadsByStageRes.data : [];
@@ -61,18 +71,23 @@ export const useSalesPipelineStore = create<SalesPipelineState>((set, get) => ({
       });
 
       // Automatically select the first stage with leads if available, otherwise default to first stage
-      const firstGroupWithLeads = groups.find(
-        (g) => (g.count ?? g.leads?.length ?? 0) > 0
-      );
+      const currentSelected = get().selectedStage;
+      const isCurrentValid = stagesList.some((s) => s.toLowerCase() === currentSelected.toLowerCase());
 
-      const autoSelectedStage = firstGroupWithLeads
-        ? firstGroupWithLeads.stage
-        : (stagesList[0] || 'New');
+      let resolvedSelectedStage = currentSelected;
+      if (!isCurrentValid) {
+        const firstGroupWithLeads = groups.find(
+          (g) => (g.count ?? g.leads?.length ?? 0) > 0
+        );
+        resolvedSelectedStage = firstGroupWithLeads
+          ? firstGroupWithLeads.stage
+          : (stagesList[0] || 'New');
+      }
 
       set({
         stages: stagesList,
         pipelineGroups: groups,
-        selectedStage: autoSelectedStage,
+        selectedStage: resolvedSelectedStage,
         isLoading: false,
       });
     } catch (err: any) {
@@ -95,8 +110,8 @@ export const useSalesPipelineStore = create<SalesPipelineState>((set, get) => ({
       const payload: UpdateLeadStagePayload = { leadId, newStage };
       const response = await SalesPipelineService.updateLeadStage(payload);
       if (response.success) {
-        // Refetch updated pipeline data
-        await get().fetchPipelineData();
+        // Refetch updated pipeline data with preserved filters
+        await get().fetchPipelineData(get().lastFilters);
         set({ isUpdatingStage: false });
         return true;
       }

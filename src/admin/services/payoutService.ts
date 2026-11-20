@@ -46,6 +46,8 @@ export interface AgentPayoutListResponse {
   summary: AgentPayoutSummary;
   filters: AgentPayoutFilters;
   data: AgentPayoutItem[];
+  /** Approved agents in the caller's payout scope (web: eligible agents for Process Payouts) */
+  eligibleAgents?: number;
 }
 
 export interface AgentAttendanceRecord {
@@ -61,6 +63,8 @@ export interface AgentCommissionLog {
   propertyName: string;
   flatName: string;
   saleDate: string;
+  saleAmount?: number;
+  commissionPercentage?: number;
   commissionAmount: number;
 }
 
@@ -76,11 +80,13 @@ export interface AgentPayoutDetailsData {
     baseSalary: number;
     attendanceDeduction: number;
     commissionAmount: number;
+    totalSales?: number;
     finalPayout: number;
     workingDays: number;
     presentDays: number;
     absentDays?: number;
     status: string;
+    processedOn?: string | null;
   };
   attendanceSummary: {
     workingDays: number;
@@ -257,6 +263,13 @@ export const payoutService = {
   },
 
   /**
+   * Web AgentPayoutController.ResetPayoutStatuses — non-Paid payouts back to Pending
+   */
+  resetAgentPayoutStatuses: async (): Promise<{ success: boolean; message: string }> => {
+    return await apiClient.post<{ success: boolean; message: string }>(API_ENDPOINTS.PAYOUTS.AGENT.RESET_STATUSES);
+  },
+
+  /**
    * 1.5 Recalculate Agent Payouts
    */
   recalculateAgentPayouts: async (payload: {
@@ -277,10 +290,11 @@ export const payoutService = {
     month: string;
     year: number;
   }): Promise<AgentPayslipData> => {
-    return await apiClient.get<AgentPayslipData>(
+    const res = await apiClient.get<any>(
       API_ENDPOINTS.PAYOUTS.AGENT.PAYSLIP,
       params
     );
+    return (res && res.data) ? res.data : res;
   },
 
   // --- Channel Partner Payouts API Methods ---
@@ -360,9 +374,10 @@ export const payoutService = {
     month: string;
     year: number;
   }): Promise<PartnerPayslipData> => {
-    return await apiClient.get<PartnerPayslipData>(
+    const res = await apiClient.get<any>(
       API_ENDPOINTS.PAYOUTS.PARTNER.PAYSLIP,
       params
     );
+    return (res && res.data) ? res.data : res;
   },
 };

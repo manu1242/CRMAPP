@@ -38,8 +38,7 @@ import {
 } from '../services/PartnerDashboardService';
 import AppFooter from '../../auth/components/AppFooter';
 import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
+import { useResponsive } from '../../hooks/useResponsive';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -389,13 +388,18 @@ function CommissionTrendChart({ data, width, height, subTextColor }: LineChartPr
   );
 }
 
+import { usePartnerPlanEligibility } from '../hooks/usePartnerPlanEligibility';
+import PartnerPlanUpgradeCard from './PartnerPlanUpgradeCard';
+
 export default function PartnerDashboardContent() {
+  const { width: SCREEN_WIDTH, isSmallPhone } = useResponsive();
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
   const { bottomSpacing } = useBottomNavSpacing();
   const user = useAuthStore((s) => s.user);
   const isImpersonating = useAuthStore((s) => s.isImpersonating);
+  const { isEligible: hasPartnerPlanEligibility, isLoading: eligibilityLoading } = usePartnerPlanEligibility();
 
   const [data, setData] = useState<PartnerDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -403,6 +407,11 @@ export default function PartnerDashboardContent() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async (isRefresh = false) => {
+    if (!hasPartnerPlanEligibility) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
@@ -410,8 +419,19 @@ export default function PartnerDashboardContent() {
       const result = await partnerDashboardService.getDashboardData();
       setData(result);
     } catch (err: any) {
-      console.error('[PartnerDashboard] Error:', err);
-      setError(err.message || 'Failed to load dashboard data');
+      console.warn('[PartnerDashboard] Error:', err);
+      // Fallback to safe empty dashboard structure so user is never locked out of partner view
+      setData({
+        totalLeads: 0,
+        totalCommission: 0,
+        conversionRate: 0,
+        monthlyRevenue: 0,
+        leadPerformance: [],
+        leadStatus: { newLeads: 0, contacted: 0, qualified: 0, converted: 0 },
+        commissionTrend: [],
+        recentLeads: [],
+      });
+      setError(err?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -430,6 +450,15 @@ export default function PartnerDashboardContent() {
 
   const chartWidth = SCREEN_WIDTH - 48;
 
+  if (!eligibilityLoading && !hasPartnerPlanEligibility) {
+    return (
+      <PartnerPlanUpgradeCard
+        title="Partner Dashboard Not Included In Plan"
+        message="Your current subscription plan does not include Channel Partners. Upgrade your plan to Enterprise or Unlimited to access the Partner Dashboard."
+      />
+    );
+  }
+
   if (loading && !data) {
     return (
       <View style={[styles.centeredContainer, { backgroundColor: bgColor }]}>
@@ -437,22 +466,6 @@ export default function PartnerDashboardContent() {
         <Text style={[styles.loadingText, { color: subTextColor }]}>
           Loading Partner Dashboard…
         </Text>
-      </View>
-    );
-  }
-
-  if (error && !data) {
-    return (
-      <View style={[styles.centeredContainer, { backgroundColor: bgColor }]}>
-        <AlertCircle size={40} color="#ef4444" />
-        <Text style={[styles.errorTitle, { color: textColor }]}>Failed to Load</Text>
-        <Text style={[styles.errorMsg, { color: subTextColor }]}>{error}</Text>
-        <TouchableOpacity
-          style={styles.retryBtn}
-          onPress={() => fetchData()}
-        >
-          <Text style={styles.retryBtnText}>Try Again</Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -612,7 +625,7 @@ export default function PartnerDashboardContent() {
               contacted={contacted}
               qualified={qualified}
               converted={converted}
-              size={SCREEN_WIDTH * 0.42}
+              size={Math.min(SCREEN_WIDTH * 0.42, 180)}
             />
             <View style={styles.legendCol}>
               {legendItems.map((item, i) => (

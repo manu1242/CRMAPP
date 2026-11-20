@@ -34,8 +34,6 @@ import { useMilestoneTrackingQuery } from '../hooks/useDashboardQuery';
 import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 import { useDashboardScrollHandler } from '../store/useHeaderScrollStore';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
 function formatCurrency(val: number | string | undefined | null): string {
   const num = typeof val === 'string' ? parseFloat(val) : (val ?? 0);
   const v = isNaN(num) ? 0 : num;

@@ -33,8 +33,6 @@ import { useTeamDashboardQuery } from '../hooks/useDashboardQuery';
 import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 import { useDashboardScrollHandler } from '../store/useHeaderScrollStore';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
 export default function TeamDashboardContent() {
   const router = useRouter();
   const { isDark } = useTheme();

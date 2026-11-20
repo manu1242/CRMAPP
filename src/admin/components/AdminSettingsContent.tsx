@@ -35,11 +35,13 @@ import { queryClient } from '../../api/queryClient';
 import { resetNavigationLock } from '../../navigation/safeNavigation';
 import { useDashboardTabStore } from '../store/useDashboardTabStore';
 import { usePermissions } from '../../authorization/hooks/usePermission';
+import { usePartnerPlanEligibility } from '../hooks/usePartnerPlanEligibility';
 
 export default function AdminSettingsContent() {
   const { isDark } = useTheme();
   const router = useRouter();
   const { isAdmin, isPartner } = usePermissions();
+  const { isEligible: hasPartnerPlanEligibility } = usePartnerPlanEligibility();
   const isImpersonating = useAuthStore((state) => state.isImpersonating);
   const stopImpersonation = useAuthStore((state) => state.stopImpersonation);
   const adminTheme = getAdminTheme(isDark);
@@ -48,13 +50,13 @@ export default function AdminSettingsContent() {
   // Guard: Settings is purely for Admin
   React.useEffect(() => {
     if (!isAdmin) {
-      if (isPartner) {
+      if (isPartner && hasPartnerPlanEligibility) {
         router.replace('/admin/PartnerDashboard');
       } else {
         router.replace('/admin/dashboard');
       }
     }
-  }, [isAdmin, isPartner, router]);
+  }, [isAdmin, isPartner, hasPartnerPlanEligibility, router]);
 
   const handleUpdateApp = useCallback(async () => {
     if (otaService.isEnabled()) {
@@ -107,7 +109,7 @@ export default function AdminSettingsContent() {
         items: [
           { title: 'Company Information', icon: Settings, desc: 'General app settings and configurations', route: '/admin/settings/systemsettings/setting', color: '#3b82f6' },
           { title: 'Email Settings', icon: Mail, desc: 'Configure SMTP, mail server, and templates', route: '/admin/settings/emailconfig/EmailConfig', color: '#eab308' },
-          { title: 'User Impersonation', icon: UserCheck, desc: 'Login as any user to test permissions and experience', route: '/admin/usemanagement/ManageUsers', color: '#8b5cf6' },
+          // { title: 'User Impersonation', icon: UserCheck, desc: 'Login as any user to test permissions and experience', route: '/admin/usemanagement/ManageUsers', color: '#8b5cf6' },
         ],
       },
    

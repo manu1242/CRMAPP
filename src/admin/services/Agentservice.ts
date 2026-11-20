@@ -19,6 +19,7 @@ export interface GetAgentsResponse {
     pageNumber: number;
     pageSize: number;
     totalPages: number;
+    stats?: { total: number; pending: number; approved: number; rejected: number };
   };
 }
 
@@ -128,6 +129,8 @@ export const AgentsService = {
             pageNumber: params?.page || 1,
             pageSize: params?.pageSize || 10,
             totalPages: Math.ceil((totalCount || normalizedItems.length) / (params?.pageSize || 10)) || 1,
+            // Web Agent List banner stats (TOTAL / PENDING / APPROVED / REJECTED)
+            stats: rawRes?.data?.stats ?? undefined,
           },
         };
       } catch (err: any) {
@@ -483,6 +486,22 @@ export const AgentsService = {
       API_ENDPOINTS.AGENTS.REJECT(agentId),
       reason ? { reason } : undefined
     );
+  },
+
+  // Web parity: AgentController.CheckCanOnboard (subscription / plan limits)
+  async checkCanOnboard() {
+    return apiClient.get<{ success: boolean; message: string; data: { allowed: boolean; showUpgrade: boolean } }>(
+      API_ENDPOINTS.AGENTS.CAN_ONBOARD
+    );
+  },
+
+  // Web parity: AgentController.ApproveDocument / RejectDocument
+  async approveDocument(documentId: number | string) {
+    return apiClient.post<{ success: boolean; message: string; data: any }>(API_ENDPOINTS.AGENTS.APPROVE_DOCUMENT(documentId));
+  },
+
+  async rejectDocument(documentId: number | string, reason: string) {
+    return apiClient.post<{ success: boolean; message: string; data: any }>(API_ENDPOINTS.AGENTS.REJECT_DOCUMENT(documentId), { reason });
   },
 
   // 13. Check Email Exists

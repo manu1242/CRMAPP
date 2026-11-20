@@ -15,6 +15,8 @@ import { useTheme } from '../../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../../theme/adminTheme';
 import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
 import { useCreateChannelPartner, useSubscriptionPlans } from '../../../../admin/hooks/useChannelPartners';
+import { usePartnerPlanEligibility } from '../../../../admin/hooks/usePartnerPlanEligibility';
+import PartnerPlanUpgradeCard from '../../../../admin/components/PartnerPlanUpgradeCard';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import {
@@ -41,6 +43,7 @@ export default function CreateChannelPartnerScreen() {
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
   const { bottomSpacing } = useBottomNavSpacing();
+  const { isEligible: hasPartnerPlanEligibility, isLoading: eligibilityLoading } = usePartnerPlanEligibility();
 
   // Form States
   const [form, setForm] = useState({
@@ -192,6 +195,15 @@ export default function CreateChannelPartnerScreen() {
       Alert.alert('Error', err.message || 'Onboarding failed. Please try again.');
     }
   };
+
+  if (!eligibilityLoading && !hasPartnerPlanEligibility) {
+    return (
+      <PartnerPlanUpgradeCard
+        title="Cannot Onboard Channel Partners"
+        message="Your current subscription plan does not allow Channel Partners. Upgrade your plan to Enterprise or Unlimited to onboard new channel partners."
+      />
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>

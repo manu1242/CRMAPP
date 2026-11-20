@@ -25,9 +25,11 @@ import {
   RazorpayTransactionItem,
   RazorpayStats,
 } from '../../../../admin/services/subscriptionService';
+import { useBottomNavSpacing } from '../../../../hooks/useBottomNavSpacing';
 
 export default function RazorpayTransactionsScreen() {
   const router = useRouter();
+  const { bottomSpacing } = useBottomNavSpacing();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
 
@@ -121,7 +123,7 @@ export default function RazorpayTransactionsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: Math.max(bottomSpacing, 110) }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchTransactions(true)} />
         }

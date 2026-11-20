@@ -35,10 +35,11 @@ import {
   Users,
   ChevronDown,
   Check,
+  X,
   TrendingUp,
 } from 'lucide-react-native';
 
-import { useAgents, useDeleteAgent } from '../../../admin/hooks/useAgents';
+import { useAgents, useDeleteAgent, useApproveAgent, useRejectAgent } from '../../../admin/hooks/useAgents';
 import Toast from 'react-native-toast-message';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
@@ -87,8 +88,10 @@ export default function AgentListScreen() {
     type: type !== 'All' ? type : undefined,
   };
 
-  const { data, isLoading, isRefetching, refetch } = useAgents(queryParams);
+  const { data, isLoading, isRefetching, refetch, isStale } = useAgents(queryParams);
   const deleteAgentMutation = useDeleteAgent();
+  const approveAgentMutation = useApproveAgent();
+  const rejectAgentMutation = useRejectAgent();
 
   const agents: AgentType[] = Array.isArray(data?.data?.items)
     ? data.data.items
@@ -97,13 +100,81 @@ export default function AgentListScreen() {
     : [];
   const totalCount = data?.data?.totalCount || agents.length || 0;
   const totalPages = data?.data?.totalPages || 1;
+  const stats = data?.data?.stats;
 
   // Re-fetch when screen comes back into focus
+  // Refetch on return only when the cached data is stale — create/edit/delete mutations
+  // already invalidate this query, so a forced refetch on every focus was redundant.
   useFocusEffect(
     useCallback(() => {
-      refetch();
-    }, [refetch])
+      if (isStale) refetch();
+    }, [isStale, refetch])
   );
+
+  const handleApproveAgent = (agent: AgentType) => {
+    Alert.alert(
+      'Approve Agent?',
+      `Are you sure you want to approve ${agent.fullName}? An active login account will be provisioned.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Approve',
+          onPress: async () => {
+            try {
+              const res: any = await approveAgentMutation.mutateAsync(agent.agentId);
+              // Web parity: approval provisions the login — show the credentials message from the server
+              const msg = res?.message || `${agent.fullName} approved successfully`;
+              if (res?.data?.password) {
+                Alert.alert('Agent Approved', msg);
+              } else {
+                Toast.show({ type: 'success', text1: 'Approved', text2: msg });
+              }
+              refetch();
+            } catch (err: any) {
+              console.error('Failed to approve agent:', err);
+              Toast.show({
+                type: 'error',
+                text1: 'Approval Failed',
+                text2: err.response?.data?.message || err.message || 'Failed to approve agent',
+              });
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRejectAgent = (agent: AgentType) => {
+    Alert.alert(
+      'Reject Agent?',
+      `Are you sure you want to reject ${agent.fullName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res: any = await rejectAgentMutation.mutateAsync(agent.agentId);
+              Toast.show({
+                type: 'success',
+                text1: 'Rejected',
+                text2: res?.message || 'Agent rejected successfully.',
+              });
+              refetch();
+            } catch (err: any) {
+              console.error('Failed to reject agent:', err);
+              Toast.show({
+                type: 'error',
+                text1: 'Rejection Failed',
+                text2: err.response?.data?.message || err.message || 'Failed to reject agent',
+              });
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleDeleteAgent = (agent: AgentType) => {
     Alert.alert(
@@ -475,10 +546,26 @@ export default function AgentListScreen() {
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[brandColor]} />}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header summary info */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4 }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>Onboarded Agents</Text>
-            <Text style={{ fontSize: 11, color: subTextColor, fontWeight: '500' }}>{totalCount} total</Text>
+          {/* Header (web: "Agent List" banner + TOTAL / PENDING / APPROVED / REJECTED) */}
+          <View style={{ paddingHorizontal: 4 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: textColor }}>Agent List</Text>
+            <Text style={{ fontSize: 11, color: subTextColor, marginTop: 2 }}>Manage and approve agent onboarding requests</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {[
+              { label: 'TOTAL', value: stats?.total ?? totalCount, color: brandColor },
+              { label: 'PENDING', value: stats?.pending ?? 0, color: '#f59e0b' },
+              { label: 'APPROVED', value: stats?.approved ?? 0, color: '#10b981' },
+              { label: 'REJECTED', value: stats?.rejected ?? 0, color: '#ef4444' },
+            ].map((st) => (
+              <View
+                key={st.label}
+                style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: borderCol, backgroundColor: cardBg }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '800', color: st.color }}>{st.value}</Text>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: subTextColor, marginTop: 2 }}>{st.label}</Text>
+              </View>
+            ))}
           </View>
 
           {agents.length === 0 ? (
@@ -588,15 +675,69 @@ export default function AgentListScreen() {
                     )}
                   </TouchableOpacity>
 
-                  {/* Row 4: Actions Bar */}
-                  <View style={{ flexDirection: 'row', justifyContent: 'flex-end', borderTopWidth: 1, borderTopColor: borderCol, paddingTop: 12, gap: 10 }}>
+                  {/* Row 4: Actions Bar (Web Parity: Approve, Reject, Edit, Delete) */}
+                  <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    borderTopWidth: 1,
+                    borderTopColor: borderCol,
+                    paddingTop: 12,
+                    gap: 8,
+                    flexWrap: 'wrap'
+                  }}>
+                    {/* Approve Button (Visible for Pending and Rejected) */}
+                    {(agent.status.toLowerCase() === 'pending' || agent.status.toLowerCase() === 'rejected') && (
+                      <TouchableOpacity
+                        onPress={() => handleApproveAgent(agent)}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          backgroundColor: '#10b98115',
+                          borderWidth: 1,
+                          borderColor: '#10b98140',
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 10,
+                          gap: 4
+                        }}
+                      >
+                        <Check size={13} color="#10b981" strokeWidth={2.5} />
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#10b981' }}>Approve</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Reject Button (Visible for Pending) */}
+                    {agent.status.toLowerCase() === 'pending' && (
+                      <TouchableOpacity
+                        onPress={() => handleRejectAgent(agent)}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          backgroundColor: '#ef444415',
+                          borderWidth: 1,
+                          borderColor: '#ef444440',
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 10,
+                          gap: 4
+                        }}
+                      >
+                        <X size={13} color="#ef4444" strokeWidth={2.5} />
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#ef4444' }}>Reject</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Edit Button */}
                     <TouchableOpacity
                       onPress={() => router.push(`/admin/teammanagement/CreateAgent?id=${agent.agentId}`)}
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
                         backgroundColor: inputBg,
-                        paddingHorizontal: 12,
+                        borderWidth: 1,
+                        borderColor: borderCol,
+                        paddingHorizontal: 10,
                         paddingVertical: 6,
                         borderRadius: 10,
                         gap: 4
@@ -606,13 +747,16 @@ export default function AgentListScreen() {
                       <Text style={{ fontSize: 11, fontWeight: '600', color: textColor }}>Edit</Text>
                     </TouchableOpacity>
 
+                    {/* Delete Button */}
                     <TouchableOpacity
                       onPress={() => handleDeleteAgent(agent)}
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
                         backgroundColor: '#ef444410',
-                        paddingHorizontal: 12,
+                        borderWidth: 1,
+                        borderColor: '#ef444430',
+                        paddingHorizontal: 10,
                         paddingVertical: 6,
                         borderRadius: 10,
                         gap: 4

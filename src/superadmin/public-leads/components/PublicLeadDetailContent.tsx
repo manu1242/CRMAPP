@@ -13,7 +13,6 @@ import {
   ArrowLeft,
   Phone,
   MessageCircle,
-  MessageSquare,
   Trash2,
   Building2,
   Home,
@@ -81,13 +80,13 @@ export const PublicLeadDetailContent: React.FC<PublicLeadDetailContentProps> = (
 
   const handleCall = () => {
     if (lead?.phone) {
-      Linking.openURL(`tel:${lead.phone}`).catch(() => {});
+      Linking.openURL(`tel:${lead.phone}`).catch(() => { });
     }
   };
 
   const handleSms = () => {
     if (lead?.phone) {
-      Linking.openURL(`sms:${lead.phone}`).catch(() => {});
+      Linking.openURL(`sms:${lead.phone}`).catch(() => { });
     }
   };
 
@@ -95,7 +94,7 @@ export const PublicLeadDetailContent: React.FC<PublicLeadDetailContentProps> = (
     if (lead?.phone) {
       const cleanPhone = lead.phone.replace(/\D/g, '');
       const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-      Linking.openURL(`https://wa.me/${fullPhone}`).catch(() => {});
+      Linking.openURL(`https://wa.me/${fullPhone}`).catch(() => { });
     }
   };
 
@@ -249,7 +248,7 @@ export const PublicLeadDetailContent: React.FC<PublicLeadDetailContentProps> = (
         {/* Message Card */}
         <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
           <View style={styles.cardHeader}>
-            <MessageSquare size={16} color={theme.brand} />
+            <MessageCircle size={16} color={theme.brand} />
             <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>Inquiry Message</Text>
           </View>
           <View

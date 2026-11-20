@@ -19,7 +19,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import {
   Building2,
-  MessageSquare,
+  MessageCircle,
   MailCheck,
   Ban,
   Layers,
@@ -555,7 +555,7 @@ export default function SuperAdminDashboardContent() {
                           ...palette.cardShadow,
                         }}
                       >
-                        <MessageSquare size={24} color={palette.warning} strokeWidth={2.2} />
+                        <MessageCircle size={24} color={palette.warning} strokeWidth={2.2} />
                       </View>
                       <Text
                         style={{
@@ -750,7 +750,7 @@ export default function SuperAdminDashboardContent() {
                             justifyContent: 'center',
                           }}
                         >
-                          <MessageSquare size={20} color={palette.warning} strokeWidth={2.2} />
+                          <MessageCircle size={20} color={palette.warning} strokeWidth={2.2} />
                         </View>
                         <View
                           style={{
@@ -1102,10 +1102,10 @@ export default function SuperAdminDashboardContent() {
                                   backgroundColor: item.isSuspended
                                     ? palette.dangerBg
                                     : item.isActive
-                                    ? palette.successBg
-                                    : isDark
-                                    ? 'rgba(255,255,255,0.06)'
-                                    : '#F1F5F9',
+                                      ? palette.successBg
+                                      : isDark
+                                        ? 'rgba(255,255,255,0.06)'
+                                        : '#F1F5F9',
                                   paddingHorizontal: 8,
                                   paddingVertical: 3.5,
                                   borderRadius: 8,
@@ -1122,8 +1122,8 @@ export default function SuperAdminDashboardContent() {
                                     backgroundColor: item.isSuspended
                                       ? palette.danger
                                       : item.isActive
-                                      ? palette.success
-                                      : palette.textMuted,
+                                        ? palette.success
+                                        : palette.textMuted,
                                   }}
                                 />
                                 <Text
@@ -1133,8 +1133,8 @@ export default function SuperAdminDashboardContent() {
                                     color: item.isSuspended
                                       ? palette.danger
                                       : item.isActive
-                                      ? palette.success
-                                      : palette.textSecondary,
+                                        ? palette.success
+                                        : palette.textSecondary,
                                   }}
                                 >
                                   {item.isSuspended ? 'Suspended' : item.isActive ? 'Active' : 'Inactive'}
@@ -1205,7 +1205,7 @@ export default function SuperAdminDashboardContent() {
                           ...palette.cardShadow,
                         }}
                       >
-                        <MessageSquare size={32} color={palette.textMuted} />
+                        <MessageCircle size={32} color={palette.textMuted} />
                         <Text
                           style={{
                             color: palette.textPrimary,
@@ -1352,8 +1352,8 @@ export default function SuperAdminDashboardContent() {
                                   backgroundColor: isNew
                                     ? palette.brandBg
                                     : isContacted
-                                    ? palette.warningBg
-                                    : palette.successBg,
+                                      ? palette.warningBg
+                                      : palette.successBg,
                                   paddingHorizontal: 9,
                                   paddingVertical: 4,
                                   borderRadius: 8,
@@ -1366,8 +1366,8 @@ export default function SuperAdminDashboardContent() {
                                     color: isNew
                                       ? palette.brand
                                       : isContacted
-                                      ? palette.warning
-                                      : palette.success,
+                                        ? palette.warning
+                                        : palette.success,
                                   }}
                                 >
                                   {item.status || 'New'}

@@ -185,9 +185,14 @@ export const useApproveAgent = () => {
 export const useRejectAgent = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ agentId, reason }: { agentId: number | string; reason?: string }) =>
-      AgentsService.rejectAgent(agentId, reason),
-    onSuccess: (_, { agentId }) => {
+    mutationFn: (param: (number | string) | { agentId: number | string; reason?: string }) => {
+      if (typeof param === 'object' && param !== null && 'agentId' in param) {
+        return AgentsService.rejectAgent(param.agentId, param.reason);
+      }
+      return AgentsService.rejectAgent(param);
+    },
+    onSuccess: (_, param) => {
+      const agentId = typeof param === 'object' && param !== null && 'agentId' in param ? param.agentId : param;
       queryClient.invalidateQueries({ queryKey: ['agent', String(agentId)] });
       queryClient.invalidateQueries({ queryKey: ['agent', Number(agentId)] });
       queryClient.invalidateQueries({ queryKey: ['agents'] });

@@ -1,26 +1,25 @@
+export type UnassignedSourceFilter = '' | 'facebook' | 'website' | 'manual' | 'other';
+
 export interface UnassignedLeadItem {
   leadId: number;
   fullName: string;
-  email?: string;
-  phone: string;
-  stage?: string;
-  status?: string;
-  source?: string;
-  groupName?: string;
-  preferredLocation?: string;
-  sqft?: string;
-  facing?: string;
-  type?: string;
-  propertyType?: string;
-  bhk?: string;
-  requirement?: string;
-  comments?: string;
-  rating?: string | null;
-  handoverStatus?: string;
+  phone?: string | null;
+  email?: string | null;
+  source?: string | null;
+  bhk?: string | null;
+  preferredLocation?: string | null;
+  propertyType?: string | null;
+  comments?: string | null;
+  handoverStatus?: string | null;
   channelPartnerId?: number | null;
-  assignedToAgentId?: number | null;
-  followUpDate?: string | null;
   createdDate?: string;
+  isFacebook?: boolean;
+}
+
+export interface UnassignedLeadStats {
+  totalUnassigned: number;
+  facebookCount: number;
+  executivesCount: number;
 }
 
 export interface UnassignedLeadsPaginatedData {
@@ -29,12 +28,25 @@ export interface UnassignedLeadsPaginatedData {
   pageNumber: number;
   pageSize: number;
   totalPages: number;
+  stats: UnassignedLeadStats;
 }
 
 export interface GetUnassignedLeadsResponse {
   success: boolean;
   message: string;
   data: UnassignedLeadsPaginatedData;
+}
+
+export interface UnassignedExecutive {
+  userId: number;
+  username: string;
+  role?: string;
+}
+
+export interface GetUnassignedExecutivesResponse {
+  success: boolean;
+  message: string;
+  data: UnassignedExecutive[];
 }
 
 export interface AssignExecutiveRequest {

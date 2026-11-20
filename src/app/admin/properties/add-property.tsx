@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
+  KeyboardAvoidingView,
   Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -251,12 +252,17 @@ export default function AddPropertyScreen() {
         </Text>
       </View>
 
-      <ScrollView
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: Math.max(bottomSpacing, 120), flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: Math.max(bottomSpacing, 120), flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* ── Section: Basic Info ── */}
         <View style={[styles.section, { backgroundColor: cardBg, borderColor: borderCol }]}>
           <Text style={[styles.sectionTitle, { color: textColor }]}>Basic Information</Text>
@@ -471,6 +477,7 @@ export default function AddPropertyScreen() {
           )}
         </TouchableOpacity>
       </ScrollView>
+    </KeyboardAvoidingView>
     </View>
   );
 }

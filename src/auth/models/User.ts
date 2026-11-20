@@ -9,6 +9,8 @@ export interface User {
   userId?: number;
   email?: string;
   channelPartnerId?: number | null;
+  hasPartnerFeature?: boolean;
+  maxPartners?: number;
   roles?: string[];
   permissions?: string[];
 }

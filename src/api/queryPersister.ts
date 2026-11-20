@@ -13,6 +13,8 @@ export interface PersistedQueryData {
   queries: Array<{
     queryKey: readonly unknown[];
     data: unknown;
+    /** When this query's data was fetched (ms epoch). Optional for snapshots written by older builds. */
+    updatedAt?: number;
   }>;
 }
 
@@ -29,7 +31,7 @@ export const QueryPersister = {
     saveTimeout = setTimeout(async () => {
       try {
         const cache = queryClient.getQueryCache();
-        const queriesToPersist: Array<{ queryKey: readonly unknown[]; data: unknown }> = [];
+        const queriesToPersist: PersistedQueryData['queries'] = [];
         let currentTotalSize = 0;
 
         const allQueries = cache.getAll();
@@ -74,6 +76,7 @@ export const QueryPersister = {
             queriesToPersist.push({
               queryKey: query.queryKey,
               data: query.state.data,
+              updatedAt: query.state.dataUpdatedAt,
             });
           } catch {
             // Skip non-serializable items
@@ -109,8 +112,17 @@ export const QueryPersister = {
         return;
       }
 
-      payload.queries.forEach(({ queryKey, data }) => {
-        queryClient.setQueryData(queryKey, data);
+      payload.queries.forEach(({ queryKey, data, updatedAt }) => {
+        // Older snapshots have no per-query time; the save time is the newest it can be.
+        const fetchedAt = updatedAt && updatedAt > 0 ? updatedAt : payload.timestamp;
+
+        // Never overwrite data fetched after this snapshot (restore runs async at startup).
+        const existingUpdatedAt = queryClient.getQueryState(queryKey)?.dataUpdatedAt ?? 0;
+        if (existingUpdatedAt >= fetchedAt) return;
+
+        // Stamp with the original fetch time so staleTime is measured from when the data was
+        // actually fetched. Without this, restored data looks "fresh now" and is not refetched on mount.
+        queryClient.setQueryData(queryKey, data, { updatedAt: fetchedAt });
       });
     } catch {
       AsyncStorage.removeItem(CACHE_KEY).catch(() => {});

@@ -31,6 +31,11 @@ export interface AgentOverviewItem {
   workingDays: number;
   performance: string;
   performanceKey: string;
+  /** Linked login user id (web: user id, or agent id when no login exists) */
+  userId?: number;
+  phone?: string;
+  /** Approved / joining date — attendance is counted from this date */
+  joinDate?: string;
 }
 
 export interface AgentOverviewData {
@@ -48,6 +53,8 @@ export interface AgentOverviewParams {
   performance?: string;
   year?: number;
   month?: number;
+  fromDate?: string;
+  toDate?: string;
   page?: number;
   pageSize?: number;
 }

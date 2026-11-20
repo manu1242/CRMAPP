@@ -1,4 +1,5 @@
 
+import { useShallow } from 'zustand/react/shallow';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View,
@@ -26,7 +27,7 @@ import {
     CreditCard,
     Settings,
     LayoutDashboard,
-    MessageSquare,
+    MessageCircle,
     CheckSquare,
     Receipt,
     Wallet,
@@ -45,7 +46,7 @@ const getModuleIcon = (moduleName: string, color: string, size = 16) => {
     if (name.includes('revenue') || name.includes('profit') || name.includes('income') || name.includes('earning')) return <IndianRupee size={size} color={color} />;
     if (name.includes('sale') || name.includes('deal') || name.includes('chart')) return <TrendingUp size={size} color={color} />;
     if (name.includes('user') || name.includes('member') || name.includes('config') || name.includes('manage')) return <Users size={size} color={color} />;
-    if (name.includes('chat') || name.includes('bot') || name.includes('support')) return <MessageSquare size={size} color={color} />;
+    if (name.includes('chat') || name.includes('bot') || name.includes('support')) return <MessageCircle size={size} color={color} />;
     if (name.includes('sub')) return <CreditCard size={size} color={color} />;
     if (name.includes('setting') || name.includes('system') || name.includes('workspace')) return <Settings size={size} color={color} />;
     if (name.includes('dash') || name.includes('overview') || name.includes('stat') || name.includes('report')) return <LayoutDashboard size={size} color={color} />;
@@ -87,7 +88,10 @@ export default function RolePermissions() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const { cache, fetchPermissionsForRole, updateCache } = useRolePermissionsStore();
+    const { cache, fetchPermissionsForRole, updateCache } = useRolePermissionsStore(
+    // Subscribe only to the fields used here (was: whole store → re-render on any change)
+    useShallow((s) => ({ cache: s.cache, fetchPermissionsForRole: s.fetchPermissionsForRole, updateCache: s.updateCache }))
+  );
 
     const [permissionsMatrix, setPermissionsMatrix] = useState<RolePermissionsMatrixResponse | null>(null);
     const [permState, setPermState] = useState<Record<string, boolean>>({});

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
+  FlatList,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -9,633 +10,616 @@ import {
   RefreshControl,
   StyleSheet,
   Modal,
-  Platform,
   Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import Toast from 'react-native-toast-message';
 import {
   ArrowLeft,
   Search,
   X,
   Users,
-  UserCheck,
-  Calendar,
   Phone,
   Mail,
   MapPin,
-  TrendingUp,
-  User,
+  CalendarClock,
+  CalendarPlus,
+  Tag,
+  Activity,
   ChevronRight,
   ChevronLeft,
   ChevronDown,
-  RotateCcw,
   Check,
-  Building,
+  UserX,
+  ShieldAlert,
 } from 'lucide-react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { getAdminTheme } from '../../../theme/adminTheme';
-import {
-  useAgentLeadTracking,
-  useAssignAgentLead,
-} from '../../../admin/hooks/useAgentTracking';
-import {
-  AgentTrackingAgent,
-  AgentTrackingLead,
-} from '../../../admin/models/AgentTrackingTypes';
-import Toast from 'react-native-toast-message';
+import { getAdminTheme, AdminThemeTokens } from '../../../theme/adminTheme';
+import { useAgentLeadTracking, useAssignAgentLead } from '../../../admin/hooks/useAgentTracking';
+import { AgentTrackingAgent, AgentTrackingLead } from '../../../admin/models/AgentTrackingTypes';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
 
-const STAGE_COLORS: Record<string, { color: string; bg: string }> = {
-  New: { color: '#0284c7', bg: 'rgba(2, 132, 199, 0.12)' },
-  Contacted: { color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)' },
-  Interested: { color: '#0d9488', bg: 'rgba(13, 148, 136, 0.12)' },
-  'Site Visit': { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)' },
-  Negotiation: { color: '#ea580c', bg: 'rgba(234, 88, 12, 0.12)' },
-  Won: { color: '#059669', bg: 'rgba(5, 150, 105, 0.12)' },
-  Lost: { color: '#dc2626', bg: 'rgba(220, 38, 38, 0.12)' },
-  Dropped: { color: '#64748b', bg: 'rgba(100, 116, 139, 0.12)' },
+const PAGE_SIZE = 15;
+
+// Same pipeline stages the backend uses (LeadsApiController.GetFormOptions)
+const STAGES = ['All', 'New', 'Office Meeting', 'Site Visit Requested', 'Site Visit Done', 'Quotation', 'Quotation Sent', 'Negotiation', 'Booked'];
+
+const STAGE_TONE: Record<string, string> = {
+  New: '#0284c7',
+  'Office Meeting': '#8b5cf6',
+  'Site Visit Requested': '#f59e0b',
+  'Site Visit Done': '#0d9488',
+  Quotation: '#6366f1',
+  'Quotation Sent': '#4f46e5',
+  Negotiation: '#ea580c',
+  Booked: '#059669',
+};
+const stageTone = (s?: string) => STAGE_TONE[s || ''] || '#64748b';
+
+const AVATAR_TONES = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899', '#0ea5e9', '#14b8a6', '#f97316'];
+const avatarTone = (id: number) => AVATAR_TONES[Math.abs(id) % AVATAR_TONES.length];
+const initials = (name?: string) =>
+  (name || '?')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p.charAt(0).toUpperCase())
+    .join('');
+
+const fmtDate = (v?: string | null) => {
+  if (!v) return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+const isOverdue = (v?: string | null) => {
+  if (!v) return false;
+  const d = new Date(v);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return !isNaN(d.getTime()) && d < today;
 };
 
-function getStageBadge(stage: string) {
-  const match = STAGE_COLORS[stage] || { color: '#64748b', bg: 'rgba(100, 116, 139, 0.12)' };
-  return match;
-}
+/* ── Lead card ─────────────────────────────────────────────────────── */
+const LeadCard = memo(function LeadCard({
+  lead,
+  t,
+  canAssign,
+  onOpen,
+  onReassign,
+}: {
+  lead: AgentTrackingLead;
+  t: AdminThemeTokens;
+  canAssign: boolean;
+  onOpen: (id: number) => void;
+  onReassign: (lead: AgentTrackingLead) => void;
+}) {
+  const tone = stageTone(lead.stage);
+  const followUp = fmtDate(lead.followUpDate);
+  const overdue = isOverdue(lead.followUpDate);
+  const assigned = lead.assignedAgentId != null && lead.assignedAgentName !== 'Unassigned';
+  const hasPhone = !!lead.contact && lead.contact !== '-';
 
-function formatDate(dateString: string | null) {
-  if (!dateString) return 'Not scheduled';
-  const d = new Date(dateString);
-  if (isNaN(d.getTime())) return dateString;
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  return `${day}-${month}-${year}`;
-}
+  const Info = ({ icon, value }: { icon: React.ReactNode; value: string }) => (
+    <View style={styles.infoItem}>
+      {icon}
+      <Text style={[styles.infoText, { color: t.textSecondary }]} numberOfLines={1}>
+        {value || '-'}
+      </Text>
+    </View>
+  );
 
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => onOpen(lead.leadId)}
+      style={[styles.leadCard, { backgroundColor: t.cardBg, borderColor: t.border }]}
+    >
+      {/* Head */}
+      <View style={styles.rowBetween}>
+        <View style={{ flex: 1, paddingRight: 10 }}>
+          <Text style={[styles.leadName, { color: t.textPrimary }]} numberOfLines={1}>
+            {lead.name || 'Unnamed Lead'}
+          </Text>
+          <Text style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>
+            Lead #{lead.leadId} · {lead.contact || '-'}
+          </Text>
+        </View>
+        <View style={[styles.stagePill, { backgroundColor: `${tone}1A` }]}>
+          <View style={[styles.stageDot, { backgroundColor: tone }]} />
+          <Text style={[styles.stageText, { color: tone }]} numberOfLines={1}>
+            {lead.stage || 'New'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Details (web: Email, Source, Location, Created, Status) */}
+      <View style={styles.infoGrid}>
+        <Info icon={<Mail size={12} color={t.textMuted} />} value={lead.email} />
+        <Info icon={<Tag size={12} color={t.textMuted} />} value={lead.source} />
+        <Info icon={<MapPin size={12} color={t.textMuted} />} value={lead.location} />
+        <Info icon={<CalendarPlus size={12} color={t.textMuted} />} value={fmtDate(lead.createdOn) || '-'} />
+        <Info icon={<Activity size={12} color={t.textMuted} />} value={lead.status} />
+      </View>
+
+      {/* Next follow-up */}
+      <View
+        style={[
+          styles.followUp,
+          {
+            backgroundColor: !followUp ? t.inputBg : overdue ? '#ef44441A' : '#f59e0b14',
+          },
+        ]}
+      >
+        <CalendarClock size={13} color={!followUp ? t.textMuted : overdue ? '#ef4444' : '#d97706'} />
+        <Text style={{ fontSize: 12, fontWeight: '600', color: !followUp ? t.textMuted : overdue ? '#ef4444' : '#b45309' }}>
+          Next follow-up: {followUp || 'Not scheduled'}
+          {overdue ? ' · Overdue' : ''}
+        </Text>
+      </View>
+
+      {/* Footer */}
+      <View style={[styles.footer, { borderTopColor: t.border }]}>
+        <View style={[styles.rowCenter, { flex: 1, gap: 8 }]}>
+          <View
+            style={[
+              styles.miniAvatar,
+              { backgroundColor: assigned ? `${avatarTone(lead.assignedAgentId as number)}1F` : t.inputBg },
+            ]}
+          >
+            {assigned ? (
+              <Text style={{ fontSize: 10, fontWeight: '800', color: avatarTone(lead.assignedAgentId as number) }}>
+                {initials(lead.assignedAgentName)}
+              </Text>
+            ) : (
+              <UserX size={12} color={t.textMuted} />
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 10, color: t.textMuted }}>Assigned</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: assigned ? t.textPrimary : t.textMuted }} numberOfLines={1}>
+              {lead.assignedAgentName || 'Unassigned'}
+            </Text>
+          </View>
+        </View>
+
+        {hasPhone && (
+          <TouchableOpacity
+            onPress={() => Linking.openURL(`tel:${lead.contact}`)}
+            style={[styles.iconBtn, { backgroundColor: t.badgeBg }]}
+            hitSlop={6}
+          >
+            <Phone size={14} color={t.brand} />
+          </TouchableOpacity>
+        )}
+        {canAssign && lead.canReassign !== false && (
+          <TouchableOpacity onPress={() => onReassign(lead)} style={[styles.reassignBtn, { borderColor: t.brand }]}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: t.brand }}>Reassign</Text>
+          </TouchableOpacity>
+        )}
+        <ChevronRight size={16} color={t.textMuted} />
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+/* ── Screen ────────────────────────────────────────────────────────── */
 export default function AgentLeadTrackingScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
-  const theme = getAdminTheme(isDark);
+  const t = getAdminTheme(isDark);
   const { bottomSpacing } = useBottomNavSpacing();
 
-  // Filters & State
-  const [selectedExecutiveId, setSelectedExecutiveId] = useState<number | undefined>(undefined);
+  const [executiveId, setExecutiveId] = useState<number | undefined>(undefined);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedStage, setSelectedStage] = useState('All');
+  const [stage, setStage] = useState('All');
   const [page, setPage] = useState(1);
-  const pageSize = 15;
 
-  // Reassignment Modal State
-  const [assignModalLead, setAssignModalLead] = useState<AgentTrackingLead | null>(null);
-  const [selectedAssignAgentId, setSelectedAssignAgentId] = useState<number | null>(null);
+  const [agentPickerOpen, setAgentPickerOpen] = useState(false);
+  const [agentPickerSearch, setAgentPickerSearch] = useState('');
+  const [reassignLead, setReassignLead] = useState<AgentTrackingLead | null>(null);
+  const [reassignTo, setReassignTo] = useState<number | null>(null);
+  const [agentSearch, setAgentSearch] = useState('');
 
-  // Debounce search
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
+    const id = setTimeout(() => {
+      setSearch(searchInput.trim());
       setPage(1);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [search]);
+    }, 400);
+    return () => clearTimeout(id);
+  }, [searchInput]);
 
-  // Fetch tracking data
-  const { data: res, isLoading, isRefetching, refetch } = useAgentLeadTracking(
-    selectedExecutiveId,
-    debouncedSearch || undefined,
-    selectedStage === 'All' ? undefined : selectedStage,
+  const { data: res, isLoading, isError, error, isRefetching, isFetching, refetch } = useAgentLeadTracking(
+    executiveId,
+    search || undefined,
+    stage === 'All' ? undefined : stage,
     page,
-    pageSize
+    PAGE_SIZE
   );
-
   const assignMutation = useAssignAgentLead();
 
-  const trackingData = res?.data;
-  const agents: AgentTrackingAgent[] = trackingData?.agents || [];
-  const leads: AgentTrackingLead[] = trackingData?.items || [];
-  const totalCount = trackingData?.totalCount || 0;
-  const totalPages = trackingData?.totalPages || 1;
-  const canAssignLeads = trackingData?.canAssignLeads ?? true;
+  const d = res?.data;
+  const agents: AgentTrackingAgent[] = d?.agents || [];
+  const leads: AgentTrackingLead[] = d?.items || [];
+  const totalCount = d?.totalCount || 0;
+  const totalPages = d?.totalPages || 1;
+  const canAssign = d?.canAssignLeads ?? false;
+  const hasFilters = executiveId !== undefined || !!search || stage !== 'All';
 
-  const handleSelectAgent = (agentId?: number) => {
-    setSelectedExecutiveId(agentId);
+  // "All" count stays the overall total even while a single agent is selected
+  const [allCount, setAllCount] = useState(0);
+  useEffect(() => {
+    if (executiveId === undefined && !search && stage === 'All' && d) setAllCount(totalCount);
+  }, [executiveId, search, stage, d, totalCount]);
+
+  const selectAgent = useCallback((id?: number) => {
+    setExecutiveId(id);
     setPage(1);
-  };
+  }, []);
+  const openLead = useCallback((id: number) => router.push(`/admin/leads/${id}` as any), [router]);
+  const openReassign = useCallback((lead: AgentTrackingLead) => {
+    setReassignLead(lead);
+    setReassignTo(lead.assignedAgentId);
+    setAgentSearch('');
+  }, []);
 
-  const handleClearFilters = () => {
-    setSelectedExecutiveId(undefined);
+  const clearFilters = () => {
+    setExecutiveId(undefined);
+    setSearchInput('');
     setSearch('');
-    setDebouncedSearch('');
-    setSelectedStage('All');
+    setStage('All');
     setPage(1);
   };
 
-  const handleDial = (contact: string) => {
-    if (!contact || contact === '-') return;
-    Linking.openURL(`tel:${contact}`);
-  };
+  const selectedAgent = agents.find((a) => a.userId === executiveId);
+  const selectedTone = selectedAgent ? avatarTone(selectedAgent.userId) : t.brand;
+  const pickerAgents = useMemo(() => {
+    const q = agentPickerSearch.trim().toLowerCase();
+    return q ? agents.filter((a) => a.name.toLowerCase().includes(q)) : agents;
+  }, [agents, agentPickerSearch]);
 
-  const handleOpenAssign = (lead: AgentTrackingLead) => {
-    setAssignModalLead(lead);
-    setSelectedAssignAgentId(lead.assignedAgentId);
-  };
+  const filteredAgents = useMemo(() => {
+    const q = agentSearch.trim().toLowerCase();
+    return q ? agents.filter((a) => a.name.toLowerCase().includes(q)) : agents;
+  }, [agents, agentSearch]);
 
-  const handleConfirmAssignment = () => {
-    if (!assignModalLead) return;
-
+  const confirmReassign = () => {
+    if (!reassignLead) return;
     assignMutation.mutate(
+      { leadId: reassignLead.leadId, agentId: reassignTo },
       {
-        leadId: assignModalLead.leadId,
-        agentId: selectedAssignAgentId,
-      },
-      {
-        onSuccess: () => {
-          Toast.show({
-            type: 'success',
-            text1: 'Assignment Updated',
-            text2: 'Lead has been reassigned successfully.',
-          });
-          setAssignModalLead(null);
-          refetch();
+        onSuccess: (r: any) => {
+          Toast.show({ type: 'success', text1: 'Assignment Updated', text2: r?.message || 'Lead reassigned.' });
+          setReassignLead(null);
         },
-        onError: (err: any) => {
-          const msg = err.response?.data?.message || err.message || 'Failed to update assignment';
-          Toast.show({
-            type: 'error',
-            text1: 'Error',
-            text2: msg,
-          });
-        },
+        onError: (err: any) =>
+          Toast.show({ type: 'error', text1: 'Error', text2: err.response?.data?.message || 'Failed to update assignment' }),
       }
     );
   };
 
-  const stagesList = ['All', 'New', 'Contacted', 'Interested', 'Site Visit', 'Negotiation', 'Won', 'Lost'];
+  const Header = (
+    <View style={{ marginBottom: 12 }}>
+      {/* Filter by agent — dropdown */}
+      <Text style={[styles.fieldLabel, { color: t.textMuted }]}>FILTER BY AGENT</Text>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => {
+          setAgentPickerSearch('');
+          setAgentPickerOpen(true);
+        }}
+        style={[
+          styles.dropdown,
+          { backgroundColor: t.cardBg, borderColor: executiveId !== undefined ? t.brand : t.border },
+        ]}
+      >
+        <View style={[styles.miniAvatar, { width: 32, height: 32, borderRadius: 16, backgroundColor: `${selectedTone}1F` }]}>
+          {selectedAgent ? (
+            <Text style={{ fontSize: 12, fontWeight: '800', color: selectedTone }}>{initials(selectedAgent.name)}</Text>
+          ) : (
+            <Users size={15} color={selectedTone} />
+          )}
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: t.textPrimary }} numberOfLines={1}>
+            {selectedAgent ? selectedAgent.name : 'All agents and leads'}
+          </Text>
+          <Text style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>
+            {selectedAgent ? `${selectedAgent.leadCount || 0} leads` : `${agents.length} agents · ${allCount || totalCount} leads`}
+          </Text>
+        </View>
+        {executiveId !== undefined ? (
+          <TouchableOpacity onPress={() => selectAgent(undefined)} hitSlop={8} style={{ padding: 2 }}>
+            <X size={16} color={t.textSecondary} />
+          </TouchableOpacity>
+        ) : null}
+        <ChevronDown size={18} color={t.textSecondary} />
+      </TouchableOpacity>
+
+      {/* Stage chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 8, paddingRight: 16 }}
+        style={{ marginHorizontal: -16, paddingLeft: 16, marginTop: 14 }}
+      >
+        {STAGES.map((s) => {
+          const active = stage === s;
+          return (
+            <TouchableOpacity
+              key={s}
+              onPress={() => {
+                setStage(s);
+                setPage(1);
+              }}
+              style={[
+                styles.chip,
+                { backgroundColor: active ? t.textPrimary : t.cardBg, borderColor: active ? t.textPrimary : t.border },
+              ]}
+            >
+              <Text style={{ fontSize: 12, fontWeight: active ? '700' : '500', color: active ? t.primaryBg : t.textSecondary }}>
+                {s}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* Results bar */}
+      <View style={[styles.rowBetween, { marginTop: 16 }]}>
+        <View style={[styles.rowCenter, { gap: 8 }]}>
+          <Text style={[styles.sectionTitle, { color: t.textPrimary }]}>Leads</Text>
+          <View style={[styles.countChip, { backgroundColor: t.badgeBg }]}>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: t.badgeText }}>{totalCount}</Text>
+          </View>
+          {isFetching && !isRefetching && <ActivityIndicator size="small" color={t.brand} />}
+        </View>
+        {hasFilters && (
+          <TouchableOpacity onPress={clearFilters} hitSlop={8}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: t.brand }}>Clear filters</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+
+  const Empty = isLoading ? (
+    <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+      <ActivityIndicator size="large" color={t.brand} />
+      <Text style={{ color: t.textSecondary, marginTop: 12, fontSize: 13 }}>Loading agent leads...</Text>
+    </View>
+  ) : isError ? (
+    <View style={[styles.empty, { backgroundColor: t.cardBg, borderColor: t.border }]}>
+      <ShieldAlert size={32} color="#ef4444" />
+      <Text style={[styles.emptyTitle, { color: t.textPrimary }]}>Couldn't load leads</Text>
+      <Text style={{ fontSize: 12, color: t.textSecondary, textAlign: 'center' }}>
+        {(error as any)?.response?.data?.message || 'Something went wrong.'}
+      </Text>
+      <TouchableOpacity onPress={() => refetch()} style={[styles.primaryBtn, { backgroundColor: t.brand, marginTop: 6 }]}>
+        <Text style={styles.primaryBtnText}>Retry</Text>
+      </TouchableOpacity>
+    </View>
+  ) : (
+    <View style={[styles.empty, { backgroundColor: t.cardBg, borderColor: t.border }]}>
+      <Users size={32} color={t.textMuted} />
+      <Text style={[styles.emptyTitle, { color: t.textPrimary }]}>No leads found</Text>
+      <Text style={{ fontSize: 12, color: t.textSecondary, textAlign: 'center' }}>No leads match this agent selection.</Text>
+    </View>
+  );
+
+  const Footer =
+    totalPages > 1 ? (
+      <View style={[styles.rowBetween, { marginTop: 14 }]}>
+        <TouchableOpacity
+          disabled={page <= 1 || isFetching}
+          onPress={() => setPage((p) => Math.max(1, p - 1))}
+          style={[styles.pageBtn, { borderColor: t.border, backgroundColor: t.cardBg, opacity: page <= 1 ? 0.45 : 1 }]}
+        >
+          <ChevronLeft size={16} color={t.textPrimary} />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: t.textSecondary }}>
+          Page {page} of {totalPages}
+        </Text>
+        <TouchableOpacity
+          disabled={page >= totalPages || isFetching}
+          onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+          style={[styles.pageBtn, { borderColor: t.border, backgroundColor: t.cardBg, opacity: page >= totalPages ? 0.45 : 1 }]}
+        >
+          <ChevronRight size={16} color={t.textPrimary} />
+        </TouchableOpacity>
+      </View>
+    ) : null;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.primaryBg }]}>
-      {/* ── TOP HEADER BANNER ── */}
-      <View style={[styles.headerBanner, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={[styles.backBtn, { borderColor: theme.border, backgroundColor: theme.inputBg }]}
-            accessibilityLabel="Back"
-          >
-            <ArrowLeft size={18} color={theme.textPrimary} />
+    <View style={{ flex: 1, backgroundColor: t.primaryBg }}>
+      {/* Top bar */}
+      <View style={[styles.topBar, { backgroundColor: t.cardBg, borderBottomColor: t.border }]}>
+        <View style={[styles.rowCenter, { gap: 12 }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: t.inputBg }]} hitSlop={6}>
+            <ArrowLeft size={18} color={t.textPrimary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <TrendingUp size={18} color={theme.brand} />
-              <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Agent Lead Tracking</Text>
-            </View>
-            <Text style={[styles.headerSub, { color: theme.textSecondary }]} numberOfLines={1}>
-              Review assigned leads, current stage & follow-ups
+            <Text style={[styles.title, { color: t.textPrimary }]}>Agent Lead Tracking</Text>
+            <Text style={{ fontSize: 12, color: t.textSecondary }} numberOfLines={1}>
+              Review assigned leads, current stage, and the next follow-up date.
             </Text>
           </View>
-          <View style={[styles.countBadge, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#d1fae5', borderColor: theme.brand }]}>
-            <Text style={[styles.countBadgeText, { color: theme.brand }]}>{totalCount} Leads</Text>
-          </View>
         </View>
-
-        {/* ── SEARCH BAR ── */}
-        <View style={[styles.searchBox, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
-          <Search size={16} color={theme.textMuted} />
+        <View style={[styles.search, { backgroundColor: t.inputBg, borderColor: t.border }]}>
+          <Search size={16} color={t.textSecondary} />
           <TextInput
-            style={[styles.searchInput, { color: theme.textPrimary }]}
-            placeholder="Search lead by name, phone, location..."
-            placeholderTextColor={theme.textMuted}
-            value={search}
-            onChangeText={setSearch}
+            value={searchInput}
+            onChangeText={setSearchInput}
+            placeholder="Search lead name, phone or email..."
+            placeholderTextColor={t.textMuted}
+            style={{ flex: 1, color: t.textPrimary, fontSize: 14, paddingVertical: 0 }}
+            returnKeyType="search"
           />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <X size={16} color={theme.textSecondary} />
+          {searchInput !== '' && (
+            <TouchableOpacity onPress={() => setSearchInput('')} hitSlop={8}>
+              <X size={16} color={t.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: bottomSpacing + 30 }}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.brand} />}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── AGENT FILTER PILL SCROLLER ── */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={[styles.sectionHeading, { color: theme.textSecondary }]}>FILTER BY AGENT</Text>
-          {selectedExecutiveId && (
-            <TouchableOpacity onPress={() => handleSelectAgent(undefined)}>
-              <Text style={{ fontSize: 11, color: theme.brand, fontWeight: '600' }}>Show All</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.agentPillsContainer}
-        >
-          {/* All Agents Pill */}
-          <TouchableOpacity
-            onPress={() => handleSelectAgent(undefined)}
-            style={[
-              styles.agentPill,
-              { backgroundColor: theme.secondaryBg, borderColor: theme.border },
-              selectedExecutiveId === undefined && {
-                backgroundColor: theme.brand,
-                borderColor: theme.brand,
-              },
-            ]}
-          >
-            <Users size={14} color={selectedExecutiveId === undefined ? '#ffffff' : theme.textSecondary} />
-            <Text
-              style={[
-                styles.agentPillName,
-                { color: selectedExecutiveId === undefined ? '#ffffff' : theme.textPrimary },
-              ]}
-            >
-              All Agents
-            </Text>
-            <View
-              style={[
-                styles.agentPillCount,
-                {
-                  backgroundColor:
-                    selectedExecutiveId === undefined ? 'rgba(255,255,255,0.25)' : theme.inputBg,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.agentPillCountText,
-                  { color: selectedExecutiveId === undefined ? '#ffffff' : theme.textSecondary },
-                ]}
-              >
-                {agents.reduce((acc, a) => acc + (a.leadCount || 0), 0) || totalCount}
-              </Text>
-            </View>
-          </TouchableOpacity>
+      <FlatList
+        data={isLoading || isError ? [] : leads}
+        keyExtractor={(l) => String(l.leadId)}
+        renderItem={({ item }) => (
+          <LeadCard lead={item} t={t} canAssign={canAssign} onOpen={openLead} onReassign={openReassign} />
+        )}
+        ListHeaderComponent={Header}
+        ListEmptyComponent={Empty}
+        ListFooterComponent={Footer}
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        contentContainerStyle={{ padding: 16, paddingBottom: bottomSpacing + 20, flexGrow: 1 }}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[t.brand]} tintColor={t.brand} />}
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={6}
+        windowSize={7}
+      />
 
-          {/* Individual Agent Pills */}
-          {agents.map((ag) => {
-            const isSelected = selectedExecutiveId === ag.userId;
-            return (
-              <TouchableOpacity
-                key={`ag-${ag.userId}`}
-                onPress={() => handleSelectAgent(ag.userId)}
-                style={[
-                  styles.agentPill,
-                  { backgroundColor: theme.secondaryBg, borderColor: theme.border },
-                  isSelected && {
-                    backgroundColor: theme.brand,
-                    borderColor: theme.brand,
-                  },
-                ]}
-              >
-                <User size={13} color={isSelected ? '#ffffff' : theme.textSecondary} />
-                <Text
-                  style={[
-                    styles.agentPillName,
-                    { color: isSelected ? '#ffffff' : theme.textPrimary },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {ag.name}
-                </Text>
-                <View
-                  style={[
-                    styles.agentPillCount,
-                    {
-                      backgroundColor:
-                        isSelected ? 'rgba(255,255,255,0.25)' : theme.inputBg,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.agentPillCountText,
-                      { color: isSelected ? '#ffffff' : theme.textSecondary },
-                    ]}
-                  >
-                    {ag.leadCount ?? 0}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* ── STAGE FILTER CHIPS ── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.stagePillsContainer}
-        >
-          {stagesList.map((st) => {
-            const isSelected = selectedStage === st;
-            return (
-              <TouchableOpacity
-                key={st}
-                onPress={() => {
-                  setSelectedStage(st);
-                  setPage(1);
-                }}
-                style={[
-                  styles.stagePill,
-                  { backgroundColor: theme.secondaryBg, borderColor: theme.border },
-                  isSelected && { backgroundColor: theme.textPrimary, borderColor: theme.textPrimary },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.stagePillText,
-                    { color: isSelected ? '#ffffff' : theme.textSecondary },
-                  ]}
-                >
-                  {st}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* ── LEADS LIST SECTION ── */}
-        <View style={styles.listSection}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionHeading, { color: theme.textSecondary }]}>
-              TRACKED LEADS ({leads.length})
-            </Text>
-            {(selectedExecutiveId !== undefined || selectedStage !== 'All' || debouncedSearch.length > 0) && (
-              <TouchableOpacity onPress={handleClearFilters} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <RotateCcw size={12} color={theme.brand} />
-                <Text style={{ fontSize: 11, color: theme.brand, fontWeight: '600' }}>Reset Filters</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {isLoading ? (
-            <View style={styles.centerBox}>
-              <ActivityIndicator size="large" color={theme.brand} />
-              <Text style={{ color: theme.textSecondary, marginTop: 10, fontSize: 12 }}>Loading agent leads...</Text>
-            </View>
-          ) : leads.length === 0 ? (
-            <View style={[styles.emptyBox, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-              <Users size={38} color={theme.textMuted} />
-              <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No Leads Found</Text>
-              <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
-                No leads match this agent selection or active filter criteria.
-              </Text>
-              <TouchableOpacity
-                onPress={handleClearFilters}
-                style={[styles.clearFilterBtn, { backgroundColor: theme.brand }]}
-              >
-                <Text style={styles.clearFilterBtnText}>Clear Filters</Text>
+      {/* Agent filter picker */}
+      <Modal visible={agentPickerOpen} transparent animationType="slide" onRequestClose={() => setAgentPickerOpen(false)}>
+        <View style={styles.overlay}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setAgentPickerOpen(false)} />
+          <View style={[styles.sheet, { backgroundColor: t.cardBg }]}>
+            <View style={[styles.handle, { backgroundColor: t.border }]} />
+            <View style={styles.rowBetween}>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: t.textPrimary }}>Filter by agent</Text>
+              <TouchableOpacity onPress={() => setAgentPickerOpen(false)} hitSlop={8}>
+                <X size={20} color={t.textSecondary} />
               </TouchableOpacity>
             </View>
-          ) : (
-            leads.map((lead) => {
-              const stageStyle = getStageBadge(lead.stage);
 
-              return (
-                <View
-                  key={`lead-${lead.leadId}`}
-                  style={[styles.leadCard, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}
-                >
-                  {/* Lead Card Header: Name + Stage */}
-                  <View style={styles.cardHeader}>
-                    <View style={{ flex: 1, paddingRight: 8 }}>
-                      <TouchableOpacity onPress={() => router.push(`/admin/leads/${lead.leadId}` as any)}>
-                        <Text style={[styles.leadName, { color: theme.textPrimary }]} numberOfLines={1}>
-                          {lead.name}
-                        </Text>
-                      </TouchableOpacity>
-                      <Text style={[styles.leadMeta, { color: theme.textMuted }]}>
-                        Lead #{lead.leadId} · {lead.contact}
-                      </Text>
-                    </View>
-                    <View style={[styles.stageBadge, { backgroundColor: stageStyle.bg }]}>
-                      <Text style={[styles.stageBadgeText, { color: stageStyle.color }]}>{lead.stage}</Text>
-                    </View>
-                  </View>
-
-                  {/* Fields Grid (2-column details) */}
-                  <View style={[styles.fieldsGrid, { borderColor: theme.border }]}>
-                    <View style={styles.fieldItem}>
-                      <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>EMAIL</Text>
-                      <Text style={[styles.fieldVal, { color: theme.textPrimary }]} numberOfLines={1}>
-                        {lead.email || '-'}
-                      </Text>
-                    </View>
-
-                    <View style={styles.fieldItem}>
-                      <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>SOURCE</Text>
-                      <Text style={[styles.fieldVal, { color: theme.textPrimary }]} numberOfLines={1}>
-                        {lead.source || '-'}
-                      </Text>
-                    </View>
-
-                    <View style={styles.fieldItem}>
-                      <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>LOCATION</Text>
-                      <Text style={[styles.fieldVal, { color: theme.textPrimary }]} numberOfLines={1}>
-                        {lead.location || '-'}
-                      </Text>
-                    </View>
-
-                    <View style={styles.fieldItem}>
-                      <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>CREATED</Text>
-                      <Text style={[styles.fieldVal, { color: theme.textPrimary }]} numberOfLines={1}>
-                        {formatDate(lead.createdOn)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Follow-Up Highlight Box */}
-                  <View
-                    style={[
-                      styles.followUpBox,
-                      {
-                        backgroundColor: lead.followUpDate
-                          ? (isDark ? 'rgba(212, 164, 90, 0.12)' : '#fffbeb')
-                          : theme.inputBg,
-                        borderColor: lead.followUpDate
-                          ? (isDark ? 'rgba(212, 164, 90, 0.28)' : '#fde68a')
-                          : theme.border,
-                      },
-                    ]}
-                  >
-                    <Calendar size={13} color={lead.followUpDate ? '#d4a45a' : theme.textMuted} />
-                    <Text
-                      style={[
-                        styles.followUpText,
-                        { color: lead.followUpDate ? (isDark ? '#e3b063' : '#92400e') : theme.textMuted },
-                      ]}
-                    >
-                      Next follow-up: {formatDate(lead.followUpDate)}
-                    </Text>
-                  </View>
-
-                  {/* Assignment & Actions Bar */}
-                  <View style={[styles.cardFooter, { borderTopColor: theme.border }]}>
-                    <View style={styles.assignedToWrap}>
-                      <Text style={[styles.assignedLabel, { color: theme.textMuted }]}>ASSIGNED:</Text>
-                      <View style={[styles.agentAvatarPill, { backgroundColor: theme.inputBg }]}>
-                        <UserCheck size={12} color={theme.brand} />
-                        <Text style={[styles.assignedAgentName, { color: theme.textPrimary }]} numberOfLines={1}>
-                          {lead.assignedAgentName || 'Unassigned'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.actionsRow}>
-                      {lead.contact && lead.contact !== '-' && (
-                        <TouchableOpacity
-                          onPress={() => handleDial(lead.contact)}
-                          style={[styles.actionIconBtn, { borderColor: theme.border, backgroundColor: theme.inputBg }]}
-                          accessibilityLabel="Call Lead"
-                        >
-                          <Phone size={13} color={theme.brand} />
-                        </TouchableOpacity>
-                      )}
-
-                      {canAssignLeads && (
-                        <TouchableOpacity
-                          onPress={() => handleOpenAssign(lead)}
-                          style={[styles.reassignBtn, { borderColor: theme.brand, backgroundColor: theme.inputBg }]}
-                        >
-                          <Text style={[styles.reassignBtnText, { color: theme.brand }]}>Reassign</Text>
-                        </TouchableOpacity>
-                      )}
-
-                      <TouchableOpacity
-                        onPress={() => router.push(`/admin/leads/${lead.leadId}` as any)}
-                        style={[styles.detailsBtn, { backgroundColor: theme.brand }]}
-                      >
-                        <Text style={styles.detailsBtnText}>Details</Text>
-                        <ChevronRight size={13} color="#ffffff" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              );
-            })
-          )}
-
-          {/* ── PAGINATION CONTROLS ── */}
-          {totalPages > 1 && (
-            <View style={[styles.paginationRow, { borderColor: theme.border, backgroundColor: theme.secondaryBg }]}>
-              <TouchableOpacity
-                onPress={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                style={[styles.pageBtn, page <= 1 && { opacity: 0.4 }]}
-              >
-                <ChevronLeft size={16} color={theme.textPrimary} />
-                <Text style={[styles.pageBtnText, { color: theme.textPrimary }]}>Prev</Text>
-              </TouchableOpacity>
-
-              <Text style={[styles.pageInfoText, { color: theme.textSecondary }]}>
-                Page {page} of {totalPages}
-              </Text>
-
-              <TouchableOpacity
-                onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                style={[styles.pageBtn, page >= totalPages && { opacity: 0.4 }]}
-              >
-                <Text style={[styles.pageBtnText, { color: theme.textPrimary }]}>Next</Text>
-                <ChevronRight size={16} color={theme.textPrimary} />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* ── REASSIGN AGENT MODAL ── */}
-      <Modal visible={assignModalLead !== null} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalContent, { backgroundColor: theme.secondaryBg, borderColor: theme.border }]}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Reassign Lead</Text>
-                <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
-                  {assignModalLead?.name} (Lead #{assignModalLead?.leadId})
-                </Text>
+            {agents.length > 6 && (
+              <View style={[styles.search, { backgroundColor: t.inputBg, borderColor: t.border, marginTop: 14 }]}>
+                <Search size={15} color={t.textSecondary} />
+                <TextInput
+                  value={agentPickerSearch}
+                  onChangeText={setAgentPickerSearch}
+                  placeholder="Search agents..."
+                  placeholderTextColor={t.textMuted}
+                  style={{ flex: 1, color: t.textPrimary, fontSize: 14, paddingVertical: 0 }}
+                />
               </View>
-              <TouchableOpacity onPress={() => setAssignModalLead(null)}>
-                <X size={20} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </View>
+            )}
 
-            <Text style={[styles.modalLabel, { color: theme.textMuted }]}>SELECT ASSIGNED AGENT</Text>
-            <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
-              {/* Unassigned Option */}
-              <TouchableOpacity
-                onPress={() => setSelectedAssignAgentId(null)}
-                style={[
-                  styles.agentOptionRow,
-                  { borderColor: theme.border, backgroundColor: theme.inputBg },
-                  selectedAssignAgentId === null && {
-                    borderColor: theme.brand,
-                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
-                  },
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.agentOptionName, { color: theme.textPrimary }]}>Unassigned</Text>
-                  <Text style={[styles.agentOptionMeta, { color: theme.textMuted }]}>Clear agent assignment</Text>
-                </View>
-                {selectedAssignAgentId === null && <Check size={16} color={theme.brand} />}
-              </TouchableOpacity>
-
-              {/* Agents list */}
-              {agents.map((ag) => {
-                const isSelected = selectedAssignAgentId === ag.userId;
+            <ScrollView style={{ maxHeight: 380, marginTop: 12 }} keyboardShouldPersistTaps="handled">
+              {[{ userId: undefined as number | undefined, name: 'All agents and leads', leadCount: allCount || totalCount }, ...pickerAgents].map((a) => {
+                const active = executiveId === a.userId;
+                const tone = a.userId === undefined ? t.brand : avatarTone(a.userId);
                 return (
                   <TouchableOpacity
-                    key={`assign-${ag.userId}`}
-                    onPress={() => setSelectedAssignAgentId(ag.userId)}
-                    style={[
-                      styles.agentOptionRow,
-                      { borderColor: theme.border, backgroundColor: theme.inputBg },
-                      isSelected && {
-                        borderColor: theme.brand,
-                        backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
-                      },
-                    ]}
+                    key={String(a.userId ?? 'all')}
+                    onPress={() => {
+                      selectAgent(a.userId);
+                      setAgentPickerOpen(false);
+                    }}
+                    style={[styles.agentRow, { borderColor: active ? t.brand : t.border, backgroundColor: active ? t.badgeBg : 'transparent' }]}
                   >
+                    <View style={[styles.miniAvatar, { width: 34, height: 34, borderRadius: 17, backgroundColor: `${tone}1F` }]}>
+                      {a.userId === undefined ? (
+                        <Users size={15} color={tone} />
+                      ) : (
+                        <Text style={{ fontSize: 12, fontWeight: '800', color: tone }}>{initials(a.name)}</Text>
+                      )}
+                    </View>
+                    <Text style={{ flex: 1, fontSize: 14, fontWeight: active ? '700' : '600', color: t.textPrimary }} numberOfLines={1}>
+                      {a.name}
+                    </Text>
+                    <View style={[styles.countChip, { backgroundColor: active ? t.brand : t.inputBg }]}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: active ? '#fff' : t.textSecondary }}>{a.leadCount || 0}</Text>
+                    </View>
+                    {active && <Check size={16} color={t.brand} />}
+                  </TouchableOpacity>
+                );
+              })}
+              {pickerAgents.length === 0 && agentPickerSearch !== '' && (
+                <Text style={{ textAlign: 'center', color: t.textMuted, fontSize: 13, paddingVertical: 16 }}>No agents found</Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Reassign sheet */}
+      <Modal visible={!!reassignLead} transparent animationType="slide" onRequestClose={() => setReassignLead(null)}>
+        <View style={styles.overlay}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setReassignLead(null)} />
+          <View style={[styles.sheet, { backgroundColor: t.cardBg }]}>
+            <View style={[styles.handle, { backgroundColor: t.border }]} />
+            <View style={styles.rowBetween}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: t.textPrimary }}>Reassign Lead</Text>
+                <Text style={{ fontSize: 12, color: t.textSecondary, marginTop: 2 }} numberOfLines={1}>
+                  {reassignLead?.name}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setReassignLead(null)} hitSlop={8}>
+                <X size={20} color={t.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {agents.length > 6 && (
+              <View style={[styles.search, { backgroundColor: t.inputBg, borderColor: t.border, marginTop: 14 }]}>
+                <Search size={15} color={t.textSecondary} />
+                <TextInput
+                  value={agentSearch}
+                  onChangeText={setAgentSearch}
+                  placeholder="Search agents..."
+                  placeholderTextColor={t.textMuted}
+                  style={{ flex: 1, color: t.textPrimary, fontSize: 14, paddingVertical: 0 }}
+                />
+              </View>
+            )}
+
+            <ScrollView style={{ maxHeight: 340, marginTop: 12 }} keyboardShouldPersistTaps="handled">
+              {[{ userId: null as number | null, name: 'Unassigned', leadCount: -1 }, ...filteredAgents].map((a) => {
+                const active = reassignTo === a.userId;
+                const tone = a.userId == null ? t.textMuted : avatarTone(a.userId);
+                return (
+                  <TouchableOpacity
+                    key={String(a.userId)}
+                    onPress={() => setReassignTo(a.userId)}
+                    style={[styles.agentRow, { borderColor: active ? t.brand : t.border, backgroundColor: active ? t.badgeBg : 'transparent' }]}
+                  >
+                    <View style={[styles.miniAvatar, { width: 34, height: 34, borderRadius: 17, backgroundColor: `${tone}1F` }]}>
+                      {a.userId == null ? (
+                        <UserX size={15} color={tone} />
+                      ) : (
+                        <Text style={{ fontSize: 12, fontWeight: '800', color: tone }}>{initials(a.name)}</Text>
+                      )}
+                    </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.agentOptionName, { color: theme.textPrimary }]}>{ag.name}</Text>
-                      <Text style={[styles.agentOptionMeta, { color: theme.textMuted }]}>
-                        {ag.email ? ag.email + ' · ' : ''}
-                        {ag.leadCount} active leads
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: t.textPrimary }}>{a.name}</Text>
+                      <Text style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>
+                        {a.leadCount < 0 ? 'Clear agent assignment' : `${a.leadCount} leads`}
                       </Text>
                     </View>
-                    {isSelected && <Check size={16} color={theme.brand} />}
+                    <View style={[styles.radio, { borderColor: active ? t.brand : t.textMuted }]}>
+                      {active && <Check size={11} color={t.brand} strokeWidth={3} />}
+                    </View>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
 
-            {/* Modal Actions */}
-            <View style={styles.modalActionsRow}>
-              <TouchableOpacity
-                onPress={() => setAssignModalLead(null)}
-                style={[styles.modalCancelBtn, { borderColor: theme.border }]}
-              >
-                <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '600' }}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleConfirmAssignment}
-                disabled={assignMutation.isPending}
-                style={[styles.modalSaveBtn, { backgroundColor: theme.brand }]}
-              >
-                {assignMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Save Assignment</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={confirmReassign}
+              disabled={assignMutation.isPending || reassignTo === reassignLead?.assignedAgentId}
+              style={[
+                styles.primaryBtn,
+                {
+                  backgroundColor: t.brand,
+                  marginTop: 14,
+                  opacity: assignMutation.isPending || reassignTo === reassignLead?.assignedAgentId ? 0.55 : 1,
+                },
+              ]}
+            >
+              {assignMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Save Assignment</Text>}
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -644,393 +628,45 @@ export default function AgentLeadTrackingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  headerBanner: {
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 10,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  headerSub: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  countBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  countBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    height: 40,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 13,
-    padding: 0,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 6,
-  },
-  sectionHeading: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  agentPillsContainer: {
-    paddingHorizontal: 16,
-    gap: 8,
-    paddingBottom: 4,
-  },
-  agentPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  agentPillName: {
-    fontSize: 12,
-    fontWeight: '700',
-    maxWidth: 120,
-  },
-  agentPillCount: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 10,
-  },
-  agentPillCountText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  stagePillsContainer: {
-    paddingHorizontal: 16,
-    gap: 6,
-    marginTop: 10,
-    marginBottom: 6,
-  },
-  stagePill: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  stagePillText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  listSection: {
-    paddingHorizontal: 16,
-    marginTop: 4,
-  },
-  leadCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  leadName: {
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  leadMeta: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  stageBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  stageBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  fieldsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    borderTopWidth: 1,
-    paddingTop: 8,
-    marginBottom: 8,
-  },
-  fieldItem: {
-    width: '50%',
-    paddingVertical: 4,
-    paddingRight: 6,
-  },
-  fieldLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  fieldVal: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  followUpBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 10,
-  },
-  followUpText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    paddingTop: 10,
-    gap: 6,
-  },
-  assignedToWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  assignedLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  agentAvatarPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 10,
-    maxWidth: 130,
-  },
-  assignedAgentName: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  actionIconBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 7,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reassignBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 7,
-    borderWidth: 1,
-  },
-  reassignBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  detailsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 7,
-  },
-  detailsBtnText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  centerBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 50,
-  },
-  emptyBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    marginTop: 10,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    marginTop: 12,
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 16,
-    lineHeight: 18,
-  },
-  clearFilterBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  clearFilterBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  paginationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginTop: 8,
-  },
-  pageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  pageBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  pageInfoText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 380,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 18,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  modalSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  modalLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  agentOptionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  agentOptionName: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  agentOptionMeta: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  modalActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 14,
-  },
-  modalCancelBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  modalSaveBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 120,
-    alignItems: 'center',
-  },
-});
+  rowCenter: { flexDirection: 'row', alignItems: 'center' },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
+  topBar: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, borderBottomWidth: 1, gap: 12 },
+  backBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 17, fontWeight: '800' },
+  search: { height: 42, borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
+
+  sectionTitle: { fontSize: 14, fontWeight: '700' },
+  fieldLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, marginBottom: 8 },
+  dropdown: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, height: 56, borderRadius: 14, borderWidth: 1 },
+
+
+  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18, borderWidth: 1 },
+  countChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+
+  leadCard: { borderRadius: 16, borderWidth: 1, padding: 14 },
+  leadName: { fontSize: 15, fontWeight: '700' },
+  stagePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10, maxWidth: 150 },
+  stageDot: { width: 6, height: 6, borderRadius: 3 },
+  stageText: { fontSize: 11, fontWeight: '700' },
+  infoGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 12, rowGap: 8 },
+  infoItem: { width: '50%', flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 8 },
+  infoText: { fontSize: 12, flexShrink: 1 },
+  followUp: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10 },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 1 },
+  miniAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  reassignBtn: { height: 34, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+
+  empty: { borderRadius: 16, borderWidth: 1, padding: 28, alignItems: 'center', gap: 6 },
+  emptyTitle: { fontSize: 15, fontWeight: '700', marginTop: 4 },
+  pageBtn: { width: 40, height: 36, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 28 },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 14 },
+  agentRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 8 },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  primaryBtn: { height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+  primaryBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+});

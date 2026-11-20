@@ -1,20 +1,22 @@
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import { useUnreadNotificationsCount } from '../hooks/useNotificationsQuery';
+import React, { useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useRouter, usePathname, useSegments } from 'expo-router';
-import { LayoutDashboard, Users, Settings, User } from 'lucide-react-native';
+import { LayoutDashboard, CalendarCheck, Settings, User } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUpdateStore } from '../../hooks/useUpdateStore';
-import { NotificationService } from '../../Services/NotificationService';
 import { useAuthStore } from '../../auth/store/authStore';
 import { usePermissions } from '../../authorization/hooks/usePermission';
+import { usePartnerPlanEligibility } from '../hooks/usePartnerPlanEligibility';
 import { triggerHaptic } from '../../utils/haptics';
 import { useHeaderScrollStore } from '../store/useHeaderScrollStore';
 import { resetNavigationLock } from '../../navigation/safeNavigation';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface BottomNavProps {
-  active: 'dashboard' | 'users' | 'settings' | 'profile';
+  active: 'dashboard' | 'attendance' | 'settings' | 'profile' | 'none';
 }
 
 const BottomNav = React.memo(({ active }: BottomNavProps) => {
@@ -24,27 +26,20 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
   const insets = useSafeAreaInsets();
+  const { isSmallPhone, isTablet } = useResponsive();
   const isUpdateAvailable = useUpdateStore((state) => state.isUpdateAvailable);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const res = await NotificationService.getNotifications();
-      setUnreadCount(res.unreadCount || res.count || 0);
-    } catch {
-      setUnreadCount(0);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUnreadCount();
-  }, [fetchUnreadCount, active]);
+  // Was: downloading the FULL notification list + tasks on every tab change just for a dot.
+  // Now: one cached unread-count query shared with the Header.
+  const unreadCount = useUnreadNotificationsCount();
 
   const user = useAuthStore((state) => state.user);
   const role = user?.role?.trim()?.toLowerCase() || '';
-  const { hasModuleAccess, isPartner, isAgent, isAdmin } = usePermissions();
+  const { isPartner, isAgent, isAdmin } = usePermissions();
+  const { isEligible: hasPartnerPlanEligibility } = usePartnerPlanEligibility();
+  const isPartnerEligible = (role === 'partner' || isPartner) && hasPartnerPlanEligibility;
 
-  const canViewUsers = isAdmin || (!isAgent && !isPartner && hasModuleAccess('User Management'));
+  // Users moved out of the bottom bar (it lives under Menu → User Management); Attendance takes its place
+  const isAgentUser = isAgent || role === 'agent' || role === 'sales';
   const canViewSettings = isAdmin;
 
   const navigateToDashboard = useCallback(() => {
@@ -71,9 +66,9 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
       if (router.canGoBack()) {
         router.back();
       } else {
-        if (role === 'partner' || isPartner) {
+        if (isPartnerEligible) {
           router.navigate('/admin/PartnerDashboard' as any);
-        } else if (role === 'agent' || role === 'sales' || isAgent) {
+        } else if (role === 'agent' || role === 'sales' || isAgent || role === 'partner' || isPartner) {
           router.navigate({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
         } else {
           router.navigate('/admin/dashboard' as any);
@@ -83,24 +78,21 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
     }
 
     // Navigating to dashboard from another bottom nav tab (users, settings, profile)
-    if (role === 'partner' || isPartner) {
+    if (isPartnerEligible) {
       router.navigate('/admin/PartnerDashboard' as any);
-    } else if (role === 'agent' || role === 'sales' || isAgent) {
+    } else if (role === 'agent' || role === 'sales' || isAgent || role === 'partner' || isPartner) {
       router.navigate({ pathname: '/admin/dashboard', params: { tab: 'sales' } } as any);
     } else {
       router.navigate('/admin/dashboard' as any);
     }
-  }, [router, role, isPartner, isAgent, active, pathname, segments]);
+  }, [router, role, isPartner, isPartnerEligible, isAgent, active, pathname, segments]);
 
-  const navigateToUsers = useCallback(() => {
+  const navigateToAttendance = useCallback(() => {
     triggerHaptic('selection');
-    if (active === 'users') return;
-    if (canViewUsers) {
-      router.navigate('/admin/users' as any);
-    } else {
-      router.navigate('/admin/leads' as any);
-    }
-  }, [router, active, canViewUsers]);
+    if (active === 'attendance') return;
+    // Web parity: Agents/Sales see "My Attendance"; Admin/Partner see Agent Attendance
+    router.navigate((isAgentUser ? '/admin/attendance/AgentCalender' : '/admin/attendance/AgentAttendance') as any);
+  }, [router, active, isAgentUser]);
 
   const navigateToSettings = useCallback(() => {
     if (!canViewSettings) return;
@@ -135,16 +127,29 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
   });
 
   const isHomeActive = active === 'dashboard';
-  const isUsersActive = active === 'users';
+  const isAttendanceActive = active === 'attendance';
   const isSettingsActive = active === 'settings';
   const isProfileActive = active === 'profile';
 
   return (
-    <View style={[styles.outerWrapper, { bottom: bottomOffset }]}>
+    <View
+      style={[
+        styles.outerWrapper,
+        {
+          bottom: bottomOffset,
+          left: isSmallPhone ? 10 : 16,
+          right: isSmallPhone ? 10 : 16,
+          gap: isSmallPhone ? 6 : 10,
+          maxWidth: isTablet ? 540 : undefined,
+          alignSelf: isTablet ? 'center' : undefined,
+        },
+      ]}
+    >
       {/* ── 1. Main Left Pill Dock (Home, User, Setting) ── */}
       <View
         style={[
           styles.mainDock,
+          isSmallPhone && { height: 56, borderRadius: 28, paddingHorizontal: 4 },
           {
             backgroundColor: dockBg,
             borderColor: dockBorder,
@@ -157,17 +162,19 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
           activeOpacity={0.75}
           style={[
             styles.tabItem,
+            isSmallPhone && { height: 46, borderRadius: 23 },
             isHomeActive && [styles.activeTabCapsule, { backgroundColor: activeCapsuleBg }],
           ]}
         >
           <LayoutDashboard
-            size={18}
+            size={isSmallPhone ? 16 : 18}
             color={isHomeActive ? activeIconColor : inactiveIconColor}
             strokeWidth={isHomeActive ? 2.3 : 1.9}
           />
           <Text
             style={[
               styles.tabLabel,
+              isSmallPhone && { fontSize: 9 },
               {
                 color: isHomeActive ? activeTextColor : inactiveTextColor,
                 fontWeight: isHomeActive ? '700' : '500',
@@ -178,30 +185,32 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
           </Text>
         </TouchableOpacity>
 
-        {/* User Tab */}
+        {/* Attendance Tab */}
         <TouchableOpacity
-          onPress={navigateToUsers}
+          onPress={navigateToAttendance}
           activeOpacity={0.75}
           style={[
             styles.tabItem,
-            isUsersActive && [styles.activeTabCapsule, { backgroundColor: activeCapsuleBg }],
+            isSmallPhone && { height: 46, borderRadius: 23 },
+            isAttendanceActive && [styles.activeTabCapsule, { backgroundColor: activeCapsuleBg }],
           ]}
         >
-          <Users
-            size={18}
-            color={isUsersActive ? activeIconColor : inactiveIconColor}
-            strokeWidth={isUsersActive ? 2.3 : 1.9}
+          <CalendarCheck
+            size={isSmallPhone ? 16 : 18}
+            color={isAttendanceActive ? activeIconColor : inactiveIconColor}
+            strokeWidth={isAttendanceActive ? 2.3 : 1.9}
           />
           <Text
             style={[
               styles.tabLabel,
+              isSmallPhone && { fontSize: 9 },
               {
-                color: isUsersActive ? activeTextColor : inactiveTextColor,
-                fontWeight: isUsersActive ? '700' : '500',
+                color: isAttendanceActive ? activeTextColor : inactiveTextColor,
+                fontWeight: isAttendanceActive ? '700' : '500',
               },
             ]}
           >
-            {canViewUsers ? 'User' : 'Leads'}
+            Attendance
           </Text>
         </TouchableOpacity>
 
@@ -212,12 +221,13 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
             activeOpacity={0.75}
             style={[
               styles.tabItem,
+              isSmallPhone && { height: 46, borderRadius: 23 },
               isSettingsActive && [styles.activeTabCapsule, { backgroundColor: activeCapsuleBg }],
             ]}
           >
             <View style={styles.iconContainer}>
               <Settings
-                size={18}
+                size={isSmallPhone ? 16 : 18}
                 color={isSettingsActive ? activeIconColor : inactiveIconColor}
                 strokeWidth={isSettingsActive ? 2.3 : 1.9}
               />
@@ -226,6 +236,7 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
             <Text
               style={[
                 styles.tabLabel,
+                isSmallPhone && { fontSize: 9 },
                 {
                   color: isSettingsActive ? activeTextColor : inactiveTextColor,
                   fontWeight: isSettingsActive ? '700' : '500',
@@ -244,6 +255,7 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
         activeOpacity={0.8}
         style={[
           styles.profileButton,
+          isSmallPhone && { width: 56, height: 56, borderRadius: 28 },
           {
             backgroundColor: isProfileActive
               ? (isDark ? 'rgba(16, 185, 129, 0.22)' : 'rgba(16, 185, 129, 0.16)')
@@ -256,7 +268,7 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
       >
         <View style={styles.iconContainer}>
           <User
-            size={20}
+            size={isSmallPhone ? 18 : 20}
             color={isProfileActive ? GREEN : inactiveIconColor}
             strokeWidth={isProfileActive ? 2.4 : 2}
           />
@@ -265,6 +277,7 @@ const BottomNav = React.memo(({ active }: BottomNavProps) => {
         <Text
           style={[
             styles.profileLabel,
+            isSmallPhone && { fontSize: 9 },
             {
               color: isProfileActive
                 ? GREEN

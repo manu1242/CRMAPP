@@ -1,18 +1,19 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
 import { Menu, Moon, Sun, Bell, Coins } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { useRouter } from 'expo-router';
+import { useUnreadNotificationsCount } from '../hooks/useNotificationsQuery';
 import { useAuthStore } from '../../auth/store/authStore';
 import { triggerHaptic } from '../../utils/haptics';
-import { NotificationService } from '../../Services/NotificationService';
 import { useBrandingQuery } from '../hooks/useBranding';
 import { BrandingService } from '../services/BrandingService';
 import ReferralWalletSidebar from '../../app/components/ReferralWalletSidebar';
 import UserMenuModal from '../../app/components/UserMenuModal';
 import { useHeaderScrollStore } from '../store/useHeaderScrollStore';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface HeaderProps {
   onMenuPress?: () => void;
@@ -24,28 +25,12 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
   const insets = useSafeAreaInsets();
   const adminTheme = getAdminTheme(isDark);
   const user = useAuthStore((state) => state.user);
+  const { isSmallPhone } = useResponsive();
 
   const [isRewardsOpen, setIsRewardsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  const fetchUnreadCount = useCallback(async () => {
-    // Guard: only fetch when user is confirmed authenticated.
-    // The Header mounts briefly during iOS session restore with a stale Keychain
-    // token — firing an API call here before auth is settled causes a 401 that
-    // poisons the session expiry guard, breaking the entire auth flow.
-    if (!user) return;
-    try {
-      const res = await NotificationService.getUnreadCount();
-      setUnreadCount(res.unreadCount || 0);
-    } catch {
-      setUnreadCount(0);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchUnreadCount();
-  }, [fetchUnreadCount]);
+  // Cached + shared with BottomNav; refreshed automatically when a push arrives
+  const unreadCount = useUnreadNotificationsCount();
 
   const handleOpenRewards = useCallback(() => setIsRewardsOpen(true), []);
   const handleCloseRewards = useCallback(() => setIsRewardsOpen(false), []);
@@ -62,7 +47,7 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
       justifyContent: 'space-between' as const,
-      paddingHorizontal: 16,
+      paddingHorizontal: isSmallPhone ? 12 : 16,
       paddingTop: 12,
       paddingBottom: 12,
       backgroundColor: adminTheme.secondaryBg,
@@ -70,7 +55,7 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
       borderBottomColor: adminTheme.border,
       zIndex: 50,
     }),
-    [adminTheme.secondaryBg, adminTheme.border]
+    [adminTheme.secondaryBg, adminTheme.border, isSmallPhone]
   );
 
   const avatarStyle = useMemo(
@@ -102,18 +87,18 @@ const Header = React.memo(({ onMenuPress }: HeaderProps) => {
 
   return (
     <Animated.View style={[containerStyle, { marginTop: headerOffset, opacity: headerOpacity, overflow: 'hidden' }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: isSmallPhone ? 6 : 10 }}>
         {onMenuPress && (
           <TouchableOpacity onPress={onMenuPress} style={{ padding: 4 }}>
-            <Menu size={24} color={adminTheme.textPrimary} />
+            <Menu size={isSmallPhone ? 22 : 24} color={adminTheme.textPrimary} />
           </TouchableOpacity>
         )}
-        <Text style={{ color: adminTheme.textPrimary, fontWeight: '700', fontSize: 16 }}>
+        <Text style={{ color: adminTheme.textPrimary, fontWeight: '700', fontSize: isSmallPhone ? 15 : 16 }}>
           Admin
         </Text>
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: isSmallPhone ? 8 : 12 }}>
 
 
         {/* Dark/Light Mode Toggle */}

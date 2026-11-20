@@ -8,6 +8,9 @@ export interface LeadItem {
   status: string;
   source: string;
   preferredLocation?: string;
+  groupName?: string;
+  locationDistance?: string;
+  modifiedOn?: string;
   type?: string;
   propertyType?: string;
   bhk?: string;
@@ -15,6 +18,8 @@ export interface LeadItem {
   handoverStatus?: string;
   assignedToAgentId?: number;
   assignedToAgentName?: string;
+  agentName?: string;
+  executiveName?: string;
   followUpDate?: string;
   createdDate: string;
   createdOn?: string;
@@ -56,6 +61,15 @@ export interface LeadQueryParams {
   status?: string;
   executiveId?: number;
   source?: string;
+  type?: string;
+  propertyType?: string;
+  from?: string;
+  to?: string;
+  groupName?: string;
+  preferredLocation?: string;
+  handoverStatus?: string;
+  sortBy?: string;
+  sortDir?: string;
 }
 
 export interface LeadListResponseData {
@@ -90,6 +104,8 @@ export interface LeadContactInformation {
   createdDate?: string | null;
   executiveId?: number | null;
   locationDistance?: string | null;
+  modifiedOn?: string | null;
+  groupName?: string | null;
 }
 
 export interface LeadPropertyRequirements {

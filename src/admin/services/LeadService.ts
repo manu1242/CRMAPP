@@ -82,6 +82,8 @@ export const LeadService = {
                 assignedToAgentName: d.assignedToAgentName,
                 followUpDate: d.followUpDate,
                 createdDate: d.createdDate || d.createdOn,
+                modifiedOn: d.modifiedOn,
+                locationDistance: d.locationDistance,
               },
               propertyRequirements: {
                 groupName: d.groupName,
@@ -92,6 +94,7 @@ export const LeadService = {
                 propertyType: d.propertyType,
                 bhk: d.bhk,
                 requirement: d.requirement,
+                locationDistance: d.locationDistance,
               },
               activities: d.activities || [],
               followUps: d.followUps || [],
@@ -393,46 +396,52 @@ export const LeadService = {
     );
   },
 
-  // ── Lead Assignment ─────────────────────────────────────────
-  assignLead: async (id: number | string, agentId: number | null): Promise<ApiResponse<any>> => {
-    const numId = Number(id);
-    const execId = agentId ? Number(agentId) : 0;
-    const payload = {
-      leadIds: [numId],
-      executiveId: execId,
-      agentId: agentId ? Number(agentId) : null,
-      leadId: numId,
-    };
-
-    // Primary: POST /api/v1/leads/assign (bulk assignment endpoint matching Unassigned Leads)
-    try {
-      return await apiClient.post<ApiResponse<any>>(
-        API_ENDPOINTS.LEADS.ASSIGN_BULK,
-        payload
-      );
-    } catch (err1: any) {
-      // Fallback 1: POST /WebhookLeads/AssignExecutive (legacy WebhookLeads endpoint)
-      try {
-        return await apiClient.post<ApiResponse<any>>(
-          API_ENDPOINTS.UNASSIGNED_LEADS.ASSIGN_EXECUTIVE,
-          { leadIds: [numId], executiveId: execId }
-        );
-      } catch (err2: any) {
-        // Fallback 2: PUT /api/v1/leads/{id}
-        try {
-          return await apiClient.put<ApiResponse<any>>(
-            API_ENDPOINTS.LEADS.BY_ID(numId),
-            { assignedToAgentId: agentId ? Number(agentId) : null, executiveId: execId || null }
-          );
-        } catch (err3: any) {
-          // Fallback 3: POST /api/v1/leads/{id}/assign
-          return await apiClient.post<ApiResponse<any>>(
-            API_ENDPOINTS.LEADS.ASSIGN(numId),
-            payload
-          );
-        }
-      }
+  // ── Assignable employees (same list as the Web lead-assignment modal) ──
+  // GET /api/v1/leads/agent-tracking returns the Web's scoped assignee list: active, approved
+  // Agents plus custom-role employees of the caller's organization, gated by the
+  // Leads/AssignEmployees permission. There are deliberately NO fallbacks to other user lists:
+  // they are scoped differently and showed agents the Web does not offer.
+  getAssignableAgents: async (): Promise<
+    ApiResponse<Array<{ userId: number; username: string; role?: string; email?: string; phone?: string; leadCount?: number }>> & {
+      canAssign?: boolean;
     }
+  > => {
+    const res = await apiClient.get<any>(API_ENDPOINTS.LEADS.AGENT_TRACKING, { page: 1, pageSize: 1 });
+    if (!res || !res.success || !res.data) {
+      return { success: false, data: [], message: res?.message || 'Could not load agents' };
+    }
+
+    const canAssign = res.data.canAssignLeads ?? res.data.CanAssignLeads;
+    const rawAgents = res.data.agents || res.data.Agents || [];
+    const formatted = (Array.isArray(rawAgents) ? rawAgents : []).map((a: any) => {
+      const cleanName = (a.name || a.Name || '').trim();
+      const uId = Number(a.userId ?? a.UserId);
+      return {
+        userId: uId,
+        username: cleanName || `Agent #${uId}`,
+        role: a.role || a.Role || 'Agent',
+        email: a.email || a.Email || '',
+        phone: '',
+        leadCount: typeof a.leadCount === 'number' ? a.leadCount : undefined,
+      };
+    });
+
+    return {
+      success: true,
+      data: formatted,
+      canAssign: canAssign !== false,
+      message: canAssign === false ? 'You do not have permission to assign leads.' : 'Assignable employees loaded',
+    };
+  },
+
+  // ── Lead Assignment ─────────────────────────────────────────
+  // Single endpoint with the same validation as the Web's /leads/update-assignment
+  // (permission, lead ownership/handover status, assignee must be in the scoped list).
+  assignLead: async (id: number | string, agentId: number | null): Promise<ApiResponse<any>> => {
+    return apiClient.post<ApiResponse<any>>(API_ENDPOINTS.LEADS.AGENT_TRACKING_ASSIGN, {
+      leadId: Number(id),
+      agentId: agentId ? Number(agentId) : null,
+    });
   },
 
   bulkAssign: async (leadIds: number[], agentId: number): Promise<ApiResponse<any>> => {
@@ -454,5 +463,25 @@ export const LeadService = {
       `/api/v1/LeadsApi/${id}/status`,
       { status }
     );
+  },
+
+  // ── Delete Lead ──────────────────────────────────────────────
+  deleteLead: async (id: number | string): Promise<{ success: boolean; message: string; isReferenceError?: boolean }> => {
+    const numId = Number(id);
+    // 1. Primary: POST /Leads/Delete?id=${numId} (matches Web CRM)
+    try {
+      const res = await apiClient.post<any>(`/Leads/Delete?id=${numId}`);
+      return res.data || res;
+    } catch (err1: any) {
+      // 2. Fallback: DELETE /api/v1/leads/${numId}
+      try {
+        const res = await apiClient.delete<any>(`/api/v1/leads/${numId}`);
+        return res.data || res;
+      } catch (err2: any) {
+        // 3. Fallback: POST /WebhookLeads/DeleteLead?leadId=${numId}
+        const res = await apiClient.post<any>(`/WebhookLeads/DeleteLead?leadId=${numId}`);
+        return res.data || res;
+      }
+    }
   },
 };

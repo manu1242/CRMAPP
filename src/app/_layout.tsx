@@ -1,3 +1,4 @@
+import { startPermissionSync, syncPermissionsNow } from '../authorization/permissionSync';
 import 'react-native-gesture-handler';
 import React, { useEffect, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -307,20 +308,40 @@ function InnerLayout() {
 
   // Setup OS push notification response listener (tap navigation) and foreground real-time sync
   useEffect(() => {
+    // Refresh the in-app notification list + unread badge (push received, or tapped → marked read)
+    const refreshNotifications = () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-notifications'] });
+    };
     const subscription = DeviceNotificationService.setupNotificationResponseHandler(
       router,
-      () => {
-        // Real-time invalidate notification cache so badge counts and notification lists update live
-        queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
-        queryClient.invalidateQueries({ queryKey: ['admin-notifications'] });
-      }
+      refreshNotifications,
+      refreshNotifications
     );
 
     return () => {
       subscription.remove();
     };
   }, [router]);
+
+  // Keep permissions in sync with the web's Role Management (foreground + every few minutes).
+  // Admin-side users only — SuperAdmin is not role-managed.
+  const syncRole = (user?.role || '').toLowerCase();
+  useEffect(() => {
+    if (!isAuthenticated || !syncRole || syncRole === 'superadmin') return;
+    syncPermissionsNow(true);
+    return startPermissionSync();
+  }, [isAuthenticated, syncRole]);
+
+  // Ensure push notification registration is synced with backend upon authentication (Android + iOS)
+  useEffect(() => {
+    if (isAuthenticated) {
+      DeviceNotificationService.init().catch((err) => {
+        console.warn('[Notifications] Authenticated push init error:', err?.message);
+      });
+    }
+  }, [isAuthenticated]);
 
   // Track when impersonation stops and navigate back to correct dashboard
   // Uses isLoading as a gate: navigates as soon as loading finishes after impersonation ends
@@ -352,7 +373,7 @@ function InnerLayout() {
   const isPublicRoute = ['login', 'main-login', 'register', 'forgot-password', 'reset-password', 'index', '', 'privacy', 'refund-policy', 'terms'].includes(segments[0] as string) || segments[0] === undefined;
 
   let activeTab: 'dashboard' | 'tenants' | 'inquiries' | 'subscriptions' | 'profile' | 'chatbot' | 'pending-properties' = 'dashboard';
-  let adminActiveTab: 'dashboard' | 'users' | 'settings' | 'profile' = 'dashboard';
+  let adminActiveTab: 'dashboard' | 'attendance' | 'settings' | 'profile' | 'none' = 'dashboard';
 
   if (path.includes('superadmin/dashboard')) {
     activeTab = 'dashboard';
@@ -372,8 +393,10 @@ function InnerLayout() {
 
   if (path.includes('admin/dashboard') || path.toLowerCase().includes('admin/partnerdashboard')) {
     adminActiveTab = 'dashboard';
+  } else if (path.includes('admin/attendance')) {
+    adminActiveTab = 'attendance';
   } else if (path.includes('admin/users') || path.includes('admin/usemanagement')) {
-    adminActiveTab = 'users';
+    adminActiveTab = 'none'; // Users is no longer a bottom tab (Menu → User Management)
   } else if (path.includes('admin/settings') || path.includes('admin/paymentconfig') || path.includes('admin/bankaccountconfig')) {
     adminActiveTab = 'settings';
   } else if (path.includes('profile') || path.includes('change-password')) {
@@ -436,6 +459,7 @@ function InnerLayout() {
       <Stack.Screen name="admin/teammanagement/Agent" />
       <Stack.Screen name="admin/teammanagement/AgentDetails" />
       <Stack.Screen name="admin/teammanagement/AgentLeadTracking" />
+      <Stack.Screen name="admin/teammanagement/Employees" />
       <Stack.Screen name="admin/teammanagement/CreateAgent" />
       <Stack.Screen name="admin/teammanagement/channelpartner/channel" />
       <Stack.Screen name="admin/teammanagement/channelpartner/createchannel" />

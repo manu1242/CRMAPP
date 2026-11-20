@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { MessageSquare, Zap, UserCheck, CalendarCheck } from 'lucide-react-native';
+import { MessageCircle, Zap, UserCheck, CalendarCheck } from 'lucide-react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getSuperAdminTheme } from '../../../theme/adminTheme';
 import { ChatbotStats } from '../models/chatbot';
@@ -42,7 +42,7 @@ export const ChatbotStatsCards: React.FC<ChatbotStatsCardsProps> = ({ stats }) =
             { backgroundColor: isDark ? 'rgba(131, 92, 238, 0.15)' : 'rgba(131, 92, 238, 0.1)' },
           ]}
         >
-          <MessageSquare size={17} color={isDark ? '#835CEE' : '#835CEE'} />
+          <MessageCircle size={17} color={isDark ? '#835CEE' : '#835CEE'} />
         </View>
         <View style={styles.info}>
           <Text style={[styles.label, { color: theme.textMuted }]}>TOTAL CHATS</Text>

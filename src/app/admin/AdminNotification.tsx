@@ -9,22 +9,19 @@ import {
     StyleSheet,
     Linking,
     Alert,
-    Dimensions,
+    useWindowDimensions,
     Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.5;
 import {
     Bell,
     BellOff,
     CheckCheck,
     Clock,
     AlertCircle,
-    MessageSquare,
+    MessageCircle,
     User,
     Settings,
     Calendar,
@@ -39,12 +36,16 @@ import {
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
 import { NotificationService } from '../../Services/NotificationService';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAdminNotificationsQuery, NOTIFICATION_KEYS } from '../../admin/hooks/useNotificationsQuery';
 import { NotificationItem, TodayTaskItem } from '../../authorization/models/Notification';
 import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 import { triggerHaptic } from '../../utils/haptics';
 import { resolveNotificationRoute, navigateToNotification } from '../../utils/notificationNavigator';
 
 export default function AdminNotificationScreen() {
+    const { width: SCREEN_WIDTH } = useWindowDimensions();
+    const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.5;
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { isDark } = useTheme();
@@ -52,41 +53,34 @@ export default function AdminNotificationScreen() {
     const { bottomSpacing } = useBottomNavSpacing();
 
     const [activeTab, setActiveTab] = useState<'notifications' | 'tasks'>('notifications');
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-    const [tasks, setTasks] = useState<TodayTaskItem[]>([]);
-    const [unreadCount, setUnreadCount] = useState(0);
-    const [taskCount, setTaskCount] = useState(0);
-    const [error, setError] = useState<string | null>(null);
     const clearingIds = useRef(new Set<string | number>());
+    const queryClient = useQueryClient();
 
-    const fetchNotifications = useCallback(async (isRefresh = false) => {
-        if (isRefresh) {
-            setRefreshing(true);
-        } else {
-            setLoading(true);
-        }
-        setError(null);
+    // Cached (React Query) — shared key is invalidated by the push listener in _layout,
+    // so new pushes / tapped pushes show up here without a manual reload.
+    const { data, isLoading, isRefetching, error: queryError, refetch } = useAdminNotificationsQuery();
+    const notifications: NotificationItem[] = data?.notifications ?? [];
+    const tasks: TodayTaskItem[] = data?.tasks ?? [];
+    const unreadCount = data?.unreadCount ?? 0;
+    const taskCount = data?.taskCount || tasks.length;
+    const loading = isLoading;
+    const refreshing = isRefetching;
+    const error = queryError ? (queryError as any)?.message || 'Failed to fetch notifications' : null;
 
-        try {
-            const res = await NotificationService.getNotifications();
-            setNotifications(res.notifications || []);
-            setTasks(res.tasks || []);
-            setUnreadCount(res.unreadCount || 0);
-            setTaskCount(res.taskCount || (res.tasks ? res.tasks.length : 0));
-        } catch (err: any) {
-            console.error('Failed to load notifications:', err);
-            setError(err?.message || 'Failed to fetch notifications');
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchNotifications();
-    }, [fetchNotifications]);
+    // Optimistic cache update helpers (replace the old local state setters)
+    const listKey = [...NOTIFICATION_KEYS.list];
+    const updateCache = (fn: (d: any) => any) => {
+        queryClient.setQueriesData({ queryKey: listKey }, (old: any) => (old ? fn(old) : old));
+    };
+    const setNotifications = (fn: (prev: NotificationItem[]) => NotificationItem[]) =>
+        updateCache((d) => ({ ...d, notifications: fn(d.notifications || []) }));
+    const setUnreadCount = (fn: number | ((prev: number) => number)) =>
+        updateCache((d) => ({ ...d, unreadCount: typeof fn === 'function' ? fn(d.unreadCount || 0) : fn }));
+    const syncBadges = () => queryClient.invalidateQueries({ queryKey: [...NOTIFICATION_KEYS.unread] });
+    const fetchNotifications = (_isRefresh?: boolean) => {
+        refetch();
+        syncBadges();
+    };
 
     const handleMarkAllRead = async () => {
         try {
@@ -95,6 +89,7 @@ export default function AdminNotificationScreen() {
             if (res && res.success) {
                 setUnreadCount(0);
                 setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+                syncBadges();
             }
         } catch (err: any) {
             console.error('Failed to mark all as read:', err);
@@ -113,7 +108,7 @@ export default function AdminNotificationScreen() {
                     onPress: async () => {
                         try {
                             triggerHaptic('warning');
-                            setNotifications([]);
+                            setNotifications(() => []);
                             setUnreadCount(0);
                             await NotificationService.clearAllNotifications();
                             fetchNotifications(true);
@@ -137,6 +132,7 @@ export default function AdminNotificationScreen() {
             );
             setUnreadCount((prev) => Math.max(0, prev - 1));
             await NotificationService.clearNotification(notifId);
+            syncBadges();
         } catch (err) {
             console.error('Failed to clear alert:', err);
         } finally {
@@ -154,6 +150,7 @@ export default function AdminNotificationScreen() {
                 prev.map((n) => ((n.notificationId || n.id) === notifId ? { ...n, isRead: true } : n))
             );
             setUnreadCount((prev) => Math.max(0, prev - 1));
+            syncBadges();
         } catch (err) {
             console.warn('Failed to mark notification as read:', err);
         }
@@ -179,7 +176,7 @@ export default function AdminNotificationScreen() {
             return <Layers size={16} color="#f59e0b" />;
         }
         if (combined.includes('chat') || combined.includes('message')) {
-            return <MessageSquare size={16} color="#0ea5e9" />;
+            return <MessageCircle size={16} color="#0ea5e9" />;
         }
         if (combined.includes('system') || combined.includes('setting')) {
             return <Settings size={16} color="#64748b" />;
@@ -228,7 +225,7 @@ export default function AdminNotificationScreen() {
                     <Text style={{ fontSize: 17, fontWeight: '800', color: adminTheme.textPrimary }}>
                         Notification Center
                     </Text>
-                   
+
                 </View>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -737,7 +734,7 @@ export default function AdminNotificationScreen() {
                                 >
                                     {task.contact && (
                                         <TouchableOpacity
-                                            onPress={() => Linking.openURL(`tel:${task.contact}`).catch(() => {})}
+                                            onPress={() => Linking.openURL(`tel:${task.contact}`).catch(() => { })}
                                             style={{
                                                 flex: 1,
                                                 flexDirection: 'row',

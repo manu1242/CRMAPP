@@ -222,8 +222,9 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     position: 'absolute', 
-    right: 16,
+    right: 12,
     width: 300,
+    maxWidth: '92%',
     borderRadius: 12,
     borderWidth: 1,
   },

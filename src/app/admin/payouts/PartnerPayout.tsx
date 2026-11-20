@@ -45,6 +45,8 @@ import {
   PartnerPayslipData,
 } from '../../../admin/services/payoutService';
 import { useBottomNavSpacing } from '../../../hooks/useBottomNavSpacing';
+import { usePartnerPlanEligibility } from '../../../admin/hooks/usePartnerPlanEligibility';
+import PartnerPlanUpgradeCard from '../../../admin/components/PartnerPlanUpgradeCard';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -53,6 +55,7 @@ export default function PartnerPayout() {
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
   const { bottomSpacing } = useBottomNavSpacing();
+  const { isEligible: hasPartnerPlanEligibility, isLoading: eligibilityLoading } = usePartnerPlanEligibility();
 
   const currentDate = new Date();
   const [month, setMonth] = useState(MONTHS[currentDate.getMonth()]);
@@ -230,12 +233,17 @@ export default function PartnerPayout() {
 
   // Open Payslip Modal
   const handleOpenPayslip = async (partnerId: number) => {
+    if (!partnerId) {
+      Alert.alert('Warning', 'Valid Partner ID is required to generate payslip');
+      return;
+    }
     setPayslipLoading(true);
     setSelectedPayslip(null);
     try {
-      const data = await payoutService.getPartnerPayslip({ partnerId, month, year });
-      if (data) {
-        setSelectedPayslip(data);
+      const res: any = await payoutService.getPartnerPayslip({ partnerId, month, year });
+      const payslipData = res?.data || res;
+      if (payslipData) {
+        setSelectedPayslip(payslipData);
       }
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Unable to load partner payslip');
@@ -255,6 +263,15 @@ export default function PartnerPayout() {
         return { bg: '#f59e0b15', text: '#f59e0b', border: '#f59e0b40' };
     }
   };
+
+  if (!eligibilityLoading && !hasPartnerPlanEligibility) {
+    return (
+      <PartnerPlanUpgradeCard
+        title="Partner Payouts Not Included In Your Plan"
+        message="Partner commission and payout tracking are only available on plans with Channel Partner capabilities. Upgrade your plan to manage partner payouts."
+      />
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: adminTheme.primaryBg }]}>

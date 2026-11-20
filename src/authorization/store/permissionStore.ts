@@ -94,6 +94,7 @@ export const ROUTE_MAP: Record<string, { module: string; controller: string; def
   // Team Management
   '/admin/teammanagement/Agent': { module: 'Team Management', controller: 'Agent' },
   '/admin/teammanagement/AgentLeadTracking': { module: 'Team Management', controller: 'Leads' },
+  '/admin/teammanagement/Employees': { module: 'Team Management', controller: 'ManageUsers' },
   '/admin/teammanagement/channelpartner/channel': { module: 'Team Management', controller: 'ManageUsers' },
 
   // Attendance
@@ -144,6 +145,8 @@ interface PermissionState {
   error: string | null;
 
   fetchMyPermissions: (force?: boolean) => Promise<MyPermissionsData | null>;
+  /** Replace permissions without toggling isLoading; no-op (no re-render) when unchanged. Returns true if changed. */
+  applyPermissions: (data: MyPermissionsData) => boolean;
   fetchPermissions: (roleName: string) => Promise<void>;
   hasModuleAccess: (moduleNameOrId: string) => boolean;
   hasScreenAccess: (routeOrKey: string) => boolean;
@@ -178,6 +181,13 @@ export const usePermissionStore = create<PermissionState>((set, get) => ({
       set({ error: err.message || 'Failed to fetch user permissions', isLoading: false });
       return null;
     }
+  },
+
+  applyPermissions: (data: MyPermissionsData) => {
+    const current = get().myPermissions;
+    if (current && JSON.stringify(current) === JSON.stringify(data)) return false;
+    set({ myPermissions: data, isLoaded: true, error: null });
+    return true;
   },
 
   fetchPermissions: async (roleName: string) => {

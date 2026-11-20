@@ -42,14 +42,14 @@ export default function AdminUsers() {
         color: '#14b8a6',
         visible: isAdmin || canView('/admin/usemanagement/ManageUsers'),
       },
-      {
-        title: 'Roles Management',
-        icon: Shield,
-        desc: 'Create, modify, and assign user permissions',
-        route: '/admin/usemanagement/RolesManagement',
-        color: '#ef4444',
-        visible: isAdmin || canView('/admin/usemanagement/RolesManagement'),
-      },
+      // {
+      //   title: 'MessageCircleagement',
+      //   icon: Shield,
+      //   desc: 'Create, modify, and assign user permissions',
+      //   route: '/admin/usemanagement/RolesManagement',
+      //   color: '#ef4444',
+      //   visible: isAdmin || canView('/admin/usemanagement/RolesManagement'),
+      // },
     ].filter((item) => item.visible);
 
     if (allItems.length === 0) return [];

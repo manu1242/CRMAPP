@@ -45,8 +45,7 @@ import { getAdminTheme } from '../../theme/adminTheme';
 import { useSalesOverviewQuery } from '../hooks/useDashboardQuery';
 import { useBottomNavSpacing } from '../../hooks/useBottomNavSpacing';
 import { useDashboardScrollHandler } from '../store/useHeaderScrollStore';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
+import { useResponsive } from '../../hooks/useResponsive';
 
 function formatCurrency(val: number | string | undefined | null): string {
   const num = typeof val === 'string' ? parseFloat(val) : (val ?? 0);
@@ -72,6 +71,7 @@ function formatDate(dateStr?: string): string {
 }
 
 export default function SalesDashboardContent() {
+  const { width: SCREEN_WIDTH, isSmallPhone } = useResponsive();
   const router = useRouter();
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
@@ -736,7 +736,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   statBox: {
-    width: (SCREEN_WIDTH - 44) / 2,
+    flexBasis: '48%',
+    flexGrow: 1,
     borderRadius: 16,
     borderWidth: 1,
     padding: 14,

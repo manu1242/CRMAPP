@@ -8,6 +8,7 @@ import {
     StyleSheet,
     Modal,
     Platform,
+    KeyboardAvoidingView,
     useWindowDimensions,
     ActivityIndicator,
 } from 'react-native';
@@ -29,6 +30,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getAdminTheme } from '../../../theme/adminTheme';
 import { PropertyService } from '../../../admin/services/PropertyService';
+import { LeadService } from '../../../admin/services/LeadService';
 import {
     useAddLeadMutation,
     useUpdateLeadMutation,
@@ -125,13 +127,19 @@ export default function AddLead() {
     // 2. Fetch Lead Details (Edit Mode)
     const { data: leadDetailsRes, isLoading: isLoadingDetails } = useLeadDetailsQuery(leadId || undefined);
 
-    // 3. Fetch Executives list
-    const { data: executives = [] } = useQuery({
-        queryKey: ['executives'],
+    // 3. Fetch Scoped Executives list (matches Web parity)
+    const { data: executives = [] } = useQuery<{ userId: number; username: string; fullName: string; role: string }[]>({
+        // Distinct from ['executives'] (Properties' /properties/executives list): different source, different scope.
+        queryKey: ['leadAssignableAgents'],
         queryFn: async () => {
-            const res = await PropertyService.getExecutives();
+            const res = await LeadService.getAssignableAgents();
             if (!res.success) throw new Error('Failed to fetch executives');
-            return res.executives || [];
+            return (res.data || []).map((a: any) => ({
+                userId: a.userId,
+                username: a.username,
+                fullName: a.username,
+                role: a.role || 'Agent',
+            }));
         },
     });
 
@@ -479,12 +487,17 @@ export default function AddLead() {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 style={{ flex: 1 }}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(bottomSpacing, 110), flexGrow: 1 }]}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
             >
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(bottomSpacing, 110), flexGrow: 1 }]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
                 <View style={[styles.mainCard, { backgroundColor: cardBg, borderColor: borderCol }]}>
 
                     {/* Form Content */}
@@ -815,6 +828,7 @@ export default function AddLead() {
                     </View>
                 </View>
             </ScrollView>
+        </KeyboardAvoidingView>
 
             {/* ── Reusable Selector Popup Modal ── */}
             <Modal visible={selectorConfig !== null} transparent animationType="fade">
@@ -1120,7 +1134,9 @@ const styles = StyleSheet.create({
 
     // Custom Calendar Modal
     calendarBox: {
-        width: 320,
+        width: '92%',
+        maxWidth: 340,
+        alignSelf: 'center',
         borderRadius: 12,
         borderWidth: 1,
         padding: 12,

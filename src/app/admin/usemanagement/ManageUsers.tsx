@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -115,7 +116,19 @@ export default function ManageUsers() {
     setSelectedRole,
     setSelectedStatus,
     setPage,
-  } = useUserStore();
+  } = useUserStore(
+    // Subscribe only to the fields used here (was: whole store → re-render on any change)
+    useShallow((s) => ({ users: s.users, summary: s.summary, availableRoles: s.availableRoles, isLoading: s.isLoading, isRefreshing: s.isRefreshing, error: s.error, search: s.search, selectedRole: s.selectedRole, selectedStatus: s.selectedStatus, page: s.page, totalPages: s.totalPages, fetchUsers: s.fetchUsers, setSearch: s.setSearch, setSelectedRole: s.setSelectedRole, setSelectedStatus: s.setSelectedStatus, setPage: s.setPage }))
+  );
+
+  // Debounced search — the store refetches whenever `search` changes, which used to be every keystroke
+  const [searchInput, setSearchInput] = useState(search);
+  useEffect(() => {
+    if (searchInput === search) return;
+    const id = setTimeout(() => setSearch(searchInput), 400);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
   // Dropdown Modals Visibility
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
@@ -454,11 +467,11 @@ export default function ManageUsers() {
                 style={{ flex: 1, color: textColor, fontSize: 13 }}
                 placeholder="Search by username, email, phone..."
                 placeholderTextColor={subTextColor}
-                value={search}
-                onChangeText={setSearch}
+                value={searchInput}
+                onChangeText={setSearchInput}
               />
-              {search ? (
-                <TouchableOpacity onPress={() => setSearch('')} style={{ marginRight: 8 }}>
+              {searchInput ? (
+                <TouchableOpacity onPress={() => setSearchInput('')} style={{ marginRight: 8 }}>
                   <X size={16} color={subTextColor} />
                 </TouchableOpacity>
               ) : null}
@@ -871,7 +884,7 @@ export default function ManageUsers() {
                     {/* Right Actions */}
                     <View style={{ flexDirection: 'row', gap: 6 }}>
                       {/* Impersonate Button: Only Admin/SuperAdmin, not self, and only if user is active */}
-                      {(isAdmin || isSuperAdmin) && user?.userId !== u.userId && u.isActive && (
+                      {/* {(isAdmin || isSuperAdmin) && user?.userId !== u.userId && u.isActive && (
                         <TouchableOpacity
                           onPress={() => setImpersonateTargetUser(u)}
                           style={{
@@ -891,7 +904,7 @@ export default function ManageUsers() {
                             Impersonate
                           </Text>
                         </TouchableOpacity>
-                      )}
+                      )} */}
 
                       {/* Attendance Calendar Button */}
                       <TouchableOpacity

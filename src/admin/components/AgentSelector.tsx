@@ -12,7 +12,7 @@ import {
 import { Search, Check, User, X, ShieldAlert } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getAdminTheme } from '../../theme/adminTheme';
-import { PropertyService } from '../services/PropertyService';
+import { LeadService } from '../services/LeadService';
 
 export interface AgentOption {
   userId: number;
@@ -29,6 +29,7 @@ interface AgentSelectorProps {
   onClose: () => void;
   allowUnassign?: boolean;
   title?: string;
+  availableAgents?: AgentOption[];
 }
 
 export default function AgentSelector({
@@ -38,36 +39,35 @@ export default function AgentSelector({
   onClose,
   allowUnassign = true,
   title = 'Select Assignee',
+  availableAgents,
 }: AgentSelectorProps) {
   const { isDark } = useTheme();
   const adminTheme = getAdminTheme(isDark);
 
-  const [agents, setAgents] = useState<AgentOption[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [agents, setAgents] = useState<AgentOption[]>(availableAgents || []);
+  const [loading, setLoading] = useState<boolean>(!availableAgents || availableAgents.length === 0);
   const [search, setSearch] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
-      loadAgents();
+      if (availableAgents && availableAgents.length > 0) {
+        setAgents(availableAgents);
+        setLoading(false);
+        setError(null);
+      } else {
+        loadAgents();
+      }
     }
-  }, [visible]);
+  }, [visible, availableAgents]);
 
   const loadAgents = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await PropertyService.getExecutives();
-      if (res && res.success) {
-        const rawList = res.executives || (res as any).data || [];
-        const formatted: AgentOption[] = rawList.map((item: any) => ({
-          userId: item.userId || item.id,
-          username: item.username || item.fullName || item.name || `User #${item.userId}`,
-          role: item.role || 'Sales',
-          email: item.email || '',
-          phone: item.phone || '',
-        }));
-        setAgents(formatted);
+      const res = await LeadService.getAssignableAgents();
+      if (res && res.success && res.data) {
+        setAgents(res.data);
       } else {
         setAgents([]);
       }

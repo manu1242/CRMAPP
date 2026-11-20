@@ -76,8 +76,12 @@ export const authApi = {
   /**
    * Refresh the current token before it expires.
    */
-  refresh: async (): Promise<RefreshTokenResponse> => {
-    return apiClient.post<RefreshTokenResponse>(API_ENDPOINTS.AUTH.REFRESH);
+  refresh: async (refreshToken?: string | null): Promise<RefreshTokenResponse> => {
+    // The backend rotates the refresh token and re-reads the user from the DB (current role, active flag)
+    return apiClient.post<RefreshTokenResponse>(
+      API_ENDPOINTS.AUTH.REFRESH,
+      refreshToken ? { refreshToken } : undefined
+    );
   },
 
   /**
@@ -130,6 +134,7 @@ export interface RefreshTokenResponse {
   data: {
     token: string;
     expires: string;
+    refreshToken?: string;
   };
 }
 

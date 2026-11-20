@@ -160,11 +160,19 @@ export const NotificationService = {
     }
   },
 
-  saveDeviceToken: async (token: string, platform?: string): Promise<{ success: boolean; message?: string }> => {
+  /**
+   * @param token        Expo push token (Expo Push API: /send, test, image notifications)
+   * @param deviceToken  Native FCM/APNs token — the backend's CRM event pushes go through Firebase to this token
+   */
+  saveDeviceToken: async (
+    token: string,
+    platform?: string,
+    deviceToken?: string | null
+  ): Promise<{ success: boolean; message?: string; data?: any }> => {
     try {
-      return await apiClient.post<{ success: boolean; message?: string }>(
+      return await apiClient.post<{ success: boolean; message?: string; data?: any }>(
         API_ENDPOINTS.NOTIFICATION.API_SAVE_TOKEN,
-        { token, platform: platform || 'Android' }
+        { token, platform: platform || 'Android', deviceToken: deviceToken || undefined }
       );
     } catch {
       return await apiClient.post<{ success: boolean; message?: string }>(
@@ -172,6 +180,16 @@ export const NotificationService = {
         { token, platform: platform || 'Android' }
       );
     }
+  },
+
+  /** Marks the in-app notification behind a tapped push as read (by id, else by type + entity). */
+  markReadFromPush: async (payload: {
+    notificationId?: number;
+    type?: string;
+    relatedEntityId?: number;
+    relatedEntityType?: string;
+  }): Promise<void> => {
+    await apiClient.post(API_ENDPOINTS.NOTIFICATION.MARK_READ_BY_ENTITY, payload);
   },
 
   unregisterDeviceToken: async (token: string): Promise<{ success: boolean; message?: string }> => {

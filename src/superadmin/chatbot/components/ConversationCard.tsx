@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { MessageSquare, Sparkles, ChevronRight, Clock, Phone, Mail } from 'lucide-react-native';
+import { MessageCircle, Sparkles, ChevronRight, Clock, Phone, Mail } from 'lucide-react-native';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getSuperAdminTheme } from '../../../theme/adminTheme';
 import { ChatSessionItem } from '../models/chatbot';
@@ -67,8 +67,8 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({ item, onPres
                   ? 'rgba(131, 92, 238, 0.2)'
                   : 'rgba(131, 92, 238, 0.1)'
                 : isDark
-                ? '#242424'
-                : '#f4f4f5',
+                  ? '#242424'
+                  : '#f4f4f5',
             },
           ]}
         >
@@ -101,8 +101,8 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({ item, onPres
                       ? 'rgba(16, 185, 129, 0.2)'
                       : 'rgba(16, 185, 129, 0.12)'
                     : isDark
-                    ? 'rgba(148, 163, 184, 0.2)'
-                    : 'rgba(148, 163, 184, 0.12)',
+                      ? 'rgba(148, 163, 184, 0.2)'
+                      : 'rgba(148, 163, 184, 0.12)',
                 },
               ]}
             >
@@ -191,7 +191,7 @@ export const ConversationCard: React.FC<ConversationCardProps> = ({ item, onPres
 
         <View style={styles.metaGroup}>
           <View style={styles.metaItem}>
-            <MessageSquare size={11} color={theme.textMuted} />
+            <MessageCircle size={11} color={theme.textMuted} />
             <Text style={[styles.metaText, { color: theme.textSecondary }]}>
               {item.messageCount}
             </Text>
